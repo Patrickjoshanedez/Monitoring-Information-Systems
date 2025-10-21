@@ -1,0 +1,473 @@
+---
+alwaysApply: true
+
+Additional Considerations for Superior Code Generation
+🧠 Context & Intent Understanding
+1. Business Logic Documentation
+markdown
+REQUIRED CONTEXT FOR AI:
+- Business rules and validation logic
+- User journey maps and workflows
+- Edge cases and exception scenarios
+- Regulatory compliance requirements
+- Performance SLAs and constraints
+2. Domain-Driven Design Context
+javascript
+// STRICT: Provide bounded context definitions
+const domainContexts = {
+  mentoring: {
+    aggregates: ['User', 'Match', 'Session', 'Program'],
+    valueObjects: ['Email', 'UserId', 'SessionTime', 'Rating'],
+    domainEvents: [
+      'UserRegistered',
+      'MatchCreated', 
+      'SessionScheduled',
+      'FeedbackSubmitted'
+    ],
+    invariants: [
+      'Mentor cannot match with themselves',
+      'Session cannot be in the past',
+      'Rating must be between 1-5 stars'
+    ]
+  }
+};
+🏗️ Architecture Patterns & Principles
+3. Clean Architecture Enforcement
+javascript
+// STRICT: Layer separation must be maintained
+const architectureLayers = {
+  domain: {
+    responsibility: 'Business rules and entities',
+    dependencies: 'None',
+    contains: ['Entities', 'ValueObjects', 'DomainEvents']
+  },
+  application: {
+    responsibility: 'Use cases and application logic',
+    dependencies: 'Domain layer only',
+    contains: ['UseCases', 'Commands', 'Queries', 'DTOs']
+  },
+  infrastructure: {
+    responsibility: 'External concerns and frameworks',
+    dependencies: 'Application and Domain',
+    contains: ['Repositories', 'ExternalServices', 'MessageBrokers']
+  },
+  presentation: {
+    responsibility: 'User interface and API delivery',
+    dependencies: 'Application layer only',
+    contains: ['Controllers', 'Middlewares', 'Serializers']
+  }
+};
+4. Design Patterns Catalog
+javascript
+// STRICT: Document which patterns to use for which scenarios
+const designPatterns = {
+  creation: {
+    factory: 'Complex object creation with validation',
+    builder: 'Step-by-step object construction',
+    singleton: 'Database connections, configuration (use sparingly)'
+  },
+  structural: {
+    repository: 'Data access abstraction',
+    adapter: 'Integrating external services',
+    decorator: 'Adding cross-cutting concerns'
+  },
+  behavioral: {
+    strategy: 'Different matching algorithms',
+    observer: 'Event-driven notifications',
+    command: 'Undoable actions, audit trails'
+  }
+};
+🔄 State Management & Data Flow
+5. State Transition Rules
+javascript
+// STRICT: Define all possible state transitions
+const stateMachines = {
+  user: {
+    states: ['pending', 'active', 'suspended', 'deactivated'],
+    transitions: {
+      pending: ['active', 'rejected'],
+      active: ['suspended', 'deactivated'],
+      suspended: ['active', 'deactivated'],
+      deactivated: [] // Terminal state
+    },
+    guards: {
+      activate: 'user.hasVerifiedEmail && user.hasCompletedProfile',
+      suspend: 'admin.hasPermission("suspend_users")',
+      deactivate: 'user.requestedDeletion || admin.forcedDeactivation'
+    }
+  },
+  
+  session: {
+    states: ['scheduled', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'],
+    transitions: {
+      scheduled: ['confirmed', 'cancelled'],
+      confirmed: ['in_progress', 'cancelled'],
+      in_progress: ['completed', 'cancelled'],
+      completed: [], // Terminal
+      cancelled: [] // Terminal
+    }
+  }
+};
+6. Data Flow Validation
+javascript
+// STRICT: Data transformation pipelines
+const dataFlowRules = {
+  input: {
+    validation: 'Joi/Zod schemas with strict typing',
+    sanitization: 'XSS prevention, HTML escaping',
+    normalization: 'Standardize formats (dates, phone numbers)'
+  },
+  
+  processing: {
+    authorization: 'Check permissions for each data access',
+    businessRules: 'Apply domain invariants',
+    audit: 'Log data modifications'
+  },
+  
+  output: {
+    serialization: 'Transform to API response format',
+    filtering: 'Remove sensitive fields based on role',
+    pagination: 'Always paginate large datasets'
+  }
+};
+🧪 Testing & Quality Assurance
+7. Comprehensive Testing Strategy
+javascript
+// STRICT: Testing requirements for all code
+const testingRequirements = {
+  unitTests: {
+    coverage: '> 90% for business logic',
+    focus: 'Pure functions, domain logic',
+    mocks: 'Mock all external dependencies',
+    patterns: ['Given-When-Then', 'Arrange-Act-Assert']
+  },
+  
+  integrationTests: {
+    coverage: 'API endpoints, database operations',
+    focus: 'Component interactions, data flow',
+    setup: 'Test database, mock external APIs',
+    cleanup: 'Rollback transactions after each test'
+  },
+  
+  e2eTests: {
+    coverage: 'Critical user journeys',
+    focus: 'Complete workflows, user experience',
+    data: 'Realistic test data, multiple scenarios'
+  },
+  
+  propertyBasedTests: {
+    coverage: 'Core algorithms, data transformations',
+    focus: 'Edge cases, boundary conditions',
+    tools: 'Fast-check, JSVerify'
+  }
+};
+8. Test Data Management
+javascript
+// STRICT: Test data creation and management
+const testDataFactory = {
+  builders: {
+    user: (overrides = {}) => ({
+      email: `test${Date.now()}@example.com`,
+      password: 'ValidPassword123!',
+      profile: { firstName: 'Test', lastName: 'User' },
+      ...overrides
+    }),
+    
+    session: (overrides = {}) => ({
+      scheduledTime: new Date(Date.now() + 86400000), // Tomorrow
+      duration: 60,
+      status: 'scheduled',
+      ...overrides
+    })
+  },
+  
+  scenarios: {
+    happyPath: 'All valid data, successful flows',
+    edgeCases: 'Boundary values, empty data, null values',
+    errorConditions: 'Invalid inputs, permission denied',
+    performance: 'Large datasets, concurrent operations'
+  }
+};
+🔍 Code Analysis & Metrics
+9. Code Quality Metrics
+javascript
+// STRICT: Enforce quality metrics
+const codeQualityMetrics = {
+  complexity: {
+    cyclomatic: '< 10 per function',
+    cognitive: '< 15 per function',
+    maintainability: '> 70 index'
+  },
+  
+  size: {
+    linesOfCode: '< 50 per function',
+    parameters: '< 4 per function',
+    nestedDepth: '< 3 levels'
+  },
+  
+  duplication: {
+    identical: '0% tolerance',
+    similar: '< 3% tolerance'
+  },
+  
+  dependencies: {
+    coupling: 'Low between modules',
+    cohesion: 'High within modules',
+    instability: 'Stable abstractions principle'
+  }
+};
+10. Static Analysis Rules
+javascript
+// STRICT: ESLint and code analysis configuration
+const staticAnalysis = {
+  eslint: {
+    rules: {
+      'complexity': ['error', { max: 10 }],
+      'max-depth': ['error', 3],
+      'max-params': ['error', 4],
+      'no-magic-numbers': 'error',
+      'prefer-const': 'error'
+    }
+  },
+  
+  security: {
+    tools: ['ESLint-security-rules', 'Snyk Code'],
+    rules: [
+      'no-eval',
+      'no-unsafe-regex',
+      'no-prototype-pollution',
+      'no-command-injection'
+    ]
+  },
+  
+  typescript: {
+    strict: true,
+    exactOptionalPropertyTypes: true,
+    noUncheckedIndexedAccess: true,
+    noImplicitOverride: true
+  }
+};
+📚 Documentation & Knowledge Management
+11. Living Documentation
+javascript
+// STRICT: Documentation that stays updated
+const documentationRequirements = {
+  code: {
+    jsdoc: 'All public APIs, complex private methods',
+    examples: 'Usage examples for non-trivial functions',
+    decisions: 'Architectural decision records (ADRs)'
+  },
+  
+  api: {
+    openapi: 'Auto-generated from code annotations',
+    examples: 'Request/response examples for all endpoints',
+    changelog: 'Version history with breaking changes'
+  },
+  
+  deployment: {
+    infrastructure: 'Terraform/IaC documentation',
+    procedures: 'Deployment, rollback, disaster recovery',
+    monitoring: 'Dashboard URLs, alert definitions'
+  }
+};
+12. Knowledge Sharing Protocols
+javascript
+// STRICT: Ensure team knowledge transfer
+const knowledgeManagement = {
+  codeReviews: {
+    checklist: 'Mandatory review checklist',
+    learning: 'Reviewers must learn from changes',
+    mentoring: 'Senior developers mentor juniors'
+  },
+  
+  documentation: {
+    updates: 'Documentation updated with code changes',
+    accessibility: 'Searchable, well-organized',
+    ownership: 'Clear owners for each document'
+  },
+  
+  incidentReports: {
+    template: 'Structured post-mortem format',
+    learning: 'Action items to prevent recurrence',
+    sharing: 'Team-wide distribution of learnings'
+  }
+};
+🔄 Evolution & Maintenance
+13. Code Evolution Guidelines
+javascript
+// STRICT: How to handle code changes over time
+const evolutionRules = {
+  refactoring: {
+    safety: 'Comprehensive test coverage required',
+    incremental: 'Small, focused changes',
+    measurable: 'Track performance and quality metrics'
+  },
+  
+  deprecation: {
+    notice: '6 months advance notice for breaking changes',
+    migration: 'Provide migration guides and tools',
+    support: 'Maintain backward compatibility during transition'
+  },
+  
+  technicalDebt: {
+    tracking: 'Document all technical debt with priorities',
+    repayment: 'Allocate 20% capacity for debt reduction',
+    prevention: 'Code reviews must flag new debt'
+  }
+};
+14. Performance Budget
+javascript
+// STRICT: Performance constraints and monitoring
+const performanceBudget = {
+  api: {
+    responseTime: 'p95 < 200ms',
+    throughput: '> 1000 requests/second',
+    availability: '> 99.9% uptime'
+  },
+  
+  database: {
+    queryTime: 'p95 < 100ms',
+    connectionPool: '80% utilization max',
+    lockWait: '< 50ms'
+  },
+  
+  memory: {
+    heapUsage: '< 70% of available',
+    leakDetection: 'Zero tolerance',
+    garbageCollection: '< 5% of CPU time'
+  }
+};
+🛡️ Security Evolution
+15. Proactive Security Measures
+javascript
+// STRICT: Beyond basic security
+const advancedSecurity = {
+  threatModeling: {
+    conducted: 'Before feature development',
+    updated: 'After significant changes',
+    reviewed: 'Quarterly security reviews'
+  },
+  
+  securityTesting: {
+    saast: 'Static application security testing',
+    dast: 'Dynamic application security testing',
+    iast: 'Interactive application security testing',
+    penetration: 'Quarterly penetration tests'
+  },
+  
+  cryptoAgility: {
+    algorithmRotation: 'Planned cryptographic updates',
+    keyManagement: 'Automated key rotation',
+    postQuantum: 'Preparing for quantum-resistant crypto'
+  }
+};
+🤖 AI-Specific Generation Rules
+16. AI Code Generation Guidelines
+javascript
+// STRICT: Rules specifically for AI-generated code
+const aiGenerationRules = {
+  contextProvision: {
+    required: [
+      'Business domain context',
+      'Existing codebase patterns',
+      'Performance requirements',
+      'Security constraints',
+      'Team coding standards'
+    ]
+  },
+  
+  outputValidation: {
+    syntax: 'Must compile without errors',
+    tests: 'Must include corresponding tests',
+    security: 'Must pass security review',
+    performance: 'Must meet performance benchmarks'
+  },
+  
+  humanOversight: {
+    review: 'All AI-generated code requires human review',
+    understanding: 'Developers must understand generated code',
+    ownership: 'Developers own and maintain generated code'
+  }
+};
+📊 Monitoring & Observability
+17. Comprehensive Observability
+javascript
+// STRICT: Beyond basic logging
+const observabilityRequirements = {
+  metrics: {
+    business: ['user_signups', 'session_completions', 'matches_made'],
+    application: ['response_times', 'error_rates', 'throughput'],
+    infrastructure: ['cpu_usage', 'memory_usage', 'disk_io']
+  },
+  
+  tracing: {
+    distributed: 'Track requests across service boundaries',
+    sampling: '100% for errors, 1% for successful requests',
+    correlation: 'Link logs, metrics, and traces'
+  },
+  
+  alerts: {
+    actionable: 'Alerts must have clear action steps',
+    tiered: 'Different severity levels with different responses',
+    automated: 'Where possible, auto-remediate common issues'
+  }
+};
+🔄 Feedback Loops & Continuous Improvement
+18. Learning from Production
+javascript
+// STRICT: Use production data to improve code generation
+const feedbackLoops = {
+  monitoring: {
+    errors: 'Track and categorize all production errors',
+    performance: 'Monitor real-user performance metrics',
+    usage: 'Understand how features are actually used'
+  },
+  
+  analysis: {
+    rootCause: 'Conduct 5-whys analysis for significant issues',
+    patterns: 'Identify recurring problems and address systematically',
+    improvements: 'Feed learnings back into development process'
+  },
+  
+  iteration: {
+    retrospectives: 'Regular team retrospectives',
+    processImprovement: 'Continuously refine development processes',
+    tooling: 'Regularly evaluate and improve development tools'
+  }
+};
+🎯 Final Implementation Checklist
+markdown
+BEFORE GENERATING ANY CODE, VERIFY:
+
+[ ] Business context and domain rules are documented
+[ ] Performance requirements and SLAs are specified
+[ ] Security constraints and compliance requirements are clear
+[ ] Existing codebase patterns and conventions are provided
+[ ] Testing strategy and coverage requirements are defined
+[ ] Error handling and recovery scenarios are specified
+[ ] Monitoring and observability needs are outlined
+[ ] Deployment and operational constraints are considered
+[ ] Team preferences and coding standards are documented
+[ ] Long-term maintenance and evolution plans are considered
+
+DURING CODE GENERATION, ENSURE:
+
+[ ] Code follows established architectural patterns
+[ ] All business rules and invariants are implemented
+[ ] Proper error handling and validation is included
+[ ] Security best practices are followed
+[ ] Performance considerations are addressed
+[ ] Tests are generated alongside implementation
+[ ] Documentation is created or updated
+[ ] Code is readable and maintainable
+
+AFTER CODE GENERATION, VALIDATE:
+
+[ ] Code compiles and passes all tests
+[ ] Security review is conducted
+[ ] Performance benchmarks are met
+[ ] Code review feedback is incorporated
+[ ] Documentation is accurate and complete
+[ ] Deployment procedures are updated
+These additional considerations ensure that AI-generated code is not just functionally correct, but also production-ready, maintainable, secure, and aligned with your team's long-term goals and architectural vision. 🚀
+---
