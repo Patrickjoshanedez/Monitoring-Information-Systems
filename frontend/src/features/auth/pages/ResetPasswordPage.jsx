@@ -28,10 +28,33 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthLayout title="WELCOME!" subtitle="Your path to guided learning and mentorship starts here.">
-      <form onSubmit={onSubmit} className="space-y-4">
-        {error && <div className="p-3 rounded bg-red-50 text-red-700 text-sm">{error}</div>}
-        <input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="Enter new password" className="w-full border-2 border-primary/40 focus:border-primary rounded-xl px-4 py-3 outline-none" required />
-        <button disabled={loading} className="px-6 py-3 bg-primary text-white rounded-xl w-32">{loading ? 'Saving...' : 'Verify'}</button>
+      <form onSubmit={onSubmit} className="tw-space-y-4">
+        {error && <div className="tw-p-3 tw-rounded tw-bg-red-50 tw-text-red-700 tw-text-sm">{error}</div>}
+        
+        {/* Password Input with Icon */}
+        <div className="tw-relative">
+          <div className="tw-absolute tw-inset-y-0 tw-left-0 tw-pl-3 tw-flex tw-items-center tw-pointer-events-none">
+            <svg className="tw-h-5 tw-w-5 tw-text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <input 
+            type="password" 
+            value={password} 
+            onChange={(e)=>setPassword(e.target.value)} 
+            placeholder="Enter new password" 
+            className="tw-w-full tw-pl-10 tw-pr-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors" 
+            required 
+          />
+        </div>
+
+        {/* Verify Button */}
+        <button 
+          disabled={loading} 
+          className="tw-px-6 tw-py-3 tw-bg-purple-600 hover:tw-bg-purple-700 tw-text-white tw-rounded-xl tw-w-32 tw-font-semibold tw-transition-colors"
+        >
+          {loading ? 'Saving...' : 'Verify'}
+        </button>
       </form>
     </AuthLayout>
   );

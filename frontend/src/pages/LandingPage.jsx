@@ -5,35 +5,35 @@ import Footer from '../components/Footer.jsx';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="tw-min-h-screen tw-bg-white">
       <Header />
 
       {/* Hero Section */}
-      <main className="px-6 py-12">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <main className="tw-px-6 tw-py-12">
+        <div className="tw-max-w-6xl tw-mx-auto tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-12 tw-items-center">
           {/* Left Content */}
-          <div className="space-y-8">
-            <h1 className="text-5xl font-bold text-gray-900 leading-tight">
+          <div className="tw-space-y-8">
+            <h1 className="tw-text-5xl tw-font-bold tw-text-gray-900 tw-leading-tight">
               Mentoring Program Information System
             </h1>
-            <p className="text-xl text-gray-600 leading-relaxed">
+            <p className="tw-text-xl tw-text-gray-600 tw-leading-relaxed">
               Innovating Mentorship Through a Centralized Information System that Improves Accessibility, 
               Strengthens Collaboration, and Enhances the Overall Mentoring Experience.
             </p>
             <Link 
               to="/register" 
-              className="inline-block px-8 py-4 bg-gradient-to-r from-primary to-accent text-white rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-shadow"
+              className="tw-inline-block tw-px-8 tw-py-4 tw-bg-gradient-to-r tw-from-primary tw-to-accent tw-text-white tw-rounded-xl tw-font-semibold tw-text-lg tw-shadow-lg hover:tw-shadow-xl tw-transition-shadow"
             >
               Get Started
             </Link>
           </div>
 
           {/* Right Illustration */}
-          <div className="relative">
-            <div className="bg-gradient-to-br from-purple-100 to-purple-200 rounded-2xl p-8 h-96 flex items-center justify-center">
-              <div className="text-center space-y-4">
-                <div className="text-6xl">👥</div>
-                <p className="text-gray-600">Mentoring Illustration</p>
+          <div className="tw-relative">
+            <div className="tw-bg-gradient-to-br tw-from-purple-100 tw-to-purple-200 tw-rounded-2xl tw-p-8 tw-h-96 tw-flex tw-items-center tw-justify-center">
+              <div className="tw-text-center tw-space-y-4">
+                <div className="tw-text-6xl">👥</div>
+                <p className="tw-text-gray-600">Mentoring Illustration</p>
               </div>
             </div>
           </div>

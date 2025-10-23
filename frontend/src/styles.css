@@ -1,12 +1,11 @@
+/*
+ * NOTE: All Tailwind utility classes must use the tw- prefix.
+ * The custom CSS below is for demo; prefer only tw- classes in components.
+ */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body { @apply bg-white text-gray-900; }
-
-.auth-hero {
-  background: #5B16A3;
-  background: linear-gradient(180deg, #5B16A3 0%, #3F0E73 100%);
-}
+/* Remove global body styles and custom classname .auth-hero. Use only tw- utilities in components. */
 
 

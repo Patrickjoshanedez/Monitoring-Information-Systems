@@ -5,6 +5,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const passport = require('./config/passport');
+const helmet = require('helmet');
 
 const app = express();
 
@@ -22,6 +23,25 @@ app.use(
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "http://localhost:4000", "ws://localhost:4000"], // for dev tools/hot reload
+      },
+    },
+  })
+);
+
+// Silence .well-known 404s for devtools/chrome probes
+app.use('/.well-known', (req, res) => {
+  res.status(204).send();
+});
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
