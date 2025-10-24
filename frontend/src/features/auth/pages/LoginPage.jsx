@@ -19,10 +19,36 @@ export default function LoginPage() {
       const res = await login(form);
       const token = res.token;
       localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(res.user));
+      
       const role = res.role;
-      if (role === 'admin') window.location.href = '/admin/dashboard';
-      else if (role === 'mentor') window.location.href = '/mentor/dashboard';
-      else window.location.href = '/mentee/dashboard';
+      const applicationStatus = res.user?.applicationStatus;
+      
+      // Check if user has selected a role
+      if (!role || role === null || role === '') {
+        // User hasn't selected a role yet, redirect to role selection
+        window.location.href = '/role-selection';
+        return;
+      }
+      
+      // Redirect based on role and application status
+      if (role === 'admin') {
+        window.location.href = '/admin/dashboard';
+      } else if (role === 'mentor') {
+        window.location.href = '/mentor/dashboard';
+      } else if (role === 'mentee') {
+        // Handle mentee application flow
+        if (applicationStatus === 'not_submitted' || !applicationStatus) {
+          window.location.href = '/mentee/application';
+        } else if (applicationStatus === 'pending') {
+          window.location.href = '/mentee/pending';
+        } else if (applicationStatus === 'approved') {
+          window.location.href = '/mentee/dashboard';
+        } else {
+          // Default to application form for rejected or unknown status
+          window.location.href = '/mentee/application';
+        }
+      }
     } catch (err) {
       const code = err?.response?.data?.error;
       setError(mapErrorCodeToMessage(code));

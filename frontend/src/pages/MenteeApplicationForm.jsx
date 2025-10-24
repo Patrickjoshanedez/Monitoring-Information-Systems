@@ -20,15 +20,19 @@ export default function MenteeApplicationForm() {
   const [error, setError] = useState('');
 
   // Pre-fill user data from localStorage
-  useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user') || '{}');
-    setForm(prev => ({
-      ...prev,
-      firstname: userData.firstname || '',
-      lastname: userData.lastname || '',
-      email: userData.email || ''
-    }));
-  }, []);
+    useEffect(() => {
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      if (!userData.firstname || !userData.lastname || !userData.email) {
+        setError('User data missing. Please log in again.');
+      } else {
+        setForm(prev => ({
+          ...prev,
+          firstname: userData.firstname,
+          lastname: userData.lastname,
+          email: userData.email
+        }));
+      }
+    }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -56,7 +60,7 @@ export default function MenteeApplicationForm() {
       });
       if (corFile) formData.append('corFile', corFile);
 
-      const response = await fetch('/api/mentee/application/submit', {
+      const response = await fetch('http://localhost:4000/api/mentee/application/submit', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -67,9 +71,11 @@ export default function MenteeApplicationForm() {
       if (!response.ok) {
         throw new Error('Failed to submit application');
       }
-
-      // Redirect to pending page
-      navigate('/mentee/pending');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        setError(errorData.message || 'Failed to submit application. Please try again.');
+        return;
+      }
     } catch (err) {
       setError('Failed to submit application. Please try again.');
     } finally {
@@ -320,3 +326,4 @@ export default function MenteeApplicationForm() {
     </DashboardLayout>
   );
 }
+

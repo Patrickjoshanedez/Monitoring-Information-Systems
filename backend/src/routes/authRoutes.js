@@ -1,6 +1,7 @@
 const express = require('express');
 const passport = require('passport');
 const controller = require('../controllers/authController');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
 const isGoogleConfigured = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
@@ -66,6 +67,12 @@ router.get('/auth/google/callback', (req, res, next) => {
     return controller.googleAuthCallback(req, res);
   })(req, res, next);
 });
+
+// Update user role
+router.patch('/auth/update-role', auth, controller.updateRole);
+
+// Get profile for authenticated user
+router.get('/auth/profile', auth, controller.profile);
 
 module.exports = router;
 

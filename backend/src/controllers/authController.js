@@ -48,7 +48,18 @@ exports.login = async (req, res) => {
     await user.save();
 
     const token = createJwt(user);
-    return res.json({ token, role: user.role });
+    return res.json({ 
+      token, 
+      role: user.role || null,
+      user: {
+        id: user._id,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email,
+        role: user.role || null,
+        applicationStatus: user.applicationStatus
+      }
+    });
   } catch (err) {
     return res.status(500).json({ error: 'NETWORK_ERROR' });
   }
@@ -102,6 +113,64 @@ exports.googleAuthCallback = (req, res) => {
   const token = createJwt(req.user);
   const redirectBase = process.env.CLIENT_URL || 'http://localhost:5173';
   return res.redirect(`${redirectBase}/oauth/callback?token=${token}`);
+};
+
+exports.updateRole = async (req, res) => {
+  try {
+    const { role } = req.body;
+    const userId = req.user.id;
+
+    if (!['mentee', 'mentor', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'INVALID_ROLE' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { role },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'USER_NOT_FOUND' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Role updated successfully',
+      user: {
+        id: user._id,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email,
+        role: user.role,
+        applicationStatus: user.applicationStatus
+      }
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'NETWORK_ERROR' });
+  }
+};
+
+exports.profile = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
+
+    const user = await User.findById(userId).select('firstname lastname email role applicationStatus');
+    if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
+
+    return res.json({
+      id: user._id,
+      firstname: user.firstname,
+      lastname: user.lastname,
+      email: user.email,
+      role: user.role || null,
+      applicationStatus: user.applicationStatus || 'not_submitted'
+    });
+  } catch (err) {
+    console.error('Profile fetch error:', err);
+    return res.status(500).json({ error: 'NETWORK_ERROR' });
+  }
 };
 
 

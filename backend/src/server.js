@@ -46,6 +46,10 @@ app.use('/.well-known', (req, res) => {
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.use('/api', require('./routes/authRoutes'));
+app.use('/api', require('./routes/applicationRoutes'));
+
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
 
 const start = async () => {
   await mongoose.connect(process.env.MONGODB_URI);

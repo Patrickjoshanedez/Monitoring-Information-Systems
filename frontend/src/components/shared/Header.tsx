@@ -8,6 +8,10 @@ const Header = () => {
     return location.pathname === path;
   };
 
+  // Hide the main navigation on application-related pages where a simplified UI is desired
+  const hideNavOnPaths = ['/mentee/application', '/mentee/pending'];
+  const hideNav = hideNavOnPaths.includes(location.pathname);
+
   return (
     <header className="tw-bg-primary tw-text-white tw-shadow-lg">
       <div className="tw-max-w-7xl tw-mx-auto tw-px-4 sm:tw-px-6 lg:tw-px-8">
@@ -19,8 +23,9 @@ const Header = () => {
             </Link>
           </div>
 
-          {/* Navigation */}
-          <nav className="tw-hidden md:tw-flex tw-items-center tw-space-x-8">
+          {/* Navigation - hidden on application pages to reduce clutter */}
+          {!hideNav && (
+            <nav className="tw-hidden md:tw-flex tw-items-center tw-space-x-8">
             <Link
               to="/mentee/dashboard"
               className={`tw-font-medium tw-transition-colors ${
@@ -71,7 +76,8 @@ const Header = () => {
             >
               Announcements
             </Link>
-          </nav>
+            </nav>
+          )}
 
           {/* User Avatar */}
           <div className="tw-flex tw-items-center tw-space-x-3">
