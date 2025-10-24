@@ -3,16 +3,22 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const {
-  submitApplication,
-  getApplicationStatus,
+  submitMenteeApplication,
+  submitMentorApplication,
+  getMenteeApplicationStatus,
+  getMentorApplicationStatus,
   listApplications,
   approveApplication,
   rejectApplication
 } = require('../controllers/applicationController');
 
 // Mentee routes
-router.post('/mentee/application/submit', auth, upload.single('corFile'), submitApplication);
-router.get('/mentee/application/status', auth, getApplicationStatus);
+router.post('/mentee/application/submit', auth, upload.single('corFile'), submitMenteeApplication);
+router.get('/mentee/application/status', auth, getMenteeApplicationStatus);
+
+// Mentor routes
+router.post('/mentor/application/submit', auth, upload.single('supportingDocument'), submitMentorApplication);
+router.get('/mentor/application/status', auth, getMentorApplicationStatus);
 
 // Admin routes
 router.get('/admin/applications', auth, (req, res, next) => {

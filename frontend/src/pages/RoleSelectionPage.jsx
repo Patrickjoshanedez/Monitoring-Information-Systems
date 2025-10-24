@@ -2,16 +2,21 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from '../features/auth/pages/AuthLayout';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
 export default function RoleSelectionPage() {
   const navigate = useNavigate();
   const [selectedRole, setSelectedRole] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleRoleSelect = async (role) => {
+    setError('');
     setLoading(true);
+    setSelectedRole(role);
     try {
       // Update user role in backend
-      const response = await fetch('http://localhost:4000/api/auth/update-role', {
+      const response = await fetch(`${API_BASE}/api/auth/update-role`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -21,24 +26,35 @@ export default function RoleSelectionPage() {
       });
 
       if (response.ok) {
+        const data = await response.json();
         // Update user data in localStorage
-        const userData = JSON.parse(localStorage.getItem('user') || '{}');
-        userData.role = role;
-        localStorage.setItem('user', JSON.stringify(userData));
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const updatedUser = {
+          ...storedUser,
+          ...(data?.user || {}),
+          role,
+          applicationStatus: data?.user?.applicationStatus || 'not_submitted',
+          applicationRole: data?.user?.applicationRole || role
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
 
         // Redirect based on role
         if (role === 'mentee') {
           navigate('/mentee/application');
         } else if (role === 'mentor') {
-          navigate('/mentor/dashboard');
+          navigate('/mentor/application');
         } else if (role === 'admin') {
           navigate('/admin/dashboard');
         }
       } else {
-        console.error('Failed to update role');
+        const errorData = await response.json().catch(() => ({}));
+        setError(errorData?.message || 'Failed to update role. Please try again.');
+        setSelectedRole('');
       }
     } catch (error) {
       console.error('Error updating role:', error);
+      setError('Unable to update role. Please try again.');
+      setSelectedRole('');
     } finally {
       setLoading(false);
     }
@@ -77,6 +93,12 @@ export default function RoleSelectionPage() {
       subtitle="Select how you want to participate in the mentoring program"
     >
       <div className="tw-space-y-6">
+        {error && (
+          <div className="tw-p-4 tw-bg-red-50 tw-border tw-border-red-200 tw-rounded-lg tw-text-red-700">
+            {error}
+          </div>
+        )}
+
         <div className="tw-text-center tw-mb-8">
           <p className="tw-text-gray-600 tw-text-lg">
             How would you like to participate in our mentoring program?

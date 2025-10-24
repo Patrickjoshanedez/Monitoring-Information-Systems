@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
 export default function MenteeApplicationForm() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -60,7 +62,7 @@ export default function MenteeApplicationForm() {
       });
       if (corFile) formData.append('corFile', corFile);
 
-      const response = await fetch('http://localhost:4000/api/mentee/application/submit', {
+      const response = await fetch(`${API_BASE}/api/mentee/application/submit`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -69,13 +71,20 @@ export default function MenteeApplicationForm() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit application');
-      }
-      if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         setError(errorData.message || 'Failed to submit application. Please try again.');
         return;
       }
+
+      const data = await response.json().catch(() => ({}));
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const updatedUser = {
+        ...storedUser,
+        applicationStatus: data?.applicationStatus || 'pending',
+        applicationRole: 'mentee'
+      };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      navigate('/mentee/pending');
     } catch (err) {
       setError('Failed to submit application. Please try again.');
     } finally {

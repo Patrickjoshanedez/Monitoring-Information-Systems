@@ -19,24 +19,37 @@ export default function LoginPage() {
       const res = await login(form);
       const token = res.token;
       localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(res.user));
+
+      const normalizedRole = (res.role || res.user?.role || '').toLowerCase();
+      const sanitizedUser = {
+        ...res.user,
+        role: normalizedRole || null
+      };
+      localStorage.setItem('user', JSON.stringify(sanitizedUser));
       
-      const role = res.role;
-      const applicationStatus = res.user?.applicationStatus;
+      const applicationStatus = res.user?.applicationStatus || 'not_submitted';
       
       // Check if user has selected a role
-      if (!role || role === null || role === '') {
+      if (!normalizedRole) {
         // User hasn't selected a role yet, redirect to role selection
         window.location.href = '/role-selection';
         return;
       }
       
       // Redirect based on role and application status
-      if (role === 'admin') {
+      if (normalizedRole === 'admin') {
         window.location.href = '/admin/dashboard';
-      } else if (role === 'mentor') {
-        window.location.href = '/mentor/dashboard';
-      } else if (role === 'mentee') {
+      } else if (normalizedRole === 'mentor') {
+        if (applicationStatus === 'not_submitted' || !applicationStatus) {
+          window.location.href = '/mentor/application';
+        } else if (applicationStatus === 'pending') {
+          window.location.href = '/mentor/pending';
+        } else if (applicationStatus === 'approved') {
+          window.location.href = '/mentor/dashboard';
+        } else {
+          window.location.href = '/mentor/application';
+        }
+      } else if (normalizedRole === 'mentee') {
         // Handle mentee application flow
         if (applicationStatus === 'not_submitted' || !applicationStatus) {
           window.location.href = '/mentee/application';

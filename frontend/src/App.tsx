@@ -18,8 +18,11 @@ import ApplyPage from './pages/ApplyPage';
 import AnnouncementsPage from './pages/AnnouncementsPage';
 import MenteeApplicationForm from './pages/MenteeApplicationForm';
 import PendingApprovalPage from './pages/PendingApprovalPage';
+import MentorApplicationForm from './pages/MentorApplicationForm';
+import MentorPendingPage from './pages/MentorPendingPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
+import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Wrapper components for better TypeScript support
@@ -32,6 +35,9 @@ const ApplyRoute = () => <ProtectedRoute requiredRole="mentee" children={<ApplyP
 const AnnouncementsRoute = () => <ProtectedRoute requiredRole="mentee" children={<AnnouncementsPage />} />;
 const ApplicationRoute = () => <ProtectedRoute requiredRole="mentee" children={<MenteeApplicationForm />} />;
 const PendingRoute = () => <ProtectedRoute requiredRole="mentee" children={<PendingApprovalPage />} />;
+const MentorApplicationRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorApplicationForm />} />;
+const MentorPendingRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorPendingPage />} />;
+const ProfileRoute = () => <ProtectedRoute requiredRole={undefined} children={<ProfilePage />} />;
 
 const App = () => {
   return (
@@ -63,6 +69,9 @@ const App = () => {
       {/* Application Routes */}
       <Route path="/mentee/application" element={<ApplicationRoute />} />
       <Route path="/mentee/pending" element={<PendingRoute />} />
+  <Route path="/mentor/application" element={<MentorApplicationRoute />} />
+  <Route path="/mentor/pending" element={<MentorPendingRoute />} />
+      <Route path="/profile" element={<ProfileRoute />} />
     </Routes>
   );
 };

@@ -50,7 +50,10 @@ export default function OAuthCallbackPage() {
             } else if (role === 'admin') {
               navigate('/admin/dashboard');
             } else if (role === 'mentor') {
-              navigate('/mentor/dashboard');
+              if (applicationStatus === 'not_submitted') navigate('/mentor/application');
+              else if (applicationStatus === 'pending') navigate('/mentor/pending');
+              else if (applicationStatus === 'approved') navigate('/mentor/dashboard');
+              else navigate('/mentor/application');
             } else if (role === 'mentee') {
               if (applicationStatus === 'not_submitted') navigate('/mentee/application');
               else if (applicationStatus === 'pending') navigate('/mentee/pending');
@@ -64,7 +67,7 @@ export default function OAuthCallbackPage() {
             localStorage.setItem('user', JSON.stringify(user));
             if (!payload.role || payload.role === null) navigate('/role-selection');
             else if (payload.role === 'mentee') navigate('/mentee/application');
-            else if (payload.role === 'mentor') navigate('/mentor/dashboard');
+            else if (payload.role === 'mentor') navigate('/mentor/application');
             else if (payload.role === 'admin') navigate('/admin/dashboard');
           }
         } catch (profileErr) {
@@ -76,7 +79,7 @@ export default function OAuthCallbackPage() {
             localStorage.setItem('user', JSON.stringify(user));
             if (!payload.role || payload.role === null) navigate('/role-selection');
             else if (payload.role === 'mentee') navigate('/mentee/application');
-            else if (payload.role === 'mentor') navigate('/mentor/dashboard');
+            else if (payload.role === 'mentor') navigate('/mentor/application');
             else if (payload.role === 'admin') navigate('/admin/dashboard');
           } catch (decodeError) {
             console.error('Failed to decode token after profile fetch failure:', decodeError);

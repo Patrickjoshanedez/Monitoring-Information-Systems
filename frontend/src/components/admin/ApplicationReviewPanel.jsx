@@ -1,78 +1,206 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+const STATUS_BADGE_STYLES = {
+  approved: 'tw-bg-green-100 tw-text-green-800',
+  pending: 'tw-bg-yellow-100 tw-text-yellow-800',
+  rejected: 'tw-bg-red-100 tw-text-red-700',
+  default: 'tw-bg-gray-100 tw-text-gray-700'
+};
+
+const ROLE_BADGE_STYLES = {
+  mentor: 'tw-bg-blue-100 tw-text-blue-800',
+  mentee: 'tw-bg-purple-100 tw-text-purple-800',
+  admin: 'tw-bg-slate-200 tw-text-slate-700',
+  default: 'tw-bg-gray-100 tw-text-gray-700'
+};
+
+const formatDate = (value) => {
+  if (!value) {
+    return 'N/A';
+  }
+
+  try {
+    return new Date(value).toLocaleDateString();
+  } catch (error) {
+    return 'N/A';
+  }
+};
+
+const formatList = (value) => {
+  if (Array.isArray(value)) {
+    return value.length ? value.join(', ') : 'N/A';
+  }
+
+  if (typeof value === 'string') {
+    return value.trim() || 'N/A';
+  }
+
+  return 'N/A';
+};
+
+const getApplicationRole = (application) => application.applicationRole || application.role || 'mentee';
+
+const getStatusBadgeClass = (status) => STATUS_BADGE_STYLES[status] || STATUS_BADGE_STYLES.default;
+
+const getRoleBadgeClass = (role) => ROLE_BADGE_STYLES[role] || ROLE_BADGE_STYLES.default;
+
+const focusLabelByRole = (role) => (role === 'mentor' ? 'Expertise Areas' : 'Major');
+
+const focusValueByRole = (role, data) => {
+  if (!data) {
+    return '';
+  }
+
+  if (role === 'mentor') {
+    return formatList(data.expertiseAreas);
+  }
+
+  return data.major || '';
+};
+
+const secondaryLabelByRole = (role) => (role === 'mentor' ? 'Years Experience' : 'Preferred Language');
+
+const secondaryValueByRole = (role, data) => {
+  if (!data) {
+    return 'N/A';
+  }
+
+  if (role === 'mentor') {
+    if (data.yearsOfExperience === 0) {
+      return '0 years';
+    }
+    if (data.yearsOfExperience) {
+      return `${data.yearsOfExperience} year${data.yearsOfExperience === 1 ? '' : 's'}`;
+    }
+    return 'N/A';
+  }
+
+  return data.programmingLanguage || 'N/A';
+};
+
+const supportingDocumentLabel = {
+  mentor: 'Supporting Document',
+  mentee: 'Certificate of Registration'
+};
+
+const buildQueryUrl = (status, role) => {
+  const params = new URLSearchParams();
+  params.set('status', status);
+  params.set('role', role);
+  params.set('limit', '50');
+  return `${API_BASE_URL}/api/admin/applications?${params.toString()}`;
+};
 
 export default function ApplicationReviewPanel() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [statusFilter, setStatusFilter] = useState('pending');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [selectedApplication, setSelectedApplication] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [filter, setFilter] = useState('pending');
-  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
 
-  useEffect(() => {
-    fetchApplications();
-  }, [filter]);
+  const fetchApplications = useCallback(async () => {
+    setLoading(true);
+    setError('');
 
-  const fetchApplications = async () => {
     try {
-      const response = await fetch(`/api/admin/applications?status=${filter}`, {
+      const response = await fetch(buildQueryUrl(statusFilter, roleFilter), {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        credentials: 'include'
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setApplications(data.applications);
+      if (!response.ok) {
+        throw new Error('Failed to load applications');
       }
-    } catch (error) {
-      console.error('Failed to fetch applications:', error);
+
+      const data = await response.json();
+      setApplications(data.applications || []);
+    } catch (err) {
+      console.error('Failed to fetch applications:', err);
+      setError('Unable to fetch applications. Please try again.');
+      setApplications([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [roleFilter, statusFilter]);
+
+  useEffect(() => {
+    fetchApplications();
+  }, [fetchApplications]);
 
   const handleApprove = async (userId) => {
-    try {
-      const response = await fetch(`/api/admin/applications/${userId}/approve`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        fetchApplications(); // Refresh the list
-        setShowModal(false);
-      }
-    } catch (error) {
-      console.error('Failed to approve application:', error);
-    }
+    await mutateApplicationStatus(userId, 'approve');
   };
 
   const handleReject = async (userId) => {
+    await mutateApplicationStatus(userId, 'reject');
+  };
+
+  const mutateApplicationStatus = async (userId, action) => {
+    setIsMutating(true);
     try {
-      const response = await fetch(`/api/admin/applications/${userId}/reject`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/applications/${userId}/${action}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
-        }
+        },
+        credentials: 'include'
       });
 
-      if (response.ok) {
-        fetchApplications(); // Refresh the list
-        setShowModal(false);
+      if (!response.ok) {
+        throw new Error('Failed to update application status');
       }
-    } catch (error) {
-      console.error('Failed to reject application:', error);
+
+      await fetchApplications();
+      setShowApplicationModal(false);
+    } catch (err) {
+      console.error('Failed to update application status:', err);
+      window.alert('Failed to update application status. Please try again.');
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const handleRoleUpdate = async (userId, newRole) => {
+    setIsMutating(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ role: newRole })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update user role');
+      }
+
+      await fetchApplications();
+      setShowRoleModal(false);
+      window.alert(`User role updated to ${newRole}`);
+    } catch (err) {
+      console.error('Failed to update user role:', err);
+      window.alert('Failed to update user role. Please try again.');
+    } finally {
+      setIsMutating(false);
     }
   };
 
   const openApplicationDetails = (application) => {
     setSelectedApplication(application);
-    setShowModal(true);
+    setShowApplicationModal(true);
   };
 
   const openRoleModal = (application) => {
@@ -80,73 +208,74 @@ export default function ApplicationReviewPanel() {
     setShowRoleModal(true);
   };
 
-  const handleRoleUpdate = async (userId, newRole) => {
-    try {
-      const response = await fetch(`/api/admin/users/${userId}/role`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ role: newRole })
-      });
-
-      if (response.ok) {
-        fetchApplications(); // Refresh the list
-        setShowRoleModal(false);
-        alert(`User role updated to ${newRole}`);
-      }
-    } catch (error) {
-      console.error('Failed to update user role:', error);
-      alert('Failed to update user role');
-    }
-  };
+  const derivedApplications = useMemo(() => applications, [applications]);
+  const focusColumnLabel = roleFilter === 'all' ? 'Focus' : focusLabelByRole(roleFilter);
+  const secondaryColumnLabel = roleFilter === 'all' ? 'Key Detail' : secondaryLabelByRole(roleFilter);
 
   if (loading) {
     return (
       <div className="tw-flex tw-justify-center tw-items-center tw-h-64">
-        <div className="tw-animate-spin tw-rounded-full tw-h-12 tw-w-12 tw-border-b-2 tw-border-purple-500"></div>
+        <div className="tw-animate-spin tw-rounded-full tw-h-12 tw-w-12 tw-border-b-2 tw-border-purple-500" />
       </div>
     );
   }
 
   return (
     <div className="tw-bg-white tw-rounded-lg tw-shadow-sm tw-border tw-border-gray-200">
-      {/* Header */}
       <div className="tw-px-6 tw-py-4 tw-border-b tw-border-gray-200">
-        <div className="tw-flex tw-justify-between tw-items-center">
-          <h2 className="tw-text-lg tw-font-semibold tw-text-gray-900">Application Review</h2>
-          <div className="tw-flex tw-space-x-2">
+        <div className="tw-flex tw-flex-col lg:tw-flex-row lg:tw-justify-between lg:tw-items-center tw-gap-4">
+          <div>
+            <h2 className="tw-text-lg tw-font-semibold tw-text-gray-900">Application Review</h2>
+            <p className="tw-text-sm tw-text-gray-500">
+              Manage mentor and mentee applications from a single view.
+            </p>
+          </div>
+          <div className="tw-flex tw-flex-wrap tw-items-center tw-gap-3">
             <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
+              value={roleFilter}
+              onChange={(event) => setRoleFilter(event.target.value)}
+              className="tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2 tw-text-sm focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-purple-500"
+            >
+              <option value="all">All Roles</option>
+              <option value="mentor">Mentor Applications</option>
+              <option value="mentee">Mentee Applications</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
               className="tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2 tw-text-sm focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-purple-500"
             >
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
-              <option value="all">All</option>
+              <option value="all">All Statuses</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Applications Table */}
+      {error && (
+        <div className="tw-px-6 tw-py-3 tw-bg-red-50 tw-text-red-700 tw-text-sm">{error}</div>
+      )}
+
       <div className="tw-overflow-x-auto">
         <table className="tw-min-w-full tw-divide-y tw-divide-gray-200">
           <thead className="tw-bg-gray-50">
             <tr>
               <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">
-                Name
+                Applicant
               </th>
               <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">
                 Email
               </th>
               <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">
-                Major
+                Role
               </th>
               <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">
-                Programming Language
+                {focusColumnLabel}
+              </th>
+              <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">
+                {secondaryColumnLabel}
               </th>
               <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">
                 Submitted
@@ -160,177 +289,219 @@ export default function ApplicationReviewPanel() {
             </tr>
           </thead>
           <tbody className="tw-bg-white tw-divide-y tw-divide-gray-200">
-            {applications.map((application) => (
-              <tr key={application._id} className="hover:tw-bg-gray-50">
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
-                  <div className="tw-text-sm tw-font-medium tw-text-gray-900">
-                    {application.firstname} {application.lastname}
-                  </div>
-                </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
-                  <div className="tw-text-sm tw-text-gray-900">{application.email}</div>
-                </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
-                  <div className="tw-text-sm tw-text-gray-900">{application.applicationData?.major}</div>
-                </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
-                  <div className="tw-text-sm tw-text-gray-900">{application.applicationData?.programmingLanguage}</div>
-                </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
-                  <div className="tw-text-sm tw-text-gray-900">
-                    {new Date(application.applicationSubmittedAt).toLocaleDateString()}
-                  </div>
-                </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
-                  <span
-                    className={`tw-inline-flex tw-px-2 tw-py-1 tw-text-xs tw-font-semibold tw-rounded-full ${
-                      application.applicationStatus === 'approved'
-                        ? 'tw-bg-green-100 tw-text-green-800'
-                        : application.applicationStatus === 'pending'
-                        ? 'tw-bg-yellow-100 tw-text-yellow-800'
-                        : 'tw-bg-red-100 tw-text-red-800'
-                    }`}
-                  >
-                    {application.applicationStatus}
-                  </span>
-                </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-font-medium">
-                  <div className="tw-flex tw-space-x-2">
-                    <button
-                      onClick={() => openApplicationDetails(application)}
-                      className="tw-text-purple-600 hover:tw-text-purple-900"
-                    >
-                      View Details
-                    </button>
-                    <button
-                      onClick={() => openRoleModal(application)}
-                      className="tw-text-blue-600 hover:tw-text-blue-900"
-                    >
-                      Change Role
-                    </button>
-                    {application.applicationStatus === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => handleApprove(application._id)}
-                          className="tw-text-green-600 hover:tw-text-green-900"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleReject(application._id)}
-                          className="tw-text-red-600 hover:tw-text-red-900"
-                        >
-                          Reject
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {derivedApplications.map((application) => {
+              const applicationRole = getApplicationRole(application);
+              const applicationData = application.applicationData || {};
+
+              return (
+                <tr key={application._id} className="hover:tw-bg-gray-50">
+                  <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
+                    <div className="tw-text-sm tw-font-medium tw-text-gray-900">
+                      {application.firstname} {application.lastname}
+                    </div>
+                  </td>
+                  <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
+                    <div className="tw-text-sm tw-text-gray-600">{application.email}</div>
+                  </td>
+                  <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
+                    <span className={`tw-inline-flex tw-items-center tw-rounded-full tw-px-2.5 tw-py-1 tw-text-xs tw-font-medium ${getRoleBadgeClass(applicationRole)}`}>
+                      {applicationRole.charAt(0).toUpperCase() + applicationRole.slice(1)}
+                    </span>
+                  </td>
+                  <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-900">
+                    {focusValueByRole(applicationRole, applicationData)}
+                  </td>
+                  <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-900">
+                    {secondaryValueByRole(applicationRole, applicationData)}
+                  </td>
+                  <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-900">
+                    {formatDate(application.applicationSubmittedAt)}
+                  </td>
+                  <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
+                    <span className={`tw-inline-flex tw-items-center tw-rounded-full tw-px-2.5 tw-py-1 tw-text-xs tw-font-semibold ${getStatusBadgeClass(application.applicationStatus)}`}>
+                      {application.applicationStatus}
+                    </span>
+                  </td>
+                  <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
+                    <div className="tw-flex tw-flex-wrap tw-gap-3 tw-text-sm tw-font-medium">
+                      <button
+                        type="button"
+                        onClick={() => openApplicationDetails(application)}
+                        className="tw-text-purple-600 hover:tw-text-purple-800"
+                      >
+                        View Details
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openRoleModal(application)}
+                        className="tw-text-blue-600 hover:tw-text-blue-800"
+                      >
+                        Change Role
+                      </button>
+                      {application.applicationStatus === 'pending' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(application._id)}
+                            className="tw-text-green-600 hover:tw-text-green-800"
+                            disabled={isMutating}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleReject(application._id)}
+                            className="tw-text-red-600 hover:tw-text-red-800"
+                            disabled={isMutating}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* Empty State */}
-      {applications.length === 0 && (
+      {derivedApplications.length === 0 && !error && (
         <div className="tw-text-center tw-py-12">
-          <div className="tw-text-gray-400 tw-text-6xl tw-mb-4">📋</div>
-          <p className="tw-text-gray-500 tw-text-lg">No applications found</p>
-          <p className="tw-text-gray-400 tw-text-sm tw-mt-1">
-            {filter === 'pending' ? 'No pending applications' : 'No applications match the current filter'}
-          </p>
+          <div className="tw-inline-flex tw-items-center tw-justify-center tw-text-gray-400 tw-text-4xl tw-font-semibold tw-mb-4">
+            *
+          </div>
+          <p className="tw-text-gray-600 tw-text-lg">No applications match the selected filters.</p>
+          <p className="tw-text-gray-400 tw-text-sm">Adjust the filters to see more applications.</p>
         </div>
       )}
 
-      {/* Application Details Modal */}
-      {showModal && selectedApplication && (
+      {showApplicationModal && selectedApplication && (
         <div className="tw-fixed tw-inset-0 tw-bg-black tw-bg-opacity-50 tw-flex tw-items-center tw-justify-center tw-z-50">
-          <div className="tw-bg-white tw-rounded-lg tw-shadow-xl tw-max-w-2xl tw-w-full tw-mx-4 tw-max-h-96 tw-overflow-y-auto">
-            <div className="tw-px-6 tw-py-4 tw-border-b tw-border-gray-200">
-              <div className="tw-flex tw-justify-between tw-items-center">
-                <h3 className="tw-text-lg tw-font-semibold tw-text-gray-900">
-                  Application Details
-                </h3>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="tw-text-gray-400 hover:tw-text-gray-600"
-                >
-                  <svg className="tw-w-6 tw-h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+          <div className="tw-bg-white tw-rounded-lg tw-shadow-xl tw-w-full tw-max-w-3xl tw-mx-4 tw-max-h-[85vh] tw-overflow-y-auto">
+            <div className="tw-px-6 tw-py-4 tw-border-b tw-border-gray-200 tw-flex tw-items-start tw-justify-between">
+              <div>
+                <h3 className="tw-text-lg tw-font-semibold tw-text-gray-900">Application Details</h3>
+                <div className="tw-mt-2 tw-flex tw-items-center tw-gap-2">
+                  <span className={`tw-inline-flex tw-items-center tw-rounded-full tw-px-2.5 tw-py-1 tw-text-xs tw-font-medium ${getRoleBadgeClass(getApplicationRole(selectedApplication))}`}>
+                    {getApplicationRole(selectedApplication).charAt(0).toUpperCase() + getApplicationRole(selectedApplication).slice(1)} Application
+                  </span>
+                  <span className={`tw-inline-flex tw-items-center tw-rounded-full tw-px-2.5 tw-py-1 tw-text-xs tw-font-semibold ${getStatusBadgeClass(selectedApplication.applicationStatus)}`}>
+                    {selectedApplication.applicationStatus}
+                  </span>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowApplicationModal(false)}
+                className="tw-text-gray-400 hover:tw-text-gray-600"
+              >
+                <svg className="tw-w-6 tw-h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            
-            <div className="tw-px-6 tw-py-4 tw-space-y-4">
-              <div className="tw-grid tw-grid-cols-2 tw-gap-4">
+
+            <div className="tw-px-6 tw-py-5 tw-space-y-6">
+              <section className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
                 <div>
-                  <label className="tw-text-sm tw-font-medium tw-text-gray-500">Name</label>
-                  <p className="tw-text-sm tw-text-gray-900">
+                  <p className="tw-text-xs tw-font-medium tw-text-gray-500">Name</p>
+                  <p className="tw-text-sm tw-text-gray-900 tw-font-medium">
                     {selectedApplication.firstname} {selectedApplication.lastname}
                   </p>
                 </div>
                 <div>
-                  <label className="tw-text-sm tw-font-medium tw-text-gray-500">Email</label>
+                  <p className="tw-text-xs tw-font-medium tw-text-gray-500">Email</p>
                   <p className="tw-text-sm tw-text-gray-900">{selectedApplication.email}</p>
                 </div>
                 <div>
-                  <label className="tw-text-sm tw-font-medium tw-text-gray-500">Year Level</label>
-                  <p className="tw-text-sm tw-text-gray-900">{selectedApplication.applicationData?.yearLevel}</p>
+                  <p className="tw-text-xs tw-font-medium tw-text-gray-500">Submitted</p>
+                  <p className="tw-text-sm tw-text-gray-900">{formatDate(selectedApplication.applicationSubmittedAt)}</p>
                 </div>
-                <div>
-                  <label className="tw-text-sm tw-font-medium tw-text-gray-500">Program</label>
-                  <p className="tw-text-sm tw-text-gray-900">{selectedApplication.applicationData?.program}</p>
-                </div>
-                <div>
-                  <label className="tw-text-sm tw-font-medium tw-text-gray-500">Major</label>
-                  <p className="tw-text-sm tw-text-gray-900">{selectedApplication.applicationData?.major}</p>
-                </div>
-                <div>
-                  <label className="tw-text-sm tw-font-medium tw-text-gray-500">Programming Language</label>
-                  <p className="tw-text-sm tw-text-gray-900">{selectedApplication.applicationData?.programmingLanguage}</p>
-                </div>
-              </div>
-              
-              <div>
-                <label className="tw-text-sm tw-font-medium tw-text-gray-500">Specific Skills</label>
-                <p className="tw-text-sm tw-text-gray-900">{selectedApplication.applicationData?.specificSkills}</p>
-              </div>
-              
-              {selectedApplication.applicationData?.motivation && (
-                <div>
-                  <label className="tw-text-sm tw-font-medium tw-text-gray-500">Motivation</label>
-                  <p className="tw-text-sm tw-text-gray-900">{selectedApplication.applicationData.motivation}</p>
-                </div>
+              </section>
+
+              {getApplicationRole(selectedApplication) === 'mentee' ? (
+                <section className="tw-space-y-4">
+                  <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
+                    <InfoBlock label="Year Level" value={selectedApplication.applicationData?.yearLevel} />
+                    <InfoBlock label="Program" value={selectedApplication.applicationData?.program} />
+                    <InfoBlock label="Major" value={selectedApplication.applicationData?.major} />
+                    <InfoBlock label="Programming Language" value={selectedApplication.applicationData?.programmingLanguage} />
+                  </div>
+                  <InfoBlock label="Specific Skills" value={selectedApplication.applicationData?.specificSkills} />
+                  <InfoBlock label="Motivation" value={selectedApplication.applicationData?.motivation} />
+                </section>
+              ) : (
+                <section className="tw-space-y-4">
+                  <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
+                    <InfoBlock label="Current Role" value={selectedApplication.applicationData?.currentRole} />
+                    <InfoBlock label="Organization" value={selectedApplication.applicationData?.organization} />
+                    <InfoBlock
+                      label="Years of Experience"
+                      value={secondaryValueByRole('mentor', selectedApplication.applicationData)}
+                    />
+                    <InfoBlock
+                      label="Availability (hrs/week)"
+                      value={selectedApplication.applicationData?.availabilityHoursPerWeek ?? 'N/A'}
+                    />
+                  </div>
+                  <InfoBlock label="Expertise Areas" value={formatList(selectedApplication.applicationData?.expertiseAreas)} />
+                  <InfoBlock label="Mentoring Topics" value={formatList(selectedApplication.applicationData?.mentoringTopics)} />
+                  <InfoBlock label="Preferred Meeting Formats" value={formatList(selectedApplication.applicationData?.meetingFormats)} />
+                  <InfoBlock label="Availability Days" value={formatList(selectedApplication.applicationData?.availabilityDays)} />
+                  <InfoBlock label="Professional Summary" value={selectedApplication.applicationData?.professionalSummary} />
+                  <InfoBlock label="Achievements" value={selectedApplication.applicationData?.achievements} />
+                  <InfoBlock label="Motivation" value={selectedApplication.applicationData?.motivation} />
+                  <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
+                    <InfoLink label="LinkedIn" value={selectedApplication.applicationData?.linkedinUrl} />
+                    <InfoLink label="Portfolio" value={selectedApplication.applicationData?.portfolioUrl} />
+                  </div>
+                </section>
               )}
-              
-              {selectedApplication.applicationData?.corUrl && (
-                <div>
-                  <label className="tw-text-sm tw-font-medium tw-text-gray-500">Certificate of Registration</label>
+
+              <section className="tw-space-y-2">
+                <p className="tw-text-xs tw-font-medium tw-text-gray-500">{supportingDocumentLabel[getApplicationRole(selectedApplication)]}</p>
+                {getApplicationRole(selectedApplication) === 'mentee' && selectedApplication.applicationData?.corUrl && (
                   <a
                     href={selectedApplication.applicationData.corUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="tw-text-sm tw-text-purple-600 hover:tw-text-purple-800"
+                    className="tw-inline-flex tw-items-center tw-gap-2 tw-text-sm tw-font-medium tw-text-purple-600 hover:tw-text-purple-800"
                   >
                     View COR
                   </a>
-                </div>
-              )}
+                )}
+                {getApplicationRole(selectedApplication) === 'mentor' && selectedApplication.applicationData?.supportingDocumentUrl ? (
+                  <a
+                    href={selectedApplication.applicationData.supportingDocumentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="tw-inline-flex tw-items-center tw-gap-2 tw-text-sm tw-font-medium tw-text-purple-600 hover:tw-text-purple-800"
+                  >
+                    View Document
+                  </a>
+                ) : getApplicationRole(selectedApplication) === 'mentor' ? (
+                  <p className="tw-text-sm tw-text-gray-500">No supporting document provided.</p>
+                ) : null}
+              </section>
             </div>
-            
+
             {selectedApplication.applicationStatus === 'pending' && (
-              <div className="tw-px-6 tw-py-4 tw-border-t tw-border-gray-200 tw-flex tw-justify-end tw-space-x-3">
+              <div className="tw-px-6 tw-py-4 tw-border-t tw-border-gray-200 tw-flex tw-justify-end tw-gap-3">
                 <button
+                  type="button"
                   onClick={() => handleReject(selectedApplication._id)}
-                  className="tw-px-4 tw-py-2 tw-bg-red-600 hover:tw-bg-red-700 tw-text-white tw-rounded-lg tw-text-sm tw-font-medium"
+                  className="tw-px-4 tw-py-2 tw-bg-red-600 hover:tw-bg-red-700 tw-text-white tw-rounded-lg tw-text-sm"
+                  disabled={isMutating}
                 >
                   Reject
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleApprove(selectedApplication._id)}
-                  className="tw-px-4 tw-py-2 tw-bg-green-600 hover:tw-bg-green-700 tw-text-white tw-rounded-lg tw-text-sm tw-font-medium"
+                  className="tw-px-4 tw-py-2 tw-bg-green-600 hover:tw-bg-green-700 tw-text-white tw-rounded-lg tw-text-sm"
+                  disabled={isMutating}
                 >
                   Approve
                 </button>
@@ -340,73 +511,99 @@ export default function ApplicationReviewPanel() {
         </div>
       )}
 
-      {/* Role Selection Modal */}
       {showRoleModal && selectedUser && (
         <div className="tw-fixed tw-inset-0 tw-bg-black tw-bg-opacity-50 tw-flex tw-items-center tw-justify-center tw-z-50">
-          <div className="tw-bg-white tw-rounded-lg tw-shadow-xl tw-max-w-md tw-w-full tw-mx-4">
-            <div className="tw-px-6 tw-py-4 tw-border-b tw-border-gray-200">
-              <div className="tw-flex tw-justify-between tw-items-center">
-                <h3 className="tw-text-lg tw-font-semibold tw-text-gray-900">
-                  Change User Role
-                </h3>
-                <button
-                  onClick={() => setShowRoleModal(false)}
-                  className="tw-text-gray-400 hover:tw-text-gray-600"
-                >
-                  <svg className="tw-w-6 tw-h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+          <div className="tw-bg-white tw-rounded-lg tw-shadow-xl tw-w-full tw-max-w-md tw-mx-4">
+            <div className="tw-px-6 tw-py-4 tw-border-b tw-border-gray-200 tw-flex tw-items-center tw-justify-between">
+              <h3 className="tw-text-lg tw-font-semibold tw-text-gray-900">Update User Role</h3>
+              <button
+                type="button"
+                onClick={() => setShowRoleModal(false)}
+                className="tw-text-gray-400 hover:tw-text-gray-600"
+              >
+                <svg className="tw-w-6 tw-h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            
-            <div className="tw-px-6 tw-py-4">
-              <div className="tw-mb-4">
-                <p className="tw-text-sm tw-text-gray-600 tw-mb-2">
-                  Current user: <span className="tw-font-medium">{selectedUser.firstname} {selectedUser.lastname}</span>
-                </p>
-                <p className="tw-text-sm tw-text-gray-600">
-                  Current role: <span className="tw-font-medium tw-capitalize">{selectedUser.role}</span>
-                </p>
-              </div>
-
+            <div className="tw-px-6 tw-py-5 tw-space-y-4">
+              <p className="tw-text-sm tw-text-gray-600">
+                Update the primary role for <span className="tw-font-medium">{selectedUser.firstname} {selectedUser.lastname}</span>.
+              </p>
               <div className="tw-space-y-3">
-                <h4 className="tw-text-sm tw-font-medium tw-text-gray-700">Select new role:</h4>
-                
-                <div className="tw-space-y-2">
-                  {['mentee', 'mentor', 'admin'].map((role) => (
-                    <button
-                      key={role}
-                      onClick={() => handleRoleUpdate(selectedUser._id, role)}
-                      className={`tw-w-full tw-px-4 tw-py-3 tw-text-left tw-rounded-lg tw-border tw-transition-colors ${
-                        selectedUser.role === role
-                          ? 'tw-border-purple-500 tw-bg-purple-50 tw-text-purple-700'
-                          : 'tw-border-gray-200 hover:tw-border-purple-300 hover:tw-bg-purple-50'
-                      }`}
-                    >
-                      <div className="tw-flex tw-items-center tw-space-x-3">
-                        <div className="tw-w-4 tw-h-4 tw-rounded-full tw-border-2 tw-border-gray-300 tw-flex tw-items-center tw-justify-center">
-                          {selectedUser.role === role && (
-                            <div className="tw-w-2 tw-h-2 tw-bg-purple-500 tw-rounded-full"></div>
-                          )}
-                        </div>
-                        <div>
-                          <div className="tw-font-medium tw-capitalize">{role}</div>
-                          <div className="tw-text-sm tw-text-gray-500">
-                            {role === 'mentee' && 'Student seeking guidance'}
-                            {role === 'mentor' && 'Experienced professional providing guidance'}
-                            {role === 'admin' && 'Platform administrator'}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                <RoleButton
+                  label="Mentor"
+                  description="Access mentor dashboards, mentee assignments, and resources."
+                  onClick={() => handleRoleUpdate(selectedUser._id, 'mentor')}
+                  disabled={isMutating}
+                />
+                <RoleButton
+                  label="Mentee"
+                  description="Access mentee dashboards, mentor matching, and learning plans."
+                  onClick={() => handleRoleUpdate(selectedUser._id, 'mentee')}
+                  disabled={isMutating}
+                />
+                <RoleButton
+                  label="Admin"
+                  description="Full administrative permissions across the platform."
+                  onClick={() => handleRoleUpdate(selectedUser._id, 'admin')}
+                  disabled={isMutating}
+                />
               </div>
             </div>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function InfoBlock({ label, value }) {
+  const resolvedValue = value === undefined || value === null || value === '' ? 'N/A' : value;
+
+  return (
+    <div>
+      <p className="tw-text-xs tw-font-medium tw-text-gray-500">{label}</p>
+      <p className="tw-text-sm tw-text-gray-900">{resolvedValue}</p>
+    </div>
+  );
+}
+
+function InfoLink({ label, value }) {
+  if (!value) {
+    return (
+      <div>
+        <p className="tw-text-xs tw-font-medium tw-text-gray-500">{label}</p>
+        <p className="tw-text-sm tw-text-gray-500">Not provided</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="tw-text-xs tw-font-medium tw-text-gray-500">{label}</p>
+      <a
+        href={value}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="tw-inline-flex tw-items-center tw-gap-2 tw-text-sm tw-font-medium tw-text-purple-600 hover:tw-text-purple-800"
+      >
+        Visit Link
+      </a>
+    </div>
+  );
+}
+
+function RoleButton({ label, description, onClick, disabled }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="tw-w-full tw-text-left tw-border tw-border-gray-200 hover:tw-border-purple-400 tw-rounded-lg tw-px-4 tw-py-3 tw-transition-colors disabled:tw-opacity-60"
+    >
+      <p className="tw-text-sm tw-font-semibold tw-text-gray-900">{label}</p>
+      <p className="tw-text-xs tw-text-gray-500">{description}</p>
+    </button>
   );
 }

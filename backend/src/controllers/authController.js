@@ -14,7 +14,20 @@ exports.register = async (req, res) => {
     const { firstname, lastname, email, password, role } = req.body;
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ error: 'EMAIL_EXISTS' });
-    const user = new User({ firstname, lastname, email, password, role: role || 'mentee' });
+    const resolvedRole = role || 'mentee';
+    const initialStatus = resolvedRole === 'admin' ? 'approved' : 'not_submitted';
+    const initialApplicationRole = resolvedRole === 'admin' ? 'admin' : resolvedRole;
+
+    const user = new User({
+      firstname,
+      lastname,
+      email,
+      password,
+      role: resolvedRole,
+      applicationStatus: initialStatus,
+      applicationRole: initialApplicationRole,
+      applicationData: {}
+    });
     await user.save();
     return res.status(201).json({ message: 'REGISTERED' });
   } catch (err) {
@@ -48,8 +61,8 @@ exports.login = async (req, res) => {
     await user.save();
 
     const token = createJwt(user);
-    return res.json({ 
-      token, 
+    return res.json({
+      token,
       role: user.role || null,
       user: {
         id: user._id,
@@ -57,7 +70,8 @@ exports.login = async (req, res) => {
         lastname: user.lastname,
         email: user.email,
         role: user.role || null,
-        applicationStatus: user.applicationStatus
+        applicationStatus: user.applicationStatus,
+        applicationRole: user.applicationRole
       }
     });
   } catch (err) {
@@ -124,9 +138,25 @@ exports.updateRole = async (req, res) => {
       return res.status(400).json({ error: 'INVALID_ROLE' });
     }
 
+    const update = {
+      role,
+      applicationData: {},
+      applicationSubmittedAt: undefined,
+      applicationReviewedAt: undefined,
+      applicationReviewedBy: undefined
+    };
+
+    if (role === 'admin') {
+      update.applicationStatus = 'approved';
+      update.applicationRole = 'admin';
+    } else {
+      update.applicationStatus = 'not_submitted';
+      update.applicationRole = role;
+    }
+
     const user = await User.findByIdAndUpdate(
       userId,
-      { role },
+      update,
       { new: true }
     );
 
@@ -143,7 +173,8 @@ exports.updateRole = async (req, res) => {
         lastname: user.lastname,
         email: user.email,
         role: user.role,
-        applicationStatus: user.applicationStatus
+        applicationStatus: user.applicationStatus,
+        applicationRole: user.applicationRole
       }
     });
   } catch (err) {
@@ -156,7 +187,7 @@ exports.profile = async (req, res) => {
     const userId = req.user && req.user.id;
     if (!userId) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
 
-    const user = await User.findById(userId).select('firstname lastname email role applicationStatus');
+  const user = await User.findById(userId).select('firstname lastname email role applicationStatus applicationRole');
     if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
 
     return res.json({
@@ -165,7 +196,8 @@ exports.profile = async (req, res) => {
       lastname: user.lastname,
       email: user.email,
       role: user.role || null,
-      applicationStatus: user.applicationStatus || 'not_submitted'
+      applicationStatus: user.applicationStatus || 'not_submitted',
+      applicationRole: user.applicationRole || null
     });
   } catch (err) {
     console.error('Profile fetch error:', err);

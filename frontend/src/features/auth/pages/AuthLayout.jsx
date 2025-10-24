@@ -1,5 +1,17 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+
 export default function AuthLayout({ title, subtitle, children }) {
+  const navigate = useNavigate();
+
+  const handleReturn = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
+
   return (
     <div className="tw-min-h-screen tw-grid tw-grid-cols-1 md:tw-grid-cols-2">
       {/* Left Side - Purple Gradient */}
@@ -48,7 +60,21 @@ export default function AuthLayout({ title, subtitle, children }) {
 
       {/* Right Side - White Background */}
       <div className="tw-flex tw-items-center tw-justify-center tw-p-6 md:tw-p-10 tw-bg-white">
-        <div className="tw-w-full tw-max-w-xl">{children}</div>
+        <div className="tw-w-full tw-max-w-xl tw-space-y-6">
+          <button
+            type="button"
+            onClick={handleReturn}
+            className="tw-inline-flex tw-items-center tw-gap-2 tw-text-sm tw-font-medium tw-text-purple-600 hover:tw-text-purple-700 tw-transition-colors"
+          >
+            <span className="tw-inline-flex tw-items-center tw-justify-center tw-w-8 tw-h-8 tw-rounded-full tw-bg-purple-100 tw-text-purple-600">
+              <svg className="tw-w-4 tw-h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </span>
+            <span>Return</span>
+          </button>
+          <div className="tw-w-full">{children}</div>
+        </div>
       </div>
     </div>
   );

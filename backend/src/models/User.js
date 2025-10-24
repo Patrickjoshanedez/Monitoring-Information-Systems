@@ -15,10 +15,15 @@ const userSchema = new mongoose.Schema(
     lockUntil: { type: Date },
     
     // Application fields for mentees
-    applicationStatus: { 
-      type: String, 
-      enum: ['not_submitted', 'pending', 'approved', 'rejected'], 
-      default: 'not_submitted' 
+    applicationStatus: {
+      type: String,
+      enum: ['not_submitted', 'pending', 'approved', 'rejected'],
+      default: 'not_submitted'
+    },
+    applicationRole: {
+      type: String,
+      enum: ['mentee', 'mentor', 'admin'],
+      default: null
     },
     applicationData: {
       yearLevel: { type: String },
@@ -27,7 +32,21 @@ const userSchema = new mongoose.Schema(
       corUrl: { type: String },
       major: { type: String },
       programmingLanguage: { type: String },
-      motivation: { type: String }
+      motivation: { type: String },
+      currentRole: { type: String },
+      organization: { type: String },
+      yearsOfExperience: { type: Number },
+      expertiseAreas: [{ type: String }],
+      mentoringTopics: [{ type: String }],
+      mentoringGoals: { type: String },
+      professionalSummary: { type: String },
+      achievements: { type: String },
+      linkedinUrl: { type: String },
+      portfolioUrl: { type: String },
+      availabilityDays: [{ type: String }],
+      availabilityHoursPerWeek: { type: Number },
+      meetingFormats: [{ type: String }],
+      supportingDocumentUrl: { type: String }
     },
     applicationSubmittedAt: { type: Date },
     applicationReviewedAt: { type: Date },
