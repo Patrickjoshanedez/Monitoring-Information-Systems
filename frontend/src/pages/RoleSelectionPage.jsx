@@ -94,13 +94,13 @@ export default function RoleSelectionPage() {
     >
       <div className="tw-space-y-6">
         {error && (
-          <div className="tw-p-4 tw-bg-red-50 tw-border tw-border-red-200 tw-rounded-lg tw-text-red-700">
+          <div className="tw-p-4 tw-bg-red-50 tw-border tw-border-red-200 tw-rounded-lg tw-text-red-700 dark:tw-bg-red-500/10 dark:tw-border-red-500/40 dark:tw-text-red-200">
             {error}
           </div>
         )}
 
         <div className="tw-text-center tw-mb-8">
-          <p className="tw-text-gray-600 tw-text-lg">
+          <p className="tw-text-gray-600 tw-text-lg dark:tw-text-slate-300">
             How would you like to participate in our mentoring program?
           </p>
         </div>
@@ -114,7 +114,7 @@ export default function RoleSelectionPage() {
               className={`tw-relative tw-p-8 tw-rounded-xl tw-border-2 tw-transition-all tw-duration-200 tw-transform hover:tw-scale-105 tw-disabled:tw-opacity-50 tw-disabled:tw-cursor-not-allowed ${
                 selectedRole === role.id
                   ? `tw-border-purple-500 tw-bg-gradient-to-r ${role.color} tw-text-white`
-                  : 'tw-border-gray-200 tw-bg-white hover:tw-border-purple-300 tw-text-gray-700'
+                  : 'tw-border-gray-200 tw-bg-white hover:tw-border-purple-300 tw-text-gray-700 dark:tw-border-slate-700 dark:tw-bg-slate-900 dark:hover:tw-border-purple-400 dark:tw-text-slate-200'
               }`}
             >
               <div className="tw-text-center tw-space-y-4">
@@ -138,12 +138,12 @@ export default function RoleSelectionPage() {
           <div className="tw-text-center tw-py-4">
             <div className="tw-inline-flex tw-items-center tw-space-x-2">
               <div className="tw-animate-spin tw-rounded-full tw-h-5 tw-w-5 tw-border-b-2 tw-border-purple-500"></div>
-              <span className="tw-text-gray-600">Updating your role...</span>
+              <span className="tw-text-gray-600 dark:tw-text-slate-300">Updating your role...</span>
             </div>
           </div>
         )}
 
-        <div className="tw-text-center tw-text-sm tw-text-gray-500">
+        <div className="tw-text-center tw-text-sm tw-text-gray-500 dark:tw-text-slate-400">
           <p>You can change your role later in your profile settings</p>
         </div>
       </div>

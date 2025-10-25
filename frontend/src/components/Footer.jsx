@@ -3,15 +3,15 @@ import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer className="tw-px-6 tw-py-8 tw-border-t tw-border-gray-200">
+    <footer className="tw-px-6 tw-py-8 tw-border-t tw-border-gray-200 tw-bg-white dark:tw-border-slate-800 dark:tw-bg-slate-900">
       <div className="tw-max-w-6xl tw-mx-auto">
-        <div className="tw-text-sm tw-text-gray-500 tw-space-y-2">
+        <div className="tw-text-sm tw-text-gray-500 tw-space-y-2 dark:tw-text-slate-300">
           <p>© 2025 Computer Society</p>
           <p>Mentoring Program Information System.</p>
           <p>All Rights Reserved.</p>
           <div className="tw-flex tw-gap-4 tw-mt-4">
-            <Link to="/privacy" className="hover:tw-text-primary">Privacy Policy</Link>
-            <Link to="/terms" className="hover:tw-text-primary">Terms of Use</Link>
+            <Link to="/privacy" className="hover:tw-text-primary dark:hover:tw-text-white">Privacy Policy</Link>
+            <Link to="/terms" className="hover:tw-text-primary dark:hover:tw-text-white">Terms of Use</Link>
           </div>
         </div>
       </div>

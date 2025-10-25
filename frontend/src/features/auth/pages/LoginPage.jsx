@@ -1,22 +1,30 @@
-import React from 'react';
-import { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
 import { login, googleOAuthUrl, mapErrorCodeToMessage } from '../services/api.js';
+import RecaptchaField from '../../../components/common/RecaptchaField.jsx';
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState('');
+  const [recaptchaError, setRecaptchaError] = useState('');
+  const recaptchaRef = useRef(null);
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setRecaptchaError('');
+    if (!recaptchaToken) {
+      setRecaptchaError('Please complete the verification step.');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await login(form);
+      const res = await login({ ...form, recaptchaToken });
       const token = res.token;
       localStorage.setItem('token', token);
 
@@ -67,13 +75,26 @@ export default function LoginPage() {
       setError(mapErrorCodeToMessage(code));
     } finally {
       setLoading(false);
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+      }
+      setRecaptchaToken('');
     }
   };
 
   return (
     <AuthLayout title="WELCOME BACK!" subtitle="Your path to guided learning and mentorship starts here.">
+      <div className="tw-mb-4">
+        <Link
+          to="/"
+          className="tw-inline-flex tw-items-center tw-gap-2 tw-text-sm tw-font-semibold tw-text-purple-600 hover:tw-text-purple-700 dark:tw-text-purple-300 dark:hover:tw-text-purple-200"
+        >
+          <span aria-hidden="true">&larr;</span>
+          Return to landing page
+        </Link>
+      </div>
       <form onSubmit={onSubmit} className="tw-space-y-4">
-        {error && <div className="tw-p-3 tw-rounded tw-bg-red-50 tw-text-red-700 tw-text-sm">{error}</div>}
+        {error && <div className="tw-p-3 tw-rounded tw-bg-red-50 tw-text-red-700 tw-text-sm dark:tw-bg-red-500/10 dark:tw-text-red-200">{error}</div>}
         
         {/* Email Input with Icon */}
         <div className="tw-relative">
@@ -88,7 +109,7 @@ export default function LoginPage() {
             value={form.email}
             onChange={onChange}
             placeholder="Username or email"
-            className="tw-w-full tw-pl-10 tw-pr-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors"
+            className="tw-w-full tw-pl-10 tw-pr-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors dark:tw-border-slate-700 dark:tw-bg-slate-900 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500"
             required
           />
         </div>
@@ -106,38 +127,57 @@ export default function LoginPage() {
             value={form.password}
             onChange={onChange}
             placeholder="Password"
-            className="tw-w-full tw-pl-10 tw-pr-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors"
+            className="tw-w-full tw-pl-10 tw-pr-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors dark:tw-border-slate-700 dark:tw-bg-slate-900 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500"
             required
           />
         </div>
 
         {/* Forgot Password Link */}
         <div className="tw-flex tw-items-center tw-justify-end tw-text-sm">
-          <Link to="/forgot-password" className="tw-text-purple-600 hover:tw-text-purple-700 tw-font-medium">
+          <Link to="/forgot-password" className="tw-text-purple-600 hover:tw-text-purple-700 tw-font-medium dark:tw-text-purple-300 dark:hover:tw-text-purple-200">
             Forgot Password?
           </Link>
+        </div>
+
+        <div>
+          <RecaptchaField
+            ref={recaptchaRef}
+            onChange={(token) => {
+              setRecaptchaToken(token || '');
+              if (token) {
+                setRecaptchaError('');
+              }
+            }}
+            onExpired={() => {
+              setRecaptchaToken('');
+              setRecaptchaError('Verification expired, please try again.');
+            }}
+          />
+          {recaptchaError && (
+            <p className="tw-mt-2 tw-text-xs tw-text-red-600 dark:tw-text-red-300">{recaptchaError}</p>
+          )}
         </div>
 
         {/* Login Button */}
         <button 
           disabled={loading} 
-          className="tw-w-full tw-bg-purple-600 hover:tw-bg-purple-700 tw-text-white tw-rounded-xl tw-py-3 tw-font-semibold tw-transition-colors tw-uppercase"
+          className="tw-w-full tw-bg-purple-600 hover:tw-bg-purple-700 tw-text-white tw-rounded-xl tw-py-3 tw-font-semibold tw-transition-colors tw-uppercase disabled:tw-opacity-70"
         >
           {loading ? 'Logging in...' : 'LOGIN'}
         </button>
 
         {/* OR Divider */}
         <div className="tw-flex tw-items-center tw-gap-4 tw-my-4">
-          <div className="tw-flex-1 tw-h-px tw-bg-gray-200" />
-          <span className="tw-text-sm tw-text-gray-500">OR</span>
-          <div className="tw-flex-1 tw-h-px tw-bg-gray-200" />
+          <div className="tw-flex-1 tw-h-px tw-bg-gray-200 dark:tw-bg-slate-700" />
+          <span className="tw-text-sm tw-text-gray-500 dark:tw-text-slate-400">OR</span>
+          <div className="tw-flex-1 tw-h-px tw-bg-gray-200 dark:tw-bg-slate-700" />
         </div>
 
         {/* Google Button with Logo */}
         <button 
           type="button" 
           onClick={() => (window.location.href = googleOAuthUrl())} 
-          className="tw-w-full tw-border tw-border-gray-300 hover:tw-border-gray-400 tw-rounded-xl tw-py-3 tw-font-medium tw-transition-colors tw-flex tw-items-center tw-justify-center tw-gap-3"
+          className="tw-w-full tw-border tw-border-gray-300 hover:tw-border-gray-400 tw-rounded-xl tw-py-3 tw-font-medium tw-transition-colors tw-flex tw-items-center tw-justify-center tw-gap-3 dark:tw-border-slate-600 dark:hover:tw-border-slate-500 dark:tw-bg-slate-900"
         >
           <svg className="tw-w-5 tw-h-5" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -149,8 +189,8 @@ export default function LoginPage() {
         </button>
 
         {/* Register Link */}
-        <p className="tw-text-sm tw-text-center tw-text-gray-600">
-          Don't have an account? <Link to="/register" className="tw-text-purple-600 hover:tw-text-purple-700 tw-font-semibold">Register</Link>
+        <p className="tw-text-sm tw-text-center tw-text-gray-600 dark:tw-text-slate-300">
+          Don't have an account? <Link to="/register" className="tw-text-purple-600 hover:tw-text-purple-700 tw-font-semibold dark:tw-text-purple-300 dark:hover:tw-text-purple-200">Register</Link>
         </p>
       </form>
     </AuthLayout>

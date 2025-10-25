@@ -28,7 +28,7 @@ export default function ContactPage() {
   ];
 
   return (
-    <div className="tw-min-h-screen tw-bg-white">
+    <div className="tw-min-h-screen tw-bg-white tw-text-gray-900 dark:tw-bg-slate-950 dark:tw-text-slate-100">
       <Header />
 
       {/* Main Content */}
@@ -36,7 +36,7 @@ export default function ContactPage() {
         <div className="tw-max-w-6xl tw-mx-auto tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-12 tw-items-start">
           {/* Left Content */}
           <div className="tw-space-y-8">
-            <h1 className="tw-text-5xl tw-font-bold tw-text-gray-900 tw-leading-tight">
+            <h1 className="tw-text-5xl tw-font-bold tw-text-gray-900 tw-leading-tight dark:tw-text-white">
               Contact us
             </h1>
             
@@ -45,7 +45,7 @@ export default function ContactPage() {
                 <div key={index} className="tw-flex tw-items-start tw-gap-4">
                   <div className="tw-text-2xl">{item.icon}</div>
                   <div>
-                    <p className="tw-text-gray-600">{item.value}</p>
+                    <p className="tw-text-gray-600 dark:tw-text-slate-300">{item.value}</p>
                   </div>
                 </div>
               ))}
@@ -54,10 +54,10 @@ export default function ContactPage() {
 
           {/* Right Illustration */}
           <div className="tw-relative">
-            <div className="tw-bg-gradient-to-br tw-from-purple-100 tw-to-purple-200 tw-rounded-2xl tw-p-8 tw-h-96 tw-flex tw-items-center tw-justify-center">
+            <div className="tw-bg-gradient-to-br tw-from-purple-100 tw-to-purple-200 tw-rounded-2xl tw-p-8 tw-h-96 tw-flex tw-items-center tw-justify-center dark:tw-from-purple-900/40 dark:tw-to-purple-700/30">
               <div className="tw-text-center tw-space-y-4">
                 <div className="tw-text-6xl">📞</div>
-                <p className="tw-text-gray-600">Get in Touch</p>
+                <p className="tw-text-gray-600 dark:tw-text-slate-200">Get in Touch</p>
               </div>
             </div>
           </div>

@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { verifyRecaptchaToken } = require('../utils/recaptcha');
 
 const sanitizeArrayInput = (value) => {
   if (Array.isArray(value)) {
@@ -36,8 +37,19 @@ const submitMenteeApplication = async (req, res) => {
       specificSkills,
       major,
       programmingLanguage,
-      motivation
+      motivation,
+      recaptchaToken
     } = req.body;
+
+    const recaptchaResult = await verifyRecaptchaToken(recaptchaToken, req.ip);
+    if (!recaptchaResult.ok) {
+      return res.status(recaptchaResult.status).json({
+        success: false,
+        error: recaptchaResult.code,
+        message: recaptchaResult.message,
+        details: recaptchaResult.details
+      });
+    }
 
     if (!yearLevel || !program || !specificSkills || !major || !programmingLanguage) {
       return res.status(400).json({
@@ -136,8 +148,19 @@ const submitMentorApplication = async (req, res) => {
       availabilityHoursPerWeek,
       meetingFormats,
       yearsOfExperience,
-      motivation
+      motivation,
+      recaptchaToken
     } = req.body;
+
+    const recaptchaResult = await verifyRecaptchaToken(recaptchaToken, req.ip);
+    if (!recaptchaResult.ok) {
+      return res.status(recaptchaResult.status).json({
+        success: false,
+        error: recaptchaResult.code,
+        message: recaptchaResult.message,
+        details: recaptchaResult.details
+      });
+    }
 
     const normalizedExpertise = sanitizeArrayInput(expertiseAreas);
     const normalizedTopics = sanitizeArrayInput(mentoringTopics);

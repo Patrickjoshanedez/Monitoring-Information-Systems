@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
 const { sendPasswordResetEmail } = require('../utils/emailService');
+const { verifyRecaptchaToken } = require('../utils/recaptcha');
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutes
@@ -11,7 +12,16 @@ const createJwt = (user) =>
 
 exports.register = async (req, res) => {
   try {
-    const { firstname, lastname, email, password, role } = req.body;
+    const { firstname, lastname, email, password, role, recaptchaToken } = req.body;
+
+    const recaptchaResult = await verifyRecaptchaToken(recaptchaToken, req.ip);
+    if (!recaptchaResult.ok) {
+      return res.status(recaptchaResult.status).json({
+        error: recaptchaResult.code,
+        message: recaptchaResult.message,
+        details: recaptchaResult.details
+      });
+    }
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ error: 'EMAIL_EXISTS' });
     const resolvedRole = role || 'mentee';
@@ -37,7 +47,16 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, recaptchaToken } = req.body;
+
+    const recaptchaResult = await verifyRecaptchaToken(recaptchaToken, req.ip);
+    if (!recaptchaResult.ok) {
+      return res.status(recaptchaResult.status).json({
+        error: recaptchaResult.code,
+        message: recaptchaResult.message,
+        details: recaptchaResult.details
+      });
+    }
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
 
@@ -81,7 +100,16 @@ exports.login = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, recaptchaToken } = req.body;
+
+    const recaptchaResult = await verifyRecaptchaToken(recaptchaToken, req.ip);
+    if (!recaptchaResult.ok) {
+      return res.status(recaptchaResult.status).json({
+        error: recaptchaResult.code,
+        message: recaptchaResult.message,
+        details: recaptchaResult.details
+      });
+    }
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: 'INVALID_TOKEN' });
 

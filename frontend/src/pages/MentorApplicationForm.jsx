@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
+import RecaptchaField from '../components/common/RecaptchaField.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -53,6 +54,9 @@ export default function MentorApplicationForm() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [recaptchaToken, setRecaptchaToken] = useState('');
+  const [recaptchaError, setRecaptchaError] = useState('');
+  const recaptchaRef = useRef(null);
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem('user') || '{}');
@@ -87,6 +91,11 @@ export default function MentorApplicationForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setRecaptchaError('');
+    if (!recaptchaToken) {
+      setRecaptchaError('Please complete the verification step.');
+      return;
+    }
     setLoading(true);
 
     try {
@@ -99,7 +108,8 @@ export default function MentorApplicationForm() {
         body: JSON.stringify({
           ...form,
           yearsOfExperience: form.yearsOfExperience ? Number(form.yearsOfExperience) : undefined,
-          availabilityHoursPerWeek: form.availabilityHoursPerWeek ? Number(form.availabilityHoursPerWeek) : undefined
+          availabilityHoursPerWeek: form.availabilityHoursPerWeek ? Number(form.availabilityHoursPerWeek) : undefined,
+          recaptchaToken
         })
       });
 
@@ -123,6 +133,10 @@ export default function MentorApplicationForm() {
       setError('Failed to submit application. Please try again.');
     } finally {
       setLoading(false);
+      if (recaptchaRef.current) {
+        recaptchaRef.current.reset();
+      }
+      setRecaptchaToken('');
     }
   };
 
@@ -450,6 +464,25 @@ export default function MentorApplicationForm() {
                   </div>
                 </div>
               </section>
+
+              <div>
+                <RecaptchaField
+                  ref={recaptchaRef}
+                  onChange={(token) => {
+                    setRecaptchaToken(token || '');
+                    if (token) {
+                      setRecaptchaError('');
+                    }
+                  }}
+                  onExpired={() => {
+                    setRecaptchaToken('');
+                    setRecaptchaError('Verification expired, please try again.');
+                  }}
+                />
+                {recaptchaError && (
+                  <p className="tw-mt-2 tw-text-xs tw-text-red-600 dark:tw-text-red-300">{recaptchaError}</p>
+                )}
+              </div>
 
               <div className="tw-flex tw-justify-end tw-pt-6 tw-border-t tw-border-gray-200">
                 <button

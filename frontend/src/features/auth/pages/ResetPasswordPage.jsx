@@ -29,7 +29,7 @@ export default function ResetPasswordPage() {
   return (
     <AuthLayout title="WELCOME!" subtitle="Your path to guided learning and mentorship starts here.">
       <form onSubmit={onSubmit} className="tw-space-y-4">
-        {error && <div className="tw-p-3 tw-rounded tw-bg-red-50 tw-text-red-700 tw-text-sm">{error}</div>}
+        {error && <div className="tw-p-3 tw-rounded tw-bg-red-50 tw-text-red-700 tw-text-sm dark:tw-bg-red-500/10 dark:tw-text-red-200">{error}</div>}
         
         {/* Password Input with Icon */}
         <div className="tw-relative">
@@ -43,7 +43,7 @@ export default function ResetPasswordPage() {
             value={password} 
             onChange={(e)=>setPassword(e.target.value)} 
             placeholder="Enter new password" 
-            className="tw-w-full tw-pl-10 tw-pr-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors" 
+            className="tw-w-full tw-pl-10 tw-pr-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors dark:tw-border-slate-700 dark:tw-bg-slate-900 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500" 
             required 
           />
         </div>
@@ -51,7 +51,7 @@ export default function ResetPasswordPage() {
         {/* Verify Button */}
         <button 
           disabled={loading} 
-          className="tw-px-6 tw-py-3 tw-bg-purple-600 hover:tw-bg-purple-700 tw-text-white tw-rounded-xl tw-w-32 tw-font-semibold tw-transition-colors"
+          className="tw-px-6 tw-py-3 tw-bg-purple-600 hover:tw-bg-purple-700 tw-text-white tw-rounded-xl tw-w-32 tw-font-semibold tw-transition-colors disabled:tw-opacity-70"
         >
           {loading ? 'Saving...' : 'Verify'}
         </button>

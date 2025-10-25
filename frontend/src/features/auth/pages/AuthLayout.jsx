@@ -1,21 +1,11 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 
 export default function AuthLayout({ title, subtitle, children }) {
-  const navigate = useNavigate();
-
-  const handleReturn = () => {
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate('/');
-    }
-  };
 
   return (
-    <div className="tw-min-h-screen tw-grid tw-grid-cols-1 md:tw-grid-cols-2">
+    <div className="tw-min-h-screen tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-bg-white tw-text-gray-900 dark:tw-bg-slate-950 dark:tw-text-slate-100">
       {/* Left Side - Purple Gradient */}
-      <div className="tw-bg-gradient-to-br tw-from-purple-700 tw-to-purple-900 tw-p-10 tw-text-white tw-flex tw-flex-col tw-justify-between tw-relative">
+      <div className="tw-bg-gradient-to-br tw-from-purple-700 tw-to-purple-900 tw-p-10 tw-text-white tw-flex tw-flex-col tw-justify-between tw-relative dark:tw-from-purple-900 dark:tw-to-slate-950">
         {/* Logo Placeholder */}
         <div className="tw-absolute tw-top-6 tw-left-6">
           <div className="tw-w-16 tw-h-16 tw-bg-white/20 tw-rounded-full tw-flex tw-items-center tw-justify-center tw-backdrop-blur-sm">
@@ -59,20 +49,8 @@ export default function AuthLayout({ title, subtitle, children }) {
       </div>
 
       {/* Right Side - White Background */}
-      <div className="tw-flex tw-items-center tw-justify-center tw-p-6 md:tw-p-10 tw-bg-white">
+      <div className="tw-flex tw-items-center tw-justify-center tw-p-6 md:tw-p-10 tw-bg-white dark:tw-bg-slate-900">
         <div className="tw-w-full tw-max-w-xl tw-space-y-6">
-          <button
-            type="button"
-            onClick={handleReturn}
-            className="tw-inline-flex tw-items-center tw-gap-2 tw-text-sm tw-font-medium tw-text-purple-600 hover:tw-text-purple-700 tw-transition-colors"
-          >
-            <span className="tw-inline-flex tw-items-center tw-justify-center tw-w-8 tw-h-8 tw-rounded-full tw-bg-purple-100 tw-text-purple-600">
-              <svg className="tw-w-4 tw-h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-              </svg>
-            </span>
-            <span>Return</span>
-          </button>
           <div className="tw-w-full">{children}</div>
         </div>
       </div>
