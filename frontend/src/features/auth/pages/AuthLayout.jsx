@@ -3,9 +3,9 @@ import React from 'react';
 export default function AuthLayout({ title, subtitle, children }) {
 
   return (
-    <div className="tw-min-h-screen tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-bg-white tw-text-gray-900 dark:tw-bg-slate-950 dark:tw-text-slate-100">
+    <div className="tw-min-h-screen tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-bg-white tw-text-gray-900  ">
       {/* Left Side - Purple Gradient */}
-      <div className="tw-bg-gradient-to-br tw-from-purple-700 tw-to-purple-900 tw-p-10 tw-text-white tw-flex tw-flex-col tw-justify-between tw-relative dark:tw-from-purple-900 dark:tw-to-slate-950">
+      <div className="tw-bg-gradient-to-br tw-from-purple-700 tw-to-purple-900 tw-p-10 tw-text-white tw-flex tw-flex-col tw-justify-between tw-relative  ">
         {/* Logo Placeholder */}
         <div className="tw-absolute tw-top-6 tw-left-6">
           <div className="tw-w-16 tw-h-16 tw-bg-white/20 tw-rounded-full tw-flex tw-items-center tw-justify-center tw-backdrop-blur-sm">
@@ -49,7 +49,7 @@ export default function AuthLayout({ title, subtitle, children }) {
       </div>
 
       {/* Right Side - White Background */}
-      <div className="tw-flex tw-items-center tw-justify-center tw-p-6 md:tw-p-10 tw-bg-white dark:tw-bg-slate-900">
+      <div className="tw-flex tw-items-center tw-justify-center tw-p-6 md:tw-p-10 tw-bg-white ">
         <div className="tw-w-full tw-max-w-xl tw-space-y-6">
           <div className="tw-w-full">{children}</div>
         </div>

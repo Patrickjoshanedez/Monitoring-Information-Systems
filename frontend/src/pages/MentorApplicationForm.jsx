@@ -480,7 +480,7 @@ export default function MentorApplicationForm() {
                   }}
                 />
                 {recaptchaError && (
-                  <p className="tw-mt-2 tw-text-xs tw-text-red-600 dark:tw-text-red-300">{recaptchaError}</p>
+                  <p className="tw-mt-2 tw-text-xs tw-text-red-600">{recaptchaError}</p>
                 )}
               </div>
 

@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import ThemeToggle from '../common/ThemeToggle';
 
 type UserSummary = {
   firstname?: string;
@@ -148,14 +147,14 @@ const Header: React.FC = () => {
   const hideNav = HIDE_NAV_PATHS.has(location.pathname);
 
   return (
-    <header className="tw-bg-primary tw-text-white tw-shadow-lg dark:tw-bg-slate-900 dark:tw-text-slate-100">
+    <header className="tw-bg-primary tw-text-white tw-shadow-lg">
       <div className="tw-max-w-7xl tw-mx-auto tw-px-4 sm:tw-px-6 lg:tw-px-8">
         <div className="tw-flex tw-justify-between tw-items-center tw-py-4">
           <div className="tw-flex tw-items-center tw-space-x-2">
             <Link to={homePath} className="tw-inline-flex tw-items-center tw-gap-2">
-              <h1 className="tw-text-2xl tw-font-bold dark:tw-text-slate-100">ComSoc</h1>
+              <h1 className="tw-text-2xl tw-font-bold">ComSoc</h1>
               {user?.role && (
-                <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-white/20 tw-px-2.5 tw-py-1 tw-text-xs tw-font-semibold dark:tw-bg-slate-700/70 dark:tw-text-slate-100">
+                <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-white/20 tw-px-2.5 tw-py-1 tw-text-xs tw-font-semibold">
                   {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                 </span>
               )}
@@ -170,8 +169,8 @@ const Header: React.FC = () => {
                   to={item.to}
                   className={`tw-font-medium tw-transition-colors ${
                     isActive(item)
-                      ? 'tw-bg-white tw-text-primary tw-px-3 tw-py-1 tw-rounded dark:tw-bg-slate-800 dark:tw-text-white'
-                      : 'tw-text-white hover:tw-text-purple-200 dark:tw-text-slate-200 dark:hover:tw-text-white'
+                      ? 'tw-bg-white tw-text-primary tw-px-3 tw-py-1 tw-rounded'
+                      : 'tw-text-white hover:tw-text-purple-200'
                   }`}
                 >
                   {item.label}
@@ -181,35 +180,34 @@ const Header: React.FC = () => {
           )}
 
           <div className="tw-flex tw-items-center tw-space-x-3">
-            <ThemeToggle />
             <div className="tw-hidden sm:tw-flex tw-flex-col tw-items-end">
               <span className="tw-text-sm tw-font-semibold tw-leading-5">{displayName}</span>
               {user?.email && (
-                <span className="tw-text-xs tw-text-white/80 tw-leading-4 dark:tw-text-slate-400">{user.email}</span>
+                <span className="tw-text-xs tw-text-white/80 tw-leading-4">{user.email}</span>
               )}
             </div>
             <div className="tw-relative" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setDropdownOpen((open) => !open)}
-                className="tw-h-10 tw-w-10 tw-rounded-full tw-bg-white tw-flex tw-items-center tw-justify-center tw-text-primary tw-font-semibold tw-uppercase hover:tw-shadow-md tw-transition-shadow dark:tw-bg-slate-700 dark:tw-text-white"
+                className="tw-h-10 tw-w-10 tw-rounded-full tw-bg-white tw-flex tw-items-center tw-justify-center tw-text-primary tw-font-semibold tw-uppercase hover:tw-shadow-md tw-transition-shadow"
                 aria-haspopup="menu"
               >
                 {initials}
               </button>
               {dropdownOpen && (
-                <div className="tw-absolute tw-right-0 tw-mt-2 tw-w-44 tw-bg-white tw-text-gray-700 tw-rounded-lg tw-shadow-lg tw-border tw-border-gray-100 tw-z-50 dark:tw-bg-slate-800 dark:tw-text-slate-200 dark:tw-border-slate-700">
+                <div className="tw-absolute tw-right-0 tw-mt-2 tw-w-44 tw-bg-white tw-text-gray-700 tw-rounded-lg tw-shadow-lg tw-border tw-border-gray-100 tw-z-50">
                   <button
                     type="button"
                     onClick={handleShowProfile}
-                    className="tw-w-full tw-text-left tw-px-4 tw-py-2 tw-text-sm hover:tw-bg-gray-100 dark:hover:tw-bg-slate-700"
+                    className="tw-w-full tw-text-left tw-px-4 tw-py-2 tw-text-sm hover:tw-bg-gray-100"
                   >
                     Show Profile
                   </button>
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="tw-w-full tw-text-left tw-px-4 tw-py-2 tw-text-sm tw-text-red-600 hover:tw-bg-red-50 dark:hover:tw-bg-red-500/10"
+                    className="tw-w-full tw-text-left tw-px-4 tw-py-2 tw-text-sm tw-text-red-600 hover:tw-bg-red-50"
                   >
                     Logout
                   </button>

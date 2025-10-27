@@ -119,39 +119,44 @@ export default function MenteeApplicationForm() {
 
   const yearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
 
+  const labelClassName = 'tw-block tw-text-sm tw-font-medium tw-text-purple-600 tw-mb-2';
+  const inputClassName = 'tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors tw-bg-white tw-text-gray-900 placeholder:tw-text-gray-400';
+  const mutedTextClassName = 'tw-text-gray-600';
+  const inactivePillClassName = 'tw-bg-gray-100 tw-text-gray-700 hover:tw-bg-gray-200';
+
   return (
     <DashboardLayout>
-      <div className="tw-min-h-screen tw-bg-gray-50 tw-py-8 dark:tw-bg-slate-950 dark:tw-text-slate-100">
+      <div className="tw-min-h-screen tw-bg-gray-50 tw-py-8">
         <div className="tw-max-w-4xl tw-mx-auto tw-px-4">
           {/* Header */}
           <div className="tw-text-center tw-mb-8">
-            <h1 className="tw-text-4xl tw-font-bold tw-text-gray-900 tw-mb-4 dark:tw-text-white">
+            <h1 className="tw-text-4xl tw-font-bold tw-text-gray-900 tw-mb-4">
               Mentee Application Form
             </h1>
-            <p className="tw-text-lg tw-text-gray-600 dark:tw-text-slate-300">
+            <p className="tw-text-lg tw-text-gray-600">
               Complete your application to join the mentoring program
             </p>
           </div>
 
           {/* Application Form */}
-          <div className="tw-bg-white tw-rounded-xl tw-shadow-lg tw-p-8 dark:tw-bg-slate-900 dark:tw-shadow-none dark:tw-border dark:tw-border-slate-800">
+          <div className="tw-bg-white tw-rounded-xl tw-shadow-lg tw-p-8">
             <form onSubmit={handleSubmit} className="tw-space-y-8">
               {error && (
-                <div className="tw-p-4 tw-bg-red-50 tw-border tw-border-red-200 tw-rounded-lg tw-text-red-700 dark:tw-bg-red-500/10 dark:tw-border-red-500/40 dark:tw-text-red-200">
+                <div className="tw-p-4 tw-bg-red-50 tw-border tw-border-red-200 tw-rounded-lg tw-text-red-700">
                   {error}
                 </div>
               )}
 
               {/* Personal Information */}
               <div className="tw-space-y-6">
-                <h2 className="tw-text-2xl tw-font-semibold tw-text-gray-800 tw-border-b tw-border-gray-200 tw-pb-2 dark:tw-text-white dark:tw-border-slate-700">
+                <h2 className="tw-text-2xl tw-font-semibold tw-text-gray-800 tw-border-b tw-border-gray-200 tw-pb-2">
                   Personal Information
                 </h2>
                 
                 <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-6">
                   {/* Firstname */}
                   <div>
-                    <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 dark:tw-text-purple-300 tw-mb-2">
+                      <label className={labelClassName}>
                       Firstname
                     </label>
                     <input
@@ -159,14 +164,14 @@ export default function MenteeApplicationForm() {
                       name="firstname"
                       value={form.firstname}
                       onChange={handleInputChange}
-                      className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors dark:tw-border-slate-700 dark:tw-bg-slate-950 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500"
+                        className={inputClassName}
                       required
                     />
                   </div>
 
                   {/* Lastname */}
                   <div>
-                    <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 dark:tw-text-purple-300 tw-mb-2">
+                      <label className={labelClassName}>
                       Lastname
                     </label>
                     <input
@@ -174,14 +179,14 @@ export default function MenteeApplicationForm() {
                       name="lastname"
                       value={form.lastname}
                       onChange={handleInputChange}
-                      className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors dark:tw-border-slate-700 dark:tw-bg-slate-950 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500"
+                        className={inputClassName}
                       required
                     />
                   </div>
 
                   {/* Email */}
                   <div>
-                    <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 dark:tw-text-purple-300 tw-mb-2">
+                      <label className={labelClassName}>
                       Institutional Email
                     </label>
                     <input
@@ -189,7 +194,7 @@ export default function MenteeApplicationForm() {
                       name="email"
                       value={form.email}
                       onChange={handleInputChange}
-                      className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors dark:tw-border-slate-700 dark:tw-bg-slate-950 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500"
+                        className={inputClassName}
                       required
                     />
                   </div>
@@ -198,14 +203,14 @@ export default function MenteeApplicationForm() {
                 <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-4 tw-gap-6">
                   {/* Year Level */}
                   <div>
-                    <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 dark:tw-text-purple-300 tw-mb-2">
+                      <label className={labelClassName}>
                       Year Level
                     </label>
                     <select
                       name="yearLevel"
                       value={form.yearLevel}
                       onChange={handleInputChange}
-                      className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors dark:tw-border-slate-700 dark:tw-bg-slate-950 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500"
+                        className={inputClassName}
                       required
                     >
                       <option value="">Select Year Level</option>
@@ -217,7 +222,7 @@ export default function MenteeApplicationForm() {
 
                   {/* Program */}
                   <div>
-                    <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 dark:tw-text-purple-300 tw-mb-2">
+                      <label className={labelClassName}>
                       Program
                     </label>
                     <input
@@ -226,14 +231,14 @@ export default function MenteeApplicationForm() {
                       value={form.program}
                       onChange={handleInputChange}
                       placeholder="e.g., Bachelor of Science in Computer Science"
-                      className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors dark:tw-border-slate-700 dark:tw-bg-slate-950 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500"
+                        className={inputClassName}
                       required
                     />
                   </div>
 
                   {/* Specific Skills */}
                   <div>
-                    <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 dark:tw-text-purple-300 tw-mb-2">
+                      <label className={labelClassName}>
                       Specific Skills
                     </label>
                     <input
@@ -242,21 +247,21 @@ export default function MenteeApplicationForm() {
                       value={form.specificSkills}
                       onChange={handleInputChange}
                       placeholder="e.g., React, Node.js, Python"
-                      className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors dark:tw-border-slate-700 dark:tw-bg-slate-950 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500"
+                        className={inputClassName}
                       required
                     />
                   </div>
 
                   {/* COR Upload */}
                   <div>
-                    <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 dark:tw-text-purple-300 tw-mb-2">
+                      <label className={labelClassName}>
                       Certificate of Registration
                     </label>
                     <label className="tw-flex tw-items-center tw-justify-center tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-cursor-pointer tw-transition-colors hover:tw-bg-gray-50">
                       <svg className="tw-w-5 tw-h-5 tw-mr-2 tw-text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                       </svg>
-                      <span className="tw-text-sm tw-text-gray-600 dark:tw-text-slate-300">
+                      <span className="tw-text-sm tw-text-gray-600">
                         {corFile ? corFile.name : 'Please insert COR'}
                       </span>
                       <input
@@ -274,7 +279,7 @@ export default function MenteeApplicationForm() {
               {/* Area of Interest */}
               <div className="tw-space-y-6">
                 <div>
-                  <p className="tw-text-gray-600 tw-mb-4 dark:tw-text-slate-300">
+                  <p className={`${mutedTextClassName} tw-mb-4`}>
                     Choose a major based on your area of interest. This helps us match you with the right mentor or mentee.
                   </p>
                   <div className="tw-grid tw-grid-cols-2 md:tw-grid-cols-4 tw-gap-4">
@@ -286,7 +291,7 @@ export default function MenteeApplicationForm() {
                         className={`tw-px-4 tw-py-3 tw-rounded-lg tw-font-medium tw-transition-colors ${
                           form.major === major
                             ? 'tw-bg-purple-600 tw-text-white tw-shadow-md'
-                            : 'tw-bg-gray-100 tw-text-gray-700 hover:tw-bg-gray-200 dark:tw-bg-slate-800 dark:tw-text-slate-200 dark:hover:tw-bg-slate-700'
+                            : inactivePillClassName
                         }`}
                       >
                         {major}
@@ -299,12 +304,12 @@ export default function MenteeApplicationForm() {
               {/* Programming Language */}
               <div className="tw-space-y-6">
                 <div>
-                  <p className="tw-text-gray-600 tw-mb-4 dark:tw-text-slate-300">Choose a Programming language.</p>
+                  <p className={`${mutedTextClassName} tw-mb-4`}>Choose a programming language.</p>
                   <select
                     name="programmingLanguage"
                     value={form.programmingLanguage}
                     onChange={handleInputChange}
-                    className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors dark:tw-border-slate-700 dark:tw-bg-slate-950 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500"
+                    className={inputClassName}
                     required
                   >
                     <option value="">Select Programming Language</option>
@@ -318,7 +323,7 @@ export default function MenteeApplicationForm() {
               {/* Motivation */}
               <div className="tw-space-y-6">
                 <div>
-                  <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 dark:tw-text-purple-300 tw-mb-2">
+                  <label className={labelClassName}>
                     Why do you want to join this program? (Optional)
                   </label>
                   <textarea
@@ -327,7 +332,7 @@ export default function MenteeApplicationForm() {
                     onChange={handleInputChange}
                     rows={4}
                     placeholder="Tell us about your goals and what you hope to achieve through this mentoring program..."
-                    className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors tw-resize-none dark:tw-border-slate-700 dark:tw-bg-slate-950 dark:focus:tw-border-purple-400 dark:tw-text-slate-100 dark:placeholder:tw-text-slate-500"
+                    className={`${inputClassName} tw-resize-none`}
                   />
                 </div>
               </div>
@@ -347,12 +352,12 @@ export default function MenteeApplicationForm() {
                   }}
                 />
                 {recaptchaError && (
-                  <p className="tw-mt-2 tw-text-xs tw-text-red-600 dark:tw-text-red-300">{recaptchaError}</p>
+                  <p className="tw-mt-2 tw-text-xs tw-text-red-600">{recaptchaError}</p>
                 )}
               </div>
 
               {/* Submit Button */}
-              <div className="tw-flex tw-justify-end tw-pt-6 tw-border-t tw-border-gray-200 dark:tw-border-slate-700">
+              <div className="tw-flex tw-justify-end tw-pt-6 tw-border-t tw-border-gray-200">
                 <button
                   type="submit"
                   disabled={loading}

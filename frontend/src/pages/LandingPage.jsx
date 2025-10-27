@@ -45,33 +45,33 @@ const TESTIMONIALS = [
 
 export default function LandingPage() {
   return (
-    <div className="tw-min-h-screen tw-bg-white tw-flex tw-flex-col dark:tw-bg-slate-950 dark:tw-text-slate-100">
+    <div className="tw-min-h-screen tw-bg-white tw-flex tw-flex-col">
       <Header />
 
       <main className="tw-flex-1 tw-space-y-24 tw-pt-10">
         {/* Hero Section */}
-        <section className="tw-relative tw-overflow-hidden tw-bg-gradient-to-br tw-from-purple-50 tw-via-white tw-to-orange-50 dark:tw-from-slate-950 dark:tw-via-slate-900 dark:tw-to-slate-950">
+  <section className="tw-relative tw-overflow-hidden tw-bg-gradient-to-br tw-from-purple-50 tw-via-white tw-to-orange-50">
           <span
             aria-hidden="true"
-            className="tw-pointer-events-none tw-absolute tw--top-32 tw-right-[-6rem] tw-h-80 tw-w-80 tw-rounded-full tw-bg-gradient-to-br tw-from-primary/20 tw-via-accent/20 tw-to-orange-300/30 tw-blur-3xl tw-animate-spin-slow dark:tw-from-primary/35 dark:tw-via-purple-500/15 dark:tw-to-orange-300/15"
+            className="tw-pointer-events-none tw-absolute tw--top-32 tw-right-[-6rem] tw-h-80 tw-w-80 tw-rounded-full tw-bg-gradient-to-br tw-from-primary/20 tw-via-accent/20 tw-to-orange-300/30 tw-blur-3xl tw-animate-spin-slow"
           />
           <span
             aria-hidden="true"
-            className="tw-pointer-events-none tw-absolute tw--bottom-32 tw-left-[-4rem] tw-h-96 tw-w-96 tw-rounded-full tw-bg-gradient-to-br tw-from-purple-300/40 tw-via-white/40 tw-to-orange-200/30 tw-blur-3xl tw-animate-float dark:tw-from-purple-600/20 dark:tw-via-slate-900/60 dark:tw-to-orange-400/10"
+            className="tw-pointer-events-none tw-absolute tw--bottom-32 tw-left-[-4rem] tw-h-96 tw-w-96 tw-rounded-full tw-bg-gradient-to-br tw-from-purple-300/40 tw-via-white/40 tw-to-orange-200/30 tw-blur-3xl tw-animate-float"
           />
           <span
             aria-hidden="true"
-            className="tw-pointer-events-none tw-absolute tw-top-1/2 tw-left-1/2 tw-h-[520px] tw-w-[520px] tw--translate-x-1/2 tw--translate-y-1/2 tw-rounded-full tw-bg-gradient-to-br tw-from-purple-200/30 tw-via-accent/20 tw-to-orange-200/10 tw-blur-3xl tw-animate-pulse-glow dark:tw-from-purple-700/20 dark:tw-via-indigo-500/10 dark:tw-to-orange-300/10"
+            className="tw-pointer-events-none tw-absolute tw-top-1/2 tw-left-1/2 tw-h-[520px] tw-w-[520px] tw--translate-x-1/2 tw--translate-y-1/2 tw-rounded-full tw-bg-gradient-to-br tw-from-purple-200/30 tw-via-accent/20 tw-to-orange-200/10 tw-blur-3xl tw-animate-pulse-glow"
           />
           <div className="tw-relative tw-max-w-7xl tw-mx-auto tw-px-6 lg:tw-px-12 tw-py-24 tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-12 tw-items-center">
             <div className="tw-space-y-8">
-              <span className="tw-inline-flex tw-items-center tw-gap-2 tw-rounded-full tw-bg-white tw-px-4 tw-py-2 tw-text-sm tw-font-semibold tw-text-primary tw-shadow-sm dark:tw-bg-slate-900/70 dark:tw-text-slate-100">
+              <span className="tw-inline-flex tw-items-center tw-gap-2 tw-rounded-full tw-bg-white tw-px-4 tw-py-2 tw-text-sm tw-font-semibold tw-text-primary tw-shadow-sm">
                 Mentor smarter, grow faster
               </span>
-              <h1 className="tw-text-4xl sm:tw-text-5xl tw-font-extrabold tw-leading-tight tw-text-gray-900 dark:tw-text-white">
+              <h1 className="tw-text-4xl sm:tw-text-5xl tw-font-extrabold tw-leading-tight tw-text-gray-900">
                 A modern mentoring hub built for collaborative growth
               </h1>
-              <p className="tw-text-lg tw-text-gray-600 tw-leading-relaxed dark:tw-text-slate-300">
+              <p className="tw-text-lg tw-text-gray-600 tw-leading-relaxed">
                 Bring mentors, mentees, and administrators together with a unified workspace for planning sessions,
                 measuring progress, and celebrating achievements.
               </p>
@@ -84,7 +84,7 @@ export default function LandingPage() {
                 </Link>
                 <Link
                   to="/features"
-                  className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-xl tw-border tw-border-purple-200 tw-bg-white tw-text-primary tw-px-8 tw-py-3 tw-text-base tw-font-semibold hover:tw-border-purple-400 tw-transition dark:tw-border-slate-700 dark:tw-bg-slate-900 dark:tw-text-slate-100 dark:hover:tw-border-primary"
+                  className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-xl tw-border tw-border-purple-200 tw-bg-white tw-text-primary tw-px-8 tw-py-3 tw-text-base tw-font-semibold hover:tw-border-purple-400 tw-transition"
                 >
                   Explore features
                 </Link>
@@ -92,46 +92,46 @@ export default function LandingPage() {
             </div>
             <div className="tw-relative tw-flex tw-justify-center">
               <div className="tw-relative tw-w-full tw-max-w-lg">
-                <div className="tw-absolute tw-inset-0 tw-rounded-3xl tw-bg-gradient-to-br tw-from-white tw-via-purple-100/60 tw-to-orange-100/70 tw-blur-3xl tw-opacity-80 dark:tw-from-slate-900 dark:tw-via-indigo-900/40 dark:tw-to-purple-900/40" aria-hidden="true" />
-                <div className="tw-relative tw-rounded-3xl tw-bg-white/80 tw-backdrop-blur-lg tw-shadow-2xl tw-border tw-border-white/70 tw-p-6 tw-space-y-6 dark:tw-bg-slate-900/70 dark:tw-border-slate-700/60">
+                <div className="tw-absolute tw-inset-0 tw-rounded-3xl tw-bg-gradient-to-br tw-from-white tw-via-purple-100/60 tw-to-orange-100/70 tw-blur-3xl tw-opacity-80" aria-hidden="true" />
+                <div className="tw-relative tw-rounded-3xl tw-bg-white/80 tw-backdrop-blur-lg tw-shadow-2xl tw-border tw-border-white/70 tw-p-6 tw-space-y-6">
                   <div className="tw-flex tw-items-center tw-justify-between">
                     <div>
-                      <p className="tw-text-sm tw-font-semibold tw-text-primary dark:tw-text-purple-300">Live program snapshot</p>
-                      <h2 className="tw-text-xl tw-font-bold tw-text-gray-900 dark:tw-text-white">Mentorship Pipeline</h2>
+                      <p className="tw-text-sm tw-font-semibold tw-text-primary">Live program snapshot</p>
+                      <h2 className="tw-text-xl tw-font-bold tw-text-gray-900">Mentorship Pipeline</h2>
                     </div>
-                    <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-purple-100 tw-px-3 tw-py-1 tw-text-xs tw-font-semibold tw-text-primary dark:tw-bg-purple-500/20 dark:tw-text-purple-200">
+                    <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-purple-100 tw-px-3 tw-py-1 tw-text-xs tw-font-semibold tw-text-primary">
                       Updated daily
                     </span>
                   </div>
                   <ul className="tw-space-y-4">
                     <li className="tw-flex tw-items-center tw-justify-between tw-gap-4">
-                      <span className="tw-text-sm tw-font-medium tw-text-gray-700 dark:tw-text-slate-300">Pending mentee applications</span>
-                      <span className="tw-text-base tw-font-semibold tw-text-gray-900 dark:tw-text-white">48</span>
+                      <span className="tw-text-sm tw-font-medium tw-text-gray-700">Pending mentee applications</span>
+                      <span className="tw-text-base tw-font-semibold tw-text-gray-900">48</span>
                     </li>
                     <li className="tw-flex tw-items-center tw-justify-between tw-gap-4">
-                      <span className="tw-text-sm tw-font-medium tw-text-gray-700 dark:tw-text-slate-300">Active mentor sessions this week</span>
-                      <span className="tw-text-base tw-font-semibold tw-text-gray-900 dark:tw-text-white">132</span>
+                      <span className="tw-text-sm tw-font-medium tw-text-gray-700">Active mentor sessions this week</span>
+                      <span className="tw-text-base tw-font-semibold tw-text-gray-900">132</span>
                     </li>
                     <li className="tw-flex tw-items-center tw-justify-between tw-gap-4">
-                      <span className="tw-text-sm tw-font-medium tw-text-gray-700 dark:tw-text-slate-300">Average satisfaction score</span>
-                      <span className="tw-text-base tw-font-semibold tw-text-gray-900 dark:tw-text-white">4.8</span>
+                      <span className="tw-text-sm tw-font-medium tw-text-gray-700">Average satisfaction score</span>
+                      <span className="tw-text-base tw-font-semibold tw-text-gray-900">4.8</span>
                     </li>
                   </ul>
-                  <div className="tw-rounded-2xl tw-bg-gradient-to-br tw-from-purple-50 tw-to-white tw-p-4 dark:tw-from-purple-900/30 dark:tw-to-slate-900/60">
-                    <p className="tw-text-sm tw-text-primary dark:tw-text-purple-200">
+                  <div className="tw-rounded-2xl tw-bg-gradient-to-br tw-from-purple-50 tw-to-white tw-p-4">
+                    <p className="tw-text-sm tw-text-primary">
                       “The admin dashboard gives us complete visibility into mentor availability and mentee progress.”
                     </p>
-                    <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-primary/70 dark:tw-text-purple-200/80">Program Coordinator, College of Computing</p>
+                    <p className="tw-mt-2 tw-text-xs tw-font-semibold tw-text-primary/70">Program Coordinator, College of Computing</p>
                   </div>
                 </div>
                 <div className="tw-absolute tw--right-8 tw--bottom-10 tw-hidden lg:tw-block">
-                  <div className="tw-rounded-2xl tw-bg-white/80 tw-backdrop-blur tw-shadow-lg tw-border tw-border-purple-100 tw-p-4 tw-flex tw-flex-col tw-gap-2 tw-animate-float dark:tw-bg-slate-900/70 dark:tw-border-slate-700">
-                    <p className="tw-text-xs tw-font-semibold tw-text-primary/80 dark:tw-text-purple-200/80">Upcoming mentorship sync</p>
+                  <div className="tw-rounded-2xl tw-bg-white/80 tw-backdrop-blur tw-shadow-lg tw-border tw-border-purple-100 tw-p-4 tw-flex tw-flex-col tw-gap-2 tw-animate-float">
+                    <p className="tw-text-xs tw-font-semibold tw-text-primary/80">Upcoming mentorship sync</p>
                     <div className="tw-flex tw-items-center tw-justify-between">
-                      <span className="tw-text-sm tw-font-semibold tw-text-gray-900 dark:tw-text-white">UI/UX Project Deep Dive</span>
-                      <span className="tw-rounded-full tw-bg-purple-100 tw-px-2 tw-py-1 tw-text-[11px] tw-font-semibold tw-text-primary dark:tw-bg-purple-500/20 dark:tw-text-purple-100">Today</span>
+                      <span className="tw-text-sm tw-font-semibold tw-text-gray-900">UI/UX Project Deep Dive</span>
+                      <span className="tw-rounded-full tw-bg-purple-100 tw-px-2 tw-py-1 tw-text-[11px] tw-font-semibold tw-text-primary">Today</span>
                     </div>
-                    <p className="tw-text-[11px] tw-text-gray-500 dark:tw-text-slate-400">Mentor: Jaime L. · 3rd year mentee cohort</p>
+                    <p className="tw-text-[11px] tw-text-gray-500">Mentor: Jaime L. · 3rd year mentee cohort</p>
                   </div>
                 </div>
               </div>
@@ -147,11 +147,11 @@ export default function LandingPage() {
               {HIGHLIGHTS.map((item) => (
                 <div
                   key={item.title}
-                  className="tw-group tw-rounded-2xl tw-border tw-border-purple-100 tw-bg-white/80 tw-backdrop-blur tw-p-8 tw-shadow-sm tw-transition tw-transform hover:tw--translate-y-2 hover:tw-shadow-xl dark:tw-border-purple-500/40 dark:tw-bg-slate-900/70 dark:hover:tw-shadow-purple-900/40"
+                  className="tw-group tw-rounded-2xl tw-border tw-border-purple-100 tw-bg-white/80 tw-backdrop-blur tw-p-8 tw-shadow-sm tw-transition tw-transform hover:tw--translate-y-2 hover:tw-shadow-xl"
                 >
-                  <p className="tw-text-4xl tw-font-extrabold tw-text-primary dark:tw-text-purple-200">{item.title}</p>
-                  <p className="tw-mt-3 tw-text-sm tw-text-gray-600 dark:tw-text-slate-300">{item.description}</p>
-                  <span className="tw-mt-4 tw-inline-flex tw-h-1 tw-w-12 tw-rounded-full tw-bg-gradient-to-r tw-from-primary tw-via-accent tw-to-orange-300 tw-transition tw-scale-x-[0.65] group-hover:tw-scale-x-100 dark:tw-from-purple-400 dark:tw-via-purple-500 dark:tw-to-orange-400" />
+                  <p className="tw-text-4xl tw-font-extrabold tw-text-primary">{item.title}</p>
+                  <p className="tw-mt-3 tw-text-sm tw-text-gray-600">{item.description}</p>
+                  <span className="tw-mt-4 tw-inline-flex tw-h-1 tw-w-12 tw-rounded-full tw-bg-gradient-to-r tw-from-primary tw-via-accent tw-to-orange-300 tw-transition tw-scale-x-[0.65] group-hover:tw-scale-x-100" />
                 </div>
               ))}
             </div>
@@ -170,13 +170,13 @@ export default function LandingPage() {
             </div>
             <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-8">
               {STEPS.map((step, index) => (
-                <div key={step.title} className="tw-relative tw-rounded-2xl tw-border tw-border-purple-100 tw-bg-white tw-p-6 tw-shadow-sm tw-space-y-3 tw-overflow-hidden dark:tw-border-purple-500/30 dark:tw-bg-slate-900">
-                  <span className="tw-absolute tw-inset-x-0 tw-top-0 tw-h-1 tw-bg-gradient-to-r tw-from-primary tw-via-accent tw-to-orange-300 dark:tw-from-purple-400 dark:tw-via-purple-500 dark:tw-to-orange-400" aria-hidden="true" />
-                  <span className="tw-inline-flex tw-w-10 tw-h-10 tw-items-center tw-justify-center tw-rounded-full tw-bg-primary/10 tw-text-primary tw-font-semibold dark:tw-bg-purple-500/20 dark:tw-text-purple-200">
+                <div key={step.title} className="tw-relative tw-rounded-2xl tw-border tw-border-purple-100 tw-bg-white tw-p-6 tw-shadow-sm tw-space-y-3 tw-overflow-hidden">
+                  <span className="tw-absolute tw-inset-x-0 tw-top-0 tw-h-1 tw-bg-gradient-to-r tw-from-primary tw-via-accent tw-to-orange-300" aria-hidden="true" />
+                  <span className="tw-inline-flex tw-w-10 tw-h-10 tw-items-center tw-justify-center tw-rounded-full tw-bg-primary/10 tw-text-primary tw-font-semibold">
                     0{index + 1}
                   </span>
-                  <h3 className="tw-text-xl tw-font-semibold tw-text-gray-900 dark:tw-text-white">{step.title}</h3>
-                  <p className="tw-text-sm tw-text-gray-600 dark:tw-text-slate-300">{step.body}</p>
+                  <h3 className="tw-text-xl tw-font-semibold tw-text-gray-900">{step.title}</h3>
+                  <p className="tw-text-sm tw-text-gray-600">{step.body}</p>
                 </div>
               ))}
             </div>
@@ -187,21 +187,21 @@ export default function LandingPage() {
         <section className="tw-max-w-6xl tw-mx-auto tw-px-6 lg:tw-px-8">
           <div className="tw-text-center tw-mb-12">
             <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-purple-100 tw-px-3 tw-py-1 tw-text-xs tw-font-semibold tw-text-primary">Platform capabilities</span>
-            <h2 className="tw-mt-4 tw-text-3xl tw-font-bold tw-text-gray-900 dark:tw-text-white">Tools that keep mentors, mentees, and admins aligned</h2>
+            <h2 className="tw-mt-4 tw-text-3xl tw-font-bold tw-text-gray-900">Tools that keep mentors, mentees, and admins aligned</h2>
           </div>
           <div className="tw-grid tw-grid-cols-1 lg:tw-grid-cols-3 tw-gap-8">
             {FEATURES.map((feature) => (
               <article
                 key={feature.title}
-                className="tw-group tw-relative tw-rounded-3xl tw-bg-white tw-border tw-border-purple-100 tw-p-8 tw-shadow-sm tw-space-y-4 tw-overflow-hidden dark:tw-bg-slate-900 dark:tw-border-purple-500/30"
+                className="tw-group tw-relative tw-rounded-3xl tw-bg-white tw-border tw-border-purple-100 tw-p-8 tw-shadow-sm tw-space-y-4 tw-overflow-hidden"
               >
-                <span className="tw-absolute tw-inset-0 tw-bg-gradient-to-br tw-from-purple-50 tw-via-white tw-to-orange-50 tw-opacity-0 group-hover:tw-opacity-100 tw-transition dark:tw-from-purple-800/20 dark:tw-via-slate-900 dark:tw-to-indigo-900/30" aria-hidden="true" />
+                <span className="tw-absolute tw-inset-0 tw-bg-gradient-to-br tw-from-purple-50 tw-via-white tw-to-orange-50 tw-opacity-0 group-hover:tw-opacity-100 tw-transition" aria-hidden="true" />
                 <div className="tw-relative tw-space-y-4">
-                  <span className="tw-inline-flex tw-h-12 tw-w-12 tw-items-center tw-justify-center tw-rounded-2xl tw-bg-primary/10 tw-text-primary tw-font-semibold dark:tw-bg-purple-500/20 dark:tw-text-purple-200">
+                  <span className="tw-inline-flex tw-h-12 tw-w-12 tw-items-center tw-justify-center tw-rounded-2xl tw-bg-primary/10 tw-text-primary tw-font-semibold">
                     {feature.title.slice(0, 1)}
                   </span>
-                  <h3 className="tw-text-2xl tw-font-semibold tw-text-gray-900 dark:tw-text-white">{feature.title}</h3>
-                  <p className="tw-text-sm tw-text-gray-600 dark:tw-text-slate-300">{feature.body}</p>
+                  <h3 className="tw-text-2xl tw-font-semibold tw-text-gray-900">{feature.title}</h3>
+                  <p className="tw-text-sm tw-text-gray-600">{feature.body}</p>
                 </div>
               </article>
             ))}
@@ -223,11 +223,11 @@ export default function LandingPage() {
 
         {/* Call to Action */}
         <section className="tw-max-w-5xl tw-mx-auto tw-px-6 lg:tw-px-8">
-          <div className="tw-rounded-3xl tw-bg-white tw-border tw-border-purple-100 tw-shadow-[0_20px_80px_-35px_rgba(91,22,163,0.7)] tw-p-10 tw-flex tw-flex-col lg:tw-flex-row tw-gap-6 tw-items-center tw-justify-between dark:tw-bg-slate-900 dark:tw-border-purple-500/30 dark:tw-shadow-[0_20px_80px_-35px_rgba(70,0,140,0.55)]">
+          <div className="tw-rounded-3xl tw-bg-white tw-border tw-border-purple-100 tw-shadow-[0_20px_80px_-35px_rgba(91,22,163,0.7)] tw-p-10 tw-flex tw-flex-col lg:tw-flex-row tw-gap-6 tw-items-center tw-justify-between">
             <div className="tw-space-y-3">
-              <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-purple-100 tw-px-3 tw-py-1 tw-text-xs tw-font-semibold tw-text-primary dark:tw-bg-purple-500/20 dark:tw-text-purple-200">Next step</span>
-              <h2 className="tw-text-3xl tw-font-bold tw-text-gray-900 dark:tw-text-white">Ready to raise your mentoring program to the next level?</h2>
-              <p className="tw-text-sm tw-text-gray-600 tw-leading-relaxed dark:tw-text-slate-300">
+              <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-purple-100 tw-px-3 tw-py-1 tw-text-xs tw-font-semibold tw-text-primary">Next step</span>
+              <h2 className="tw-text-3xl tw-font-bold tw-text-gray-900">Ready to raise your mentoring program to the next level?</h2>
+              <p className="tw-text-sm tw-text-gray-600 tw-leading-relaxed">
                 Launch a structured mentorship experience that keeps everyone aligned—from mentees seeking guidance to admins monitoring impact.
               </p>
             </div>

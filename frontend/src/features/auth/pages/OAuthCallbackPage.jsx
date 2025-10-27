@@ -22,7 +22,7 @@ export default function OAuthCallbackPage() {
   }, []);
 
   return (
-    <div className="tw-min-h-screen tw-flex tw-items-center tw-justify-center tw-bg-white tw-text-gray-900 dark:tw-bg-slate-950 dark:tw-text-slate-100">
+    <div className="tw-min-h-screen tw-flex tw-items-center tw-justify-center tw-bg-white tw-text-gray-900">
       Signing you in…
     </div>
   );
