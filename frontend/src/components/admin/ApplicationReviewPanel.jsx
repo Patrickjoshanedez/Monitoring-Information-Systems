@@ -148,7 +148,7 @@ export default function ApplicationReviewPanel() {
   const mutateApplicationStatus = async (userId, action) => {
     setIsMutating(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/applications/${userId}/${action}`, {
+      const response = await fetch(buildApiUrl(`/admin/applications/${userId}/${action}`), {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -174,7 +174,7 @@ export default function ApplicationReviewPanel() {
   const handleRoleUpdate = async (userId, newRole) => {
     setIsMutating(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/role`, {
+      const response = await fetch(buildApiUrl(`/admin/users/${userId}/role`), {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
