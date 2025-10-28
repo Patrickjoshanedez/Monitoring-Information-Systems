@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import PropTypes from 'prop-types';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
+const buildApiUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 
 function ProtectedRoute({ children, requiredRole }) {
   const [user, setUser] = useState(null);
@@ -44,8 +45,8 @@ function ProtectedRoute({ children, requiredRole }) {
 
       if (storedUser.role === 'mentee' || storedUser.role === 'mentor') {
         const endpoint = storedUser.role === 'mentee'
-          ? `${API_BASE}/api/mentee/application/status`
-          : `${API_BASE}/api/mentor/application/status`;
+          ? buildApiUrl('/mentee/application/status')
+          : buildApiUrl('/mentor/application/status');
 
         try {
           const response = await fetch(endpoint, {

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import RecaptchaField from '../components/common/RecaptchaField.jsx';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
+const buildApiUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 
 const expertiseOptions = [
   'Web Development',
@@ -99,7 +100,7 @@ export default function MentorApplicationForm() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/api/mentor/application/submit`, {
+  const response = await fetch(buildApiUrl('/mentor/application/submit'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,

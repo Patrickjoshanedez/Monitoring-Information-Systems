@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
+const buildApiUrl = (path) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 
 const STATUS_BADGE_STYLES = {
   approved: 'tw-bg-green-100 tw-text-green-800',
@@ -90,7 +91,7 @@ const buildQueryUrl = (status, role) => {
   params.set('status', status);
   params.set('role', role);
   params.set('limit', '50');
-  return `${API_BASE_URL}/api/admin/applications?${params.toString()}`;
+  return `${buildApiUrl('/admin/applications')}?${params.toString()}`;
 };
 
 export default function ApplicationReviewPanel() {

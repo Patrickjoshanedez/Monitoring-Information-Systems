@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
+const buildApiUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 
 export default function MentorPendingPage() {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ export default function MentorPendingPage() {
 
   const checkApplicationStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/mentor/application/status`, {
+  const response = await fetch(buildApiUrl('/mentor/application/status'), {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
+const buildApiUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+
 export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -32,8 +35,7 @@ export default function OAuthCallbackPage() {
 
         // Try to fetch user profile from backend to get accurate application status
         try {
-          const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-          const res = await fetch(`${API_BASE}/api/auth/profile`, {
+          const res = await fetch(buildApiUrl('/auth/profile'), {
             headers: { Authorization: `Bearer ${token}` }
           });
 

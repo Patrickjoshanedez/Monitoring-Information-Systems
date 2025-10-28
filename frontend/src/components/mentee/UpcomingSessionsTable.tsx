@@ -104,6 +104,8 @@ const UpcomingSessionsTable: React.FC = () => {
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             className="tw-px-4 tw-py-2 tw-border tw-border-gray-300 tw-rounded-lg tw-text-sm focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-primary"
+            title="Sort sessions by"
+            aria-label="Sort sessions by"
           >
             <option value="subject">Sort by Subject</option>
             <option value="mentor">Sort by Mentor</option>
@@ -146,11 +148,13 @@ const UpcomingSessionsTable: React.FC = () => {
                 <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-600">
                   {session.dateTime}
                 </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
+                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-600">
                   <select
                     value={session.decision}
                     onChange={(e) => handleDecisionChange(session.id, e.target.value as 'Accepted' | 'Delete' | 'Cancel')}
                     className="tw-px-3 tw-py-1 tw-border tw-border-gray-300 tw-rounded tw-text-sm focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-primary"
+                    title="Session decision"
+                    aria-label={`Decision for ${session.subject} session with ${session.mentor}`}
                   >
                     <option value="Accepted">Accepted</option>
                     <option value="Delete">Delete</option>

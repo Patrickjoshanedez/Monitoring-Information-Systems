@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from '../features/auth/pages/AuthLayout';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
+const buildApiUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 
 export default function RoleSelectionPage() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function RoleSelectionPage() {
     setSelectedRole(role);
     try {
       // Update user role in backend
-      const response = await fetch(`${API_BASE}/api/auth/update-role`, {
+  const response = await fetch(buildApiUrl('/auth/update-role'), {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
