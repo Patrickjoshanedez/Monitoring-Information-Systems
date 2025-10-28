@@ -1,9 +1,11 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
 const User = require('../models/User');
 
+const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4000}`;
+
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
-  const serverUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 4000}`;
   passport.use(
     new GoogleStrategy(
       {
@@ -55,6 +57,60 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 } else {
   // eslint-disable-next-line no-console
   console.warn('Google OAuth disabled: missing GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET');
+}
+
+if (process.env.FACEBOOK_APP_ID && (process.env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_CLIENT_SECRET)) {
+  const facebookClientSecret = process.env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_CLIENT_SECRET;
+  passport.use(
+    new FacebookStrategy(
+      {
+        clientID: process.env.FACEBOOK_APP_ID,
+        clientSecret: facebookClientSecret,
+        callbackURL: `${serverUrl}/api/auth/facebook/callback`,
+        profileFields: ['id', 'emails', 'name', 'displayName']
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          const email = profile.emails?.[0]?.value;
+
+          if (!email) {
+            return done(null, false, { message: 'FACEBOOK_NO_EMAIL' });
+          }
+
+          let user = await User.findOne({ facebookId: profile.id });
+          if (!user) {
+            const existingUser = await User.findOne({ email });
+            if (existingUser) {
+              existingUser.facebookId = profile.id;
+              await existingUser.save();
+              user = existingUser;
+            } else {
+              const firstname = profile.name?.givenName || profile.displayName?.split(' ')[0] || 'Facebook';
+              const lastnameCandidate = profile.name?.familyName || profile.displayName?.split(' ').slice(1).join(' ');
+              const lastname = lastnameCandidate && lastnameCandidate.trim().length > 0 ? lastnameCandidate : 'User';
+
+              user = new User({
+                firstname,
+                lastname,
+                email,
+                facebookId: profile.id,
+                role: 'mentee'
+              });
+              await user.save();
+            }
+          }
+
+          return done(null, user);
+        } catch (err) {
+          console.error('Facebook OAuth Error:', err);
+          return done(err, null);
+        }
+      }
+    )
+  );
+} else {
+  // eslint-disable-next-line no-console
+  console.warn('Facebook OAuth disabled: missing FACEBOOK_APP_ID/FACEBOOK_APP_SECRET');
 }
 
 passport.serializeUser((user, done) => {

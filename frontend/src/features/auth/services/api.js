@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
 
 export const api = axios.create({ baseURL: API_BASE, withCredentials: true });
 
@@ -9,7 +9,10 @@ export const login = (data) => api.post('/auth/login', data).then(r => r.data);
 export const forgotPassword = (data) => api.post('/auth/forgot-password', data).then(r => r.data);
 export const resetPassword = (token, data) => api.post(`/auth/reset-password/${token}`, data).then(r => r.data);
 
-export const googleOAuthUrl = () => `${API_BASE}/auth/google`;
+const buildOAuthUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+
+export const googleOAuthUrl = () => buildOAuthUrl('/auth/google');
+export const facebookOAuthUrl = () => buildOAuthUrl('/auth/facebook');
 
 export const mapErrorCodeToMessage = (code) => {
   switch (code) {

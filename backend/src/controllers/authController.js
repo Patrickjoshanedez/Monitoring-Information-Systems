@@ -145,13 +145,14 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// Google OAuth handlers (Passport middleware mounted in routes)
-exports.googleAuth = (req, res) => {
-  // handled by passport middleware
-  return res.end();
+exports.googleAuthCallback = (req, res) => {
+  const token = createJwt(req.user);
+  const redirectBase = process.env.CLIENT_URL || 'http://localhost:5173';
+  return res.redirect(`${redirectBase}/oauth/callback?token=${token}`);
 };
 
-exports.googleAuthCallback = (req, res) => {
+// Facebook OAuth handlers
+exports.facebookAuthCallback = (req, res) => {
   const token = createJwt(req.user);
   const redirectBase = process.env.CLIENT_URL || 'http://localhost:5173';
   return res.redirect(`${redirectBase}/oauth/callback?token=${token}`);

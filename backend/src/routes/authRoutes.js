@@ -5,6 +5,9 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 const isGoogleConfigured = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+const facebookAppId = process.env.FACEBOOK_APP_ID || process.env.FACEBOOK_CLIENT_ID;
+const facebookAppSecret = process.env.FACEBOOK_APP_SECRET || process.env.FACEBOOK_CLIENT_SECRET;
+const isFacebookConfigured = !!(facebookAppId && facebookAppSecret);
 
 router.post('/auth/register', controller.register);
 router.post('/auth/login', controller.login);
@@ -17,15 +20,25 @@ router.get('/auth/google', (req, res, next) => {
   return passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
+router.get('/auth/facebook', (req, res, next) => {
+  if (!isFacebookConfigured) return res.status(503).json({ error: 'OAUTH_DISABLED' });
+  console.log('Starting Facebook OAuth flow...');
+  return passport.authenticate('facebook', { scope: ['email'] })(req, res, next);
+});
+
 // Debug endpoint to check OAuth configuration
 router.get('/auth/debug', (req, res) => {
   res.json({
     googleConfigured: isGoogleConfigured,
+    facebookConfigured: isFacebookConfigured,
     clientId: process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Missing',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Missing',
+    facebookAppId: facebookAppId ? 'Set' : 'Missing',
+    facebookAppSecret: facebookAppSecret ? 'Set' : 'Missing',
     serverUrl: process.env.SERVER_URL,
     clientUrl: process.env.CLIENT_URL,
-    callbackUrl: `${process.env.SERVER_URL || 'http://localhost:4000'}/api/auth/google/callback`
+    googleCallbackUrl: `${process.env.SERVER_URL || 'http://localhost:4000'}/api/auth/google/callback`,
+    facebookCallbackUrl: `${process.env.SERVER_URL || 'http://localhost:4000'}/api/auth/facebook/callback`
   });
 });
 
@@ -65,6 +78,28 @@ router.get('/auth/google/callback', (req, res, next) => {
     
     req.user = user;
     return controller.googleAuthCallback(req, res);
+  })(req, res, next);
+});
+
+router.get('/auth/facebook/callback', (req, res, next) => {
+  if (!isFacebookConfigured) return res.status(503).send('Facebook OAuth not configured');
+
+  return passport.authenticate('facebook', (err, user, info) => {
+    if (err) {
+      console.error('Facebook OAuth Error:', err);
+      return res.redirect((process.env.CLIENT_URL || 'http://localhost:5173') + '/login?error=OAUTH_ERROR');
+    }
+
+    if (info?.message === 'FACEBOOK_NO_EMAIL') {
+      return res.redirect((process.env.CLIENT_URL || 'http://localhost:5173') + '/login?error=OAUTH_EMAIL_REQUIRED');
+    }
+
+    if (!user) {
+      return res.redirect((process.env.CLIENT_URL || 'http://localhost:5173') + '/login?error=INVALID_CREDENTIALS');
+    }
+
+    req.user = user;
+    return controller.facebookAuthCallback(req, res);
   })(req, res, next);
 });
 
