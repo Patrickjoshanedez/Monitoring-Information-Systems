@@ -215,8 +215,7 @@ exports.profile = async (req, res) => {
   try {
     const userId = req.user && req.user.id;
     if (!userId) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
-
-  const user = await User.findById(userId).select('firstname lastname email role applicationStatus applicationRole');
+    const user = await User.findById(userId).select('firstname lastname email role applicationStatus applicationRole applicationData');
     if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
 
     return res.json({
@@ -226,10 +225,57 @@ exports.profile = async (req, res) => {
       email: user.email,
       role: user.role || null,
       applicationStatus: user.applicationStatus || 'not_submitted',
-      applicationRole: user.applicationRole || null
+      applicationRole: user.applicationRole || null,
+      applicationData: user.applicationData || {}
     });
   } catch (err) {
     console.error('Profile fetch error:', err);
+    return res.status(500).json({ error: 'NETWORK_ERROR' });
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
+
+    const {
+      firstname,
+      lastname,
+      applicationData
+    } = req.body;
+
+    const update = {};
+    if (firstname !== undefined) update.firstname = firstname;
+    if (lastname !== undefined) update.lastname = lastname;
+    if (applicationData) {
+      // Only allow expected fields to be updated
+      const allowed = ['professionalSummary', 'program', 'mentoringGoals', 'interests', 'yearLevel', 'specificSkills'];
+      const sanitized = {};
+      allowed.forEach((k) => {
+        if (applicationData[k] !== undefined) sanitized[k] = applicationData[k];
+      });
+      update.applicationData = { ...(sanitized || {}) };
+    }
+
+    const user = await User.findByIdAndUpdate(userId, { $set: update }, { new: true }).select('firstname lastname email role applicationStatus applicationRole applicationData');
+    if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
+
+    return res.json({
+      message: 'PROFILE_UPDATED',
+      user: {
+        id: user._id,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email,
+        role: user.role || null,
+        applicationStatus: user.applicationStatus || 'not_submitted',
+        applicationRole: user.applicationRole || null,
+        applicationData: user.applicationData || {}
+      }
+    });
+  } catch (err) {
+    console.error('Profile update error:', err);
     return res.status(500).json({ error: 'NETWORK_ERROR' });
   }
 };

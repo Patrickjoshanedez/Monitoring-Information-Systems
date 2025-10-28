@@ -39,6 +39,7 @@ const userSchema = new mongoose.Schema(
       expertiseAreas: [{ type: String }],
       mentoringTopics: [{ type: String }],
       mentoringGoals: { type: String },
+  interests: [{ type: String }],
       professionalSummary: { type: String },
       achievements: { type: String },
       linkedinUrl: { type: String },

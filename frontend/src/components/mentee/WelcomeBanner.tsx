@@ -1,9 +1,33 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+
+type StoredUser = {
+  firstname?: string;
+  lastname?: string;
+};
+
+const readUserFromStorage = (): StoredUser | null => {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (err) {
+    console.error('Unable to read user from storage:', err);
+    return null;
+  }
+};
 
 const WelcomeBanner: React.FC = () => {
+  const user = useMemo(() => readUserFromStorage(), []);
+  const greetingName = (user?.firstname || user?.lastname)
+    ? `${user?.firstname ?? ''} ${user?.lastname ?? ''}`.trim()
+    : '';
+
   return (
     <div className="tw-bg-primary tw-rounded-lg tw-p-8 tw-mb-8 tw-text-white">
-      <h1 className="tw-text-3xl tw-font-bold tw-mb-4">Welcome back, Kathryn!</h1>
+      <h1 className="tw-text-3xl tw-font-bold tw-mb-4">
+        {greetingName ? `Welcome back, ${greetingName}!` : 'Welcome back!'}
+      </h1>
       <div className="tw-relative">
         <input
           type="text"

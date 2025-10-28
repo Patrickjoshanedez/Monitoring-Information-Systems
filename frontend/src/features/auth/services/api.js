@@ -21,7 +21,6 @@ export const mapErrorCodeToMessage = (code) => {
     case 'ACCOUNT_LOCKED': return 'Account locked due to failed attempts. Try again later.';
     case 'INVALID_TOKEN': return 'Invalid or expired token.';
     default: return 'Network error. Please try again.';
-  }
-};
+  }};
 
 

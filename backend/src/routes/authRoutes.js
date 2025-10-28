@@ -106,6 +106,9 @@ router.get('/auth/facebook/callback', (req, res, next) => {
 // Update user role
 router.patch('/auth/update-role', auth, controller.updateRole);
 
+// Update profile (firstname/lastname and applicationData)
+router.patch('/auth/profile', auth, controller.updateProfile);
+
 // Get profile for authenticated user
 router.get('/auth/profile', auth, controller.profile);
 
