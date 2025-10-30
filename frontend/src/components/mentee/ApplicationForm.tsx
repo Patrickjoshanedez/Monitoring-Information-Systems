@@ -28,7 +28,7 @@ const ApplicationForm: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', { ...formData, major: selectedMajor });
+    // Submission handled by backend API in later iteration. Keep handler minimal.
   };
 
   return (

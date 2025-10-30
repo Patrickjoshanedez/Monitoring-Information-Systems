@@ -1,7 +1,7 @@
 import React from 'react';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import CategoryCards from '../components/mentee/CategoryCards';
-import MentorCards from '../components/mentee/MentorCards';
+import MentorDirectorySection from '../components/mentee/MentorDirectorySection';
 import ApplicationForm from '../components/mentee/ApplicationForm';
 
 const ApplyPage: React.FC = () => {
@@ -14,8 +14,8 @@ const ApplyPage: React.FC = () => {
         {/* Category Cards */}
         <CategoryCards />
 
-        {/* Mentor Cards */}
-        <MentorCards />
+  {/* Mentor Directory */}
+  <MentorDirectorySection />
 
         {/* Application Form */}
         <ApplicationForm />

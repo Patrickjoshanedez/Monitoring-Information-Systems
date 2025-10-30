@@ -47,6 +47,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.use('/api', require('./routes/authRoutes'));
 app.use('/api', require('./routes/applicationRoutes'));
+app.use('/api', require('./routes/mentorRoutes'));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));

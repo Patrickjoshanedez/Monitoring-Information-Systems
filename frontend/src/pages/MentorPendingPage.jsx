@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import logger from '../shared/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 
@@ -45,7 +46,7 @@ export default function MentorPendingPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to check mentor application status:', error);
+      logger.error('Failed to check mentor application status:', error);
     } finally {
       setLoading(false);
     }

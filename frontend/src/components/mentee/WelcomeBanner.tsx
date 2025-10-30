@@ -5,6 +5,7 @@ type StoredUser = {
   lastname?: string;
 };
 
+import logger from '../../shared/utils/logger';
 const readUserFromStorage = (): StoredUser | null => {
   try {
     const raw = localStorage.getItem('user');
@@ -12,7 +13,7 @@ const readUserFromStorage = (): StoredUser | null => {
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' ? parsed : null;
   } catch (err) {
-    console.error('Unable to read user from storage:', err);
+    logger.error('Unable to read user from storage:', err);
     return null;
   }
 };

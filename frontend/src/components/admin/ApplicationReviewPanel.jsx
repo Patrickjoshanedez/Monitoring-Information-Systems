@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import logger from '../../shared/utils/logger';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
 const buildApiUrl = (path) => `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
@@ -125,7 +126,7 @@ export default function ApplicationReviewPanel() {
       const data = await response.json();
       setApplications(data.applications || []);
     } catch (err) {
-      console.error('Failed to fetch applications:', err);
+      logger.error('Failed to fetch applications:', err);
       setError('Unable to fetch applications. Please try again.');
       setApplications([]);
     } finally {
@@ -164,7 +165,7 @@ export default function ApplicationReviewPanel() {
       await fetchApplications();
       setShowApplicationModal(false);
     } catch (err) {
-      console.error('Failed to update application status:', err);
+      logger.error('Failed to update application status:', err);
       window.alert('Failed to update application status. Please try again.');
     } finally {
       setIsMutating(false);
@@ -192,7 +193,7 @@ export default function ApplicationReviewPanel() {
       setShowRoleModal(false);
       window.alert(`User role updated to ${newRole}`);
     } catch (err) {
-      console.error('Failed to update user role:', err);
+      logger.error('Failed to update user role:', err);
       window.alert('Failed to update user role. Please try again.');
     } finally {
       setIsMutating(false);

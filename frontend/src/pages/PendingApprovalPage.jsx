@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import logger from '../shared/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 
@@ -48,7 +49,7 @@ export default function PendingApprovalPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to check application status:', error);
+      logger.error('Failed to check application status:', error);
     } finally {
       setLoading(false);
     }

@@ -18,6 +18,8 @@ type StoredUser = {
   };
 };
 
+import logger from '../shared/utils/logger';
+
 const readUserFromStorage = (): StoredUser | null => {
   try {
     const raw = localStorage.getItem('user');
@@ -30,7 +32,7 @@ const readUserFromStorage = (): StoredUser | null => {
       return { ...parsed, role: normalizedRole };
     }
   } catch (error) {
-    console.error('Unable to read profile from storage:', error);
+    logger.error('Unable to read profile from storage:', error);
   }
   return null;
 };
@@ -61,7 +63,7 @@ const ProfilePage: React.FC = () => {
         }
       } catch (err) {
         // ignore - keep local copy
-        console.error('Failed to refresh profile:', err);
+        logger.error('Failed to refresh profile:', err);
       }
     })();
   }, []);
@@ -130,7 +132,7 @@ const ProfilePage: React.FC = () => {
       setMessage('Profile saved successfully');
       setEditing(false);
     } catch (err: any) {
-      console.error('Failed to save profile:', err);
+      logger.error('Failed to save profile:', err);
       setMessage(typeof err === 'string' ? err : (err.message || 'Failed to save'));
     } finally {
       setLoading(false);

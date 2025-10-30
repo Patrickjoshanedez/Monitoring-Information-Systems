@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import logger from '../../shared/utils/logger';
 import { Navigate, useLocation } from 'react-router-dom';
 import PropTypes from 'prop-types';
 
@@ -69,7 +70,7 @@ function ProtectedRoute({ children, requiredRole }) {
             setApplicationState({ role: storedUser.role, status: storedUser.applicationStatus || 'not_submitted' });
           }
         } catch (error) {
-          console.error('Failed to check application status:', error);
+          logger.error('Failed to check application status:', error);
           setApplicationState({ role: storedUser.role, status: storedUser.applicationStatus || 'not_submitted' });
         }
       } else {
@@ -77,7 +78,7 @@ function ProtectedRoute({ children, requiredRole }) {
       }
 
     } catch (error) {
-      console.error('Auth check failed:', error);
+      logger.error('Auth check failed:', error);
     } finally {
       setLoading(false);
     }

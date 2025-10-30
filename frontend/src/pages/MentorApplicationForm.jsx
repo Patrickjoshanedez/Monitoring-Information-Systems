@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import logger from '../shared/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import RecaptchaField from '../components/common/RecaptchaField.jsx';
@@ -130,7 +131,7 @@ export default function MentorApplicationForm() {
       localStorage.setItem('user', JSON.stringify(updatedUser));
       navigate('/mentor/pending');
     } catch (err) {
-      console.error('Mentor application submission failed:', err);
+      logger.error('Mentor application submission failed:', err);
       setError('Failed to submit application. Please try again.');
     } finally {
       setLoading(false);

@@ -3,7 +3,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import WelcomeBanner from '../mentee/WelcomeBanner';
 import IconTileRow from '../mentee/IconTileRow';
 import StatsPanel from '../mentee/StatsPanel';
-import PopularMentors from '../mentee/PopularMentors';
+import MentorDirectorySection from '../mentee/MentorDirectorySection';
 import PeopleBehind from '../mentee/PeopleBehind';
 
 const MenteeDashboard: React.FC = () => {
@@ -19,8 +19,8 @@ const MenteeDashboard: React.FC = () => {
         {/* Stats Panel */}
         <StatsPanel />
 
-        {/* Popular Mentors */}
-        <PopularMentors />
+        {/* Mentor Directory */}
+        <MentorDirectorySection />
 
         {/* People Behind This */}
         <PeopleBehind />

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import logger from '../../shared/utils/logger';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 type UserSummary = {
@@ -51,7 +52,8 @@ const getStoredUser = (): UserSummary | null => {
       return { ...parsed, role: normalizedRole };
     }
   } catch (error) {
-    console.error('Failed to parse stored user:', error);
+    // Use centralized logger so production builds can silence these when desired
+    logger.error('Failed to parse stored user:', error);
   }
   return null;
 };

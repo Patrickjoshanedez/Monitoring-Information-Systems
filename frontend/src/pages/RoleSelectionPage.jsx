@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import logger from '../shared/utils/logger';
 import { useNavigate } from 'react-router-dom';
 import AuthLayout from '../features/auth/pages/AuthLayout';
 
@@ -53,7 +54,7 @@ export default function RoleSelectionPage() {
         setSelectedRole('');
       }
     } catch (error) {
-      console.error('Error updating role:', error);
+      logger.error('Error updating role:', error);
       setError('Unable to update role. Please try again.');
       setSelectedRole('');
     } finally {

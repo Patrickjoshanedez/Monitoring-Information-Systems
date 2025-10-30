@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import logger from '../shared/utils/logger';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
@@ -73,7 +74,7 @@ export default function OAuthCallbackPage() {
             else if (payload.role === 'admin') navigate('/admin/dashboard');
           }
         } catch (profileErr) {
-          console.error('Failed to fetch profile:', profileErr);
+          logger.error('Failed to fetch profile:', profileErr);
           // Fallback: decode token and continue
           try {
             const payload = JSON.parse(atob(token.split('.')[1]));
@@ -84,7 +85,7 @@ export default function OAuthCallbackPage() {
             else if (payload.role === 'mentor') navigate('/mentor/application');
             else if (payload.role === 'admin') navigate('/admin/dashboard');
           } catch (decodeError) {
-            console.error('Failed to decode token after profile fetch failure:', decodeError);
+            logger.error('Failed to decode token after profile fetch failure:', decodeError);
             setError('Invalid authentication token');
             setLoading(false);
             setTimeout(() => navigate('/login'), 3000);
@@ -92,7 +93,7 @@ export default function OAuthCallbackPage() {
         }
 
       } catch (err) {
-        console.error('OAuth callback error:', err);
+        logger.error('OAuth callback error:', err);
         setError('Authentication failed');
         setLoading(false);
         setTimeout(() => navigate('/login'), 3000);
