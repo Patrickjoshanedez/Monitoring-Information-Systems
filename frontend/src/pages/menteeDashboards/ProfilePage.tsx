@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import DashboardLayout from '../components/layouts/DashboardLayout';
+import DashboardLayout from '../../components/layouts/DashboardLayout';
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
 const buildApiUrl = (path: string) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
@@ -18,7 +18,7 @@ type StoredUser = {
   };
 };
 
-import logger from '../shared/utils/logger';
+import logger from '../../shared/utils/logger';
 
 const readUserFromStorage = (): StoredUser | null => {
   try {

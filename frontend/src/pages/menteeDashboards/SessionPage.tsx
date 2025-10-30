@@ -1,8 +1,8 @@
 import React from 'react';
-import DashboardLayout from '../components/layouts/DashboardLayout';
-import SessionKPIs from '../components/mentee/SessionKPIs';
-import UpcomingSessionsTable from '../components/mentee/UpcomingSessionsTable';
-import SessionHistoryTable from '../components/mentee/SessionHistoryTable';
+import DashboardLayout from '../../components/layouts/DashboardLayout';
+import SessionKPIs from '../../components/mentee/SessionKPIs';
+import UpcomingSessionsTable from '../../components/mentee/UpcomingSessionsTable';
+import SessionHistoryTable from '../../components/mentee/SessionHistoryTable';
 
 const SessionPage: React.FC = () => {
   return (

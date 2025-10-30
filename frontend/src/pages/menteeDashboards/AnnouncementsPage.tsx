@@ -1,6 +1,6 @@
 import React from 'react';
-import DashboardLayout from '../components/layouts/DashboardLayout';
-import AnnouncementsList from '../components/mentee/AnnouncementsList';
+import DashboardLayout from '../../components/layouts/DashboardLayout';
+import AnnouncementsList from '../../components/mentee/AnnouncementsList';
 
 const AnnouncementsPage: React.FC = () => {
   return (

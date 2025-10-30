@@ -1,6 +1,6 @@
 import React from 'react';
-import DashboardLayout from '../components/layouts/DashboardLayout';
-import MentorTable from '../components/mentee/MentorTable';
+import DashboardLayout from '../../components/layouts/DashboardLayout';
+import MentorTable from '../../components/mentee/MentorTable';
 
 interface Mentor {
   id: string;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import Header from '../components/Header.jsx';
-import Footer from '../components/Footer.jsx';
+import Header from '../../components/Header.jsx';
+import Footer from '../../components/Footer.jsx';
 
 const HIGHLIGHTS = [
   { title: '1,200+', description: 'Active mentees collaborating with mentors each semester.' },

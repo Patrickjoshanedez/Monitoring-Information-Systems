@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '../components/layouts/DashboardLayout';
-import RecaptchaField from '../components/common/RecaptchaField.jsx';
+import logger from '../../shared/utils/logger';
+import DashboardLayout from '../../components/layouts/DashboardLayout';
+import RecaptchaField from '../../components/common/RecaptchaField.jsx';
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
 const buildApiUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
@@ -97,6 +98,7 @@ export default function MenteeApplicationForm() {
       localStorage.setItem('user', JSON.stringify(updatedUser));
       navigate('/mentee/pending');
     } catch (err) {
+      logger.error('Mentee application submission failed:', err);
       setError('Failed to submit application. Please try again.');
     } finally {
       setLoading(false);

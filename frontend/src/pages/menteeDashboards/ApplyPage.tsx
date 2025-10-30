@@ -1,8 +1,8 @@
 import React from 'react';
-import DashboardLayout from '../components/layouts/DashboardLayout';
-import CategoryCards from '../components/mentee/CategoryCards';
-import MentorDirectorySection from '../components/mentee/MentorDirectorySection';
-import ApplicationForm from '../components/mentee/ApplicationForm';
+import DashboardLayout from '../../components/layouts/DashboardLayout';
+import CategoryCards from '../../components/mentee/CategoryCards';
+import MentorDirectorySection from '../../components/mentee/MentorDirectorySection';
+import ApplicationForm from '../../components/mentee/ApplicationForm';
 
 const ApplyPage: React.FC = () => {
   return (
