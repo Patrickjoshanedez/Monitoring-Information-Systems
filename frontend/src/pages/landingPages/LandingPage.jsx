@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../../components/Header.jsx';
 import Footer from '../../components/Footer.jsx';
+import PageTransition from '../../shared/ui/PageTransition';
 
 const HIGHLIGHTS = [
   { title: '1,200+', description: 'Active mentees collaborating with mentors each semester.' },
@@ -48,7 +49,8 @@ export default function LandingPage() {
     <div className="tw-min-h-screen tw-bg-white tw-flex tw-flex-col">
       <Header />
 
-      <main className="tw-flex-1 tw-space-y-24 tw-pt-10">
+  <PageTransition>
+  <main className="tw-flex-1 tw-space-y-24 tw-pt-10">
         {/* Hero Section */}
   <section className="tw-relative tw-overflow-hidden tw-bg-gradient-to-br tw-from-purple-50 tw-via-white tw-to-orange-50">
           <span
@@ -239,9 +241,9 @@ export default function LandingPage() {
             </Link>
           </div>
         </section>
-      </main>
-
-      <Footer />
+  </main>
+  <Footer />
+  </PageTransition>
     </div>
   );
 }

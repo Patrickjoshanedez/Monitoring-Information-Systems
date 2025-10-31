@@ -1,5 +1,6 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import LandingPage from './pages/landingPages/LandingPage';
 import AboutPage from './pages/landingPages/AboutPage';
 import HowItWorksPage from './pages/landingPages/HowItWorksPage';
@@ -40,14 +41,17 @@ const MentorPendingRoute = () => <ProtectedRoute requiredRole="mentor" children=
 const ProfileRoute = () => <ProtectedRoute requiredRole={undefined} children={<ProfilePage />} />;
 
 const App = () => {
+  const location = useLocation();
+
   return (
-    <Routes>
-      {/* Public Pages */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/about" element={<AboutPage />} />
-      <Route path="/how-it-works" element={<HowItWorksPage />} />
-      <Route path="/features" element={<FeaturesPage />} />
-      <Route path="/contact" element={<ContactPage />} />
+    <AnimatePresence mode="wait">
+    <Routes location={location} key={location.pathname}>
+  {/* Public Pages */}
+  <Route path="/" element={<LandingPage />} />
+  <Route path="/about" element={<AboutPage />} />
+  <Route path="/how-it-works" element={<HowItWorksPage />} />
+  <Route path="/features" element={<FeaturesPage />} />
+  <Route path="/contact" element={<ContactPage />} />
       
           {/* Auth Pages */}
           <Route path="/login" element={<LoginPage />} />
@@ -73,6 +77,7 @@ const App = () => {
   <Route path="/mentor/pending" element={<MentorPendingRoute />} />
       <Route path="/profile" element={<ProfileRoute />} />
     </Routes>
+    </AnimatePresence>
   );
 };
 

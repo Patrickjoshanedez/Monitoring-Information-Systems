@@ -1,6 +1,7 @@
 import React from 'react';
 import Header from '../../components/Header.jsx';
 import Footer from '../../components/Footer.jsx';
+import PageTransition from '../../shared/ui/PageTransition';
 
 export default function ContactPage() {
   const contactInfo = [
@@ -30,7 +31,8 @@ export default function ContactPage() {
     <div className="tw-min-h-screen tw-bg-white tw-text-gray-900  ">
       <Header />
 
-      {/* Main Content */}
+      {/* Main Content + Footer animated; Header remains static */}
+      <PageTransition>
       <main className="tw-px-6 tw-py-12">
         <div className="tw-max-w-6xl tw-mx-auto tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-12 tw-items-start">
           {/* Left Content */}
@@ -61,9 +63,9 @@ export default function ContactPage() {
             </div>
           </div>
         </div>
-      </main>
-
-      <Footer />
+  </main>
+  <Footer />
+  </PageTransition>
     </div>
   );
 }
