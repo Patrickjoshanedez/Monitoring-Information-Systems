@@ -21,6 +21,7 @@ import MenteeApplicationForm from './pages/applicationPages/MenteeApplicationFor
 import PendingApprovalPage from './pages/PendingApprovalPage';
 import MentorApplicationForm from './pages/applicationPages/MentorApplicationForm';
 import MentorPendingPage from './pages/MentorPendingPage';
+import AdminPendingPage from './pages/AdminPendingPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProfilePage from './pages/menteeDashboards/ProfilePage';
@@ -38,6 +39,7 @@ const ApplicationRoute = () => <ProtectedRoute requiredRole="mentee" children={<
 const PendingRoute = () => <ProtectedRoute requiredRole="mentee" children={<PendingApprovalPage />} />;
 const MentorApplicationRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorApplicationForm />} />;
 const MentorPendingRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorPendingPage />} />;
+const AdminPendingRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminPendingPage />} />;
 const ProfileRoute = () => <ProtectedRoute requiredRole={undefined} children={<ProfilePage />} />;
 
 const App = () => {
@@ -75,6 +77,7 @@ const App = () => {
       <Route path="/mentee/pending" element={<PendingRoute />} />
   <Route path="/mentor/application" element={<MentorApplicationRoute />} />
   <Route path="/mentor/pending" element={<MentorPendingRoute />} />
+      <Route path="/admin/pending" element={<AdminPendingRoute />} />
       <Route path="/profile" element={<ProfileRoute />} />
     </Routes>
     </AnimatePresence>

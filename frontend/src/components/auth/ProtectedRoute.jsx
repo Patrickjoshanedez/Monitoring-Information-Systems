@@ -97,6 +97,15 @@ function ProtectedRoute({ children, requiredRole }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // If authenticated but no role yet, send to role selection first
+  if (!user.role) {
+    // Allow the role selection page itself to render without redirect loop
+    if (location.pathname === '/role-selection') {
+      return children;
+    }
+    return <Navigate to="/role-selection" replace />;
+  }
+
   // Check role requirement
   if (requiredRole && user.role !== requiredRole) {
     return <Navigate to="/" replace />;
@@ -149,6 +158,17 @@ function ProtectedRoute({ children, requiredRole }) {
       default:
         if (path === '/mentor/application') return children;
         return <Navigate to="/mentor/application" replace />;
+    }
+  }
+
+  // Admin approval gating
+  if (user.role === 'admin') {
+    const status = user.applicationStatus || 'pending';
+    const path = location.pathname;
+    if (status !== 'approved') {
+      // Allow the admin pending page itself to render
+      if (path === '/admin/pending') return children;
+      return <Navigate to="/admin/pending" replace />;
     }
   }
 

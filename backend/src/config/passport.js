@@ -38,8 +38,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
               firstname: profile.name?.givenName || profile.displayName?.split(' ')[0] || 'Google',
               lastname: profile.name?.familyName || profile.displayName?.split(' ').slice(1).join(' ') || 'User',
               email: profile.emails?.[0]?.value,
-              googleId: profile.id,
-              role: 'mentee'
+              googleId: profile.id
+              // Do not set role here; keep null so app redirects to role selection
             });
             await user.save();
             console.log('Created new Google user:', user.email);
@@ -93,8 +93,8 @@ if (process.env.FACEBOOK_APP_ID && (process.env.FACEBOOK_APP_SECRET || process.e
                 firstname,
                 lastname,
                 email,
-                facebookId: profile.id,
-                role: 'mentee'
+                facebookId: profile.id
+                // Do not set role; keep null to force role selection on first login
               });
               await user.save();
             }

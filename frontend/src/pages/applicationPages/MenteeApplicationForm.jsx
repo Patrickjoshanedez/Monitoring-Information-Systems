@@ -141,6 +141,22 @@ export default function MenteeApplicationForm() {
             </p>
           </div>
 
+          {/* Role hint */}
+          <div className="tw-mb-4 tw-rounded-xl tw-border tw-border-purple-200 tw-bg-purple-50 tw-p-4">
+            <div className="tw-flex tw-items-center tw-justify-between tw-gap-4">
+              <p className="tw-text-sm tw-text-gray-700">
+                Not the right path? If you meant to register as a Mentor instead, you can change your role.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/role-selection')}
+                className="tw-inline-flex tw-items-center tw-rounded-lg tw-bg-white tw-text-purple-700 tw-border tw-border-purple-300 hover:tw-border-purple-500 tw-px-3 tw-py-1.5 tw-text-sm tw-font-medium"
+              >
+                Change role
+              </button>
+            </div>
+          </div>
+
           {/* Application Form */}
           <div className="tw-bg-white tw-rounded-xl tw-shadow-lg tw-p-8">
             <form onSubmit={handleSubmit} className="tw-space-y-8">

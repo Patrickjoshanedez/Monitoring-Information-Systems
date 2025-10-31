@@ -51,7 +51,8 @@ export default function OAuthCallbackPage() {
             if (!role || role === null) {
               navigate('/role-selection');
             } else if (role === 'admin') {
-              navigate('/admin/dashboard');
+              if (applicationStatus === 'approved') navigate('/admin/dashboard');
+              else navigate('/admin/pending');
             } else if (role === 'mentor') {
               if (applicationStatus === 'not_submitted') navigate('/mentor/application');
               else if (applicationStatus === 'pending') navigate('/mentor/pending');
@@ -71,7 +72,7 @@ export default function OAuthCallbackPage() {
             if (!payload.role || payload.role === null) navigate('/role-selection');
             else if (payload.role === 'mentee') navigate('/mentee/application');
             else if (payload.role === 'mentor') navigate('/mentor/application');
-            else if (payload.role === 'admin') navigate('/admin/dashboard');
+            else if (payload.role === 'admin') navigate('/admin/pending');
           }
         } catch (profileErr) {
           logger.error('Failed to fetch profile:', profileErr);
@@ -83,7 +84,7 @@ export default function OAuthCallbackPage() {
             if (!payload.role || payload.role === null) navigate('/role-selection');
             else if (payload.role === 'mentee') navigate('/mentee/application');
             else if (payload.role === 'mentor') navigate('/mentor/application');
-            else if (payload.role === 'admin') navigate('/admin/dashboard');
+            else if (payload.role === 'admin') navigate('/admin/pending');
           } catch (decodeError) {
             logger.error('Failed to decode token after profile fetch failure:', decodeError);
             setError('Invalid authentication token');

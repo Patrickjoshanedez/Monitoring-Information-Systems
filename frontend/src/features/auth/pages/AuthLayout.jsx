@@ -6,10 +6,41 @@ export default function AuthLayout({ title, subtitle, children }) {
     <div className="tw-min-h-screen tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-bg-white tw-text-gray-900  ">
       {/* Left Side - Purple Gradient */}
       <div className="tw-bg-gradient-to-br tw-from-purple-700 tw-to-purple-900 tw-p-10 tw-text-white tw-flex tw-flex-col tw-justify-between tw-relative  ">
-        {/* Logo Placeholder */}
-        <div className="tw-absolute tw-top-6 tw-left-6">
-          <div className="tw-w-16 tw-h-16 tw-bg-white/20 tw-rounded-full tw-flex tw-items-center tw-justify-center tw-backdrop-blur-sm">
-            <div className="tw-text-white tw-font-bold tw-text-lg">CS</div>
+        {/* Solid trail touching the top, with circular badge overlapping near its lower end */}
+  <div className="tw-absolute tw-top-0 tw-left-3 md:tw-left-4 lg:tw-left-6 tw-select-none">
+          <div className="tw-relative">
+            {/* Trail (solid panel) */}
+            <div className="
+              tw-w-32 md:tw-w-44 lg:tw-w-56
+              tw-h-40 md:tw-h-52 lg:tw-h-64
+              tw-bg-gray-100 tw-rounded-br-3xl
+            "></div>
+
+            {/* Badge positioned centered on the trail */}
+            <div className="tw-absolute tw-left-1/2 tw--translate-x-1/2 tw-top-24 md:tw-top-32 lg:tw-top-40">
+              <div
+                className="
+                  tw-relative
+                  tw-w-32 tw-h-32 md:tw-w-44 md:tw-h-44 lg:tw-w-56 lg:tw-h-56
+                  tw-rounded-full tw-bg-gradient-to-br tw-from-white tw-to-gray-200
+                  tw-shadow-2xl tw-ring-1 tw-ring-white/60
+                "
+              >
+                <div className="tw-absolute tw-inset-2 md:tw-inset-3 lg:tw-inset-4 tw-rounded-full tw-bg-gray-50 tw-shadow-xl tw-ring-1 tw-ring-gray-200 tw-flex tw-items-center tw-justify-center">
+                  <img
+                    src="/itcs-logo.png"
+                    alt="Information Technology Computer Society logo"
+                    className="tw-w-[70%] tw-h-[70%] tw-object-contain tw-rounded-full tw-drop-shadow-md"
+                    loading="eager"
+                    decoding="async"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/logo.svg';
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
