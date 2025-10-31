@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const ENABLE_LOGS = import.meta.env.VITE_ENABLE_LOGS === 'true' || import.meta.env.MODE !== 'production';
 
 function safeWrap(fn: (...args: any[]) => void) {
@@ -5,7 +6,7 @@ function safeWrap(fn: (...args: any[]) => void) {
     if (ENABLE_LOGS) {
       try {
         fn(...args);
-      } catch (_) {
+      } catch {
         // swallow
       }
     }

@@ -17,13 +17,13 @@ router.post('/auth/reset-password/:token', controller.resetPassword);
 router.get('/auth/google', (req, res, next) => {
   if (!isGoogleConfigured) return res.status(503).json({ error: 'OAUTH_DISABLED' });
   console.log('Starting Google OAuth flow...');
-  return passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+  return passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next);
 });
 
 router.get('/auth/facebook', (req, res, next) => {
   if (!isFacebookConfigured) return res.status(503).json({ error: 'OAUTH_DISABLED' });
   console.log('Starting Facebook OAuth flow...');
-  return passport.authenticate('facebook', { scope: ['email'] })(req, res, next);
+  return passport.authenticate('facebook', { scope: ['email'], session: false })(req, res, next);
 });
 
 // Debug endpoint to check OAuth configuration
@@ -51,7 +51,7 @@ router.get('/auth/google/callback', (req, res, next) => {
     state: req.query.state
   });
   
-  return passport.authenticate('google', (err, user, info) => {
+  return passport.authenticate('google', { session: false }, (err, user, info) => {
     console.log('OAuth callback - Error:', err?.message || 'None');
     console.log('OAuth callback - User:', user ? 'User found' : 'No user');
     console.log('OAuth callback - Info:', info);
@@ -84,7 +84,7 @@ router.get('/auth/google/callback', (req, res, next) => {
 router.get('/auth/facebook/callback', (req, res, next) => {
   if (!isFacebookConfigured) return res.status(503).send('Facebook OAuth not configured');
 
-  return passport.authenticate('facebook', (err, user, info) => {
+  return passport.authenticate('facebook', { session: false }, (err, user, info) => {
     if (err) {
       console.error('Facebook OAuth Error:', err);
       return res.redirect((process.env.CLIENT_URL || 'http://localhost:5173') + '/login?error=OAUTH_ERROR');

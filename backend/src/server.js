@@ -1,6 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
@@ -13,16 +12,7 @@ app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', creden
 app.use(express.json());
 app.use(cookieParser());
 
-app.use(
-  session({
-    secret: process.env.JWT_SECRET,
-    resave: false,
-    saveUninitialized: false
-  })
-);
-
 app.use(passport.initialize());
-app.use(passport.session());
 
 app.use(
   helmet({

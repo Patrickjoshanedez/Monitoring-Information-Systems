@@ -25,7 +25,7 @@ const formatDate = (value) => {
 
   try {
     return new Date(value).toLocaleDateString();
-  } catch (error) {
+  } catch {
     return 'N/A';
   }
 };
