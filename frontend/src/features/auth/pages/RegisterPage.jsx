@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
-import { register, googleOAuthUrl, mapErrorCodeToMessage } from '../services/api.js';
+import { register, googleOAuthUrl, facebookOAuthUrl, mapErrorCodeToMessage } from '../services/api.js';
 import RecaptchaField from '../../../components/common/RecaptchaField.jsx';
 
 export default function RegisterPage() {
@@ -190,6 +190,20 @@ export default function RegisterPage() {
  </svg>
  <span>Google</span>
  </button>
+
+	{/* Facebook Button with Logo */}
+	<button 
+	 type="button" 
+	 onClick={() => (window.location.href = facebookOAuthUrl())} 
+	 className="tw-w-full tw-border tw-border-gray-300 hover:tw-border-gray-400 tw-rounded-xl tw-py-3 tw-font-medium tw-transition-colors tw-flex tw-items-center tw-justify-center tw-gap-3 tw-mt-3"
+	 aria-label="Continue with Facebook"
+	>
+	 <svg className="tw-w-5 tw-h-5" viewBox="0 0 24 24" aria-hidden="true">
+		 <path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.356c0-3.007 1.792-4.668 4.533-4.668 1.313 0 2.686.235 2.686.235v2.953h-1.513c-1.492 0-1.956.93-1.956 1.887v2.258h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>
+		 <path fill="#fff" d="M16.671 15.563l.532-3.49h-3.328V9.815c0-.957.464-1.887 1.956-1.887h1.513V4.975s-1.373-.235-2.686-.235c-2.741 0-4.533 1.661-4.533 4.668v2.717H7.078v3.49h3.047V24a12.09 12.09 0 003.75 0v-8.437h2.796z"/>
+	 </svg>
+	 <span>Facebook</span>
+	</button>
 
  {/* Login Link */}
  <p className="tw-text-sm tw-text-center tw-text-gray-600 ">
