@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema(
       expertiseAreas: [{ type: String }],
       mentoringTopics: [{ type: String }],
       mentoringGoals: { type: String },
-  interests: [{ type: String }],
+      interests: [{ type: String }],
       professionalSummary: { type: String },
       achievements: { type: String },
       linkedinUrl: { type: String },
@@ -55,6 +55,10 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Indexes for common queries
+// Optimize mentor directory lookups and general auth by role/status and email
+userSchema.index({ role: 1, applicationStatus: 1 });
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password') || !this.password) return next();

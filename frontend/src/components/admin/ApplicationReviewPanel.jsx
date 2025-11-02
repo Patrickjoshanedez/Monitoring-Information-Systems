@@ -11,6 +11,9 @@ const STATUS_BADGE_STYLES = {
   default: 'tw-bg-gray-100 tw-text-gray-700'
 };
 
+// Map backend statuses to UI classification
+const classifyStatus = (status) => (status === 'not_submitted' ? 'pending' : status || 'default');
+
 const ROLE_BADGE_STYLES = {
   mentor: 'tw-bg-blue-100 tw-text-blue-800',
   mentee: 'tw-bg-purple-100 tw-text-purple-800',
@@ -44,7 +47,7 @@ const formatList = (value) => {
 
 const getApplicationRole = (application) => application.applicationRole || application.role || 'mentee';
 
-const getStatusBadgeClass = (status) => STATUS_BADGE_STYLES[status] || STATUS_BADGE_STYLES.default;
+const getStatusBadgeClass = (status) => STATUS_BADGE_STYLES[classifyStatus(status)] || STATUS_BADGE_STYLES.default;
 
 const getRoleBadgeClass = (role) => ROLE_BADGE_STYLES[role] || ROLE_BADGE_STYLES.default;
 
@@ -173,6 +176,14 @@ export default function ApplicationReviewPanel() {
   };
 
   const handleRoleUpdate = async (userId, newRole) => {
+    const name = selectedUser ? `${selectedUser.firstname} ${selectedUser.lastname}`.trim() : 'this user';
+    const adminNote = newRole === 'admin'
+      ? '\n\nNote: Admin access requires approval. The user will be marked as pending until approved.'
+      : '';
+
+    const ok = window.confirm(`Change role for ${name} to “${newRole}”?${adminNote}`);
+    if (!ok) return;
+
     setIsMutating(true);
     try {
       const response = await fetch(buildApiUrl(`/admin/users/${userId}/role`), {
@@ -191,7 +202,7 @@ export default function ApplicationReviewPanel() {
 
       await fetchApplications();
       setShowRoleModal(false);
-      window.alert(`User role updated to ${newRole}`);
+      window.alert(`Success: User role updated to ${newRole}.`);
     } catch (err) {
       logger.error('Failed to update user role:', err);
       window.alert('Failed to update user role. Please try again.');
@@ -321,7 +332,7 @@ export default function ApplicationReviewPanel() {
                   </td>
                   <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
                     <span className={`tw-inline-flex tw-items-center tw-rounded-full tw-px-2.5 tw-py-1 tw-text-xs tw-font-semibold ${getStatusBadgeClass(application.applicationStatus)}`}>
-                      {application.applicationStatus}
+                      {classifyStatus(application.applicationStatus)}
                     </span>
                   </td>
                   <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
@@ -340,7 +351,7 @@ export default function ApplicationReviewPanel() {
                       >
                         Change Role
                       </button>
-                      {application.applicationStatus === 'pending' && (
+                      {(classifyStatus(application.applicationStatus) === 'pending') && (
                         <>
                           <button
                             type="button"
@@ -390,7 +401,7 @@ export default function ApplicationReviewPanel() {
                     {getApplicationRole(selectedApplication).charAt(0).toUpperCase() + getApplicationRole(selectedApplication).slice(1)} Application
                   </span>
                   <span className={`tw-inline-flex tw-items-center tw-rounded-full tw-px-2.5 tw-py-1 tw-text-xs tw-font-semibold ${getStatusBadgeClass(selectedApplication.applicationStatus)}`}>
-                    {selectedApplication.applicationStatus}
+                    {classifyStatus(selectedApplication.applicationStatus)}
                   </span>
                 </div>
               </div>
@@ -489,7 +500,7 @@ export default function ApplicationReviewPanel() {
               </section>
             </div>
 
-            {selectedApplication.applicationStatus === 'pending' && (
+            {classifyStatus(selectedApplication.applicationStatus) === 'pending' && (
               <div className="tw-px-6 tw-py-4 tw-border-t tw-border-gray-200 tw-flex tw-justify-end tw-gap-3">
                 <button
                   type="button"

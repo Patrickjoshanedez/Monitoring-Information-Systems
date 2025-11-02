@@ -78,19 +78,30 @@ router.patch('/admin/users/:userId/role', auth, (req, res, next) => {
     }
 
     const User = require('../models/User');
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { role },
-      { new: true }
-    );
-
-    if (!user) {
+    const existing = await User.findById(userId).select('firstname lastname email role applicationStatus applicationRole');
+    if (!existing) {
       return res.status(404).json({
         success: false,
         error: 'USER_NOT_FOUND',
         message: 'User not found'
       });
     }
+
+    // Policy: Any role change requires an approval step.
+    // Mark the user as "pending" and stamp a submitted time so the entry
+    // appears in the Application Review panel where admins can approve/reject.
+    // Also reset review metadata.
+    const update = {
+      role,
+      applicationRole: role,
+      applicationStatus: 'pending',
+      applicationSubmittedAt: new Date(),
+      applicationReviewedAt: undefined,
+      applicationReviewedBy: undefined
+    };
+
+    const user = await User.findByIdAndUpdate(userId, { $set: update }, { new: true })
+      .select('firstname lastname email role applicationStatus applicationRole applicationSubmittedAt');
 
     res.json({
       success: true,
@@ -100,7 +111,10 @@ router.patch('/admin/users/:userId/role', auth, (req, res, next) => {
         firstname: user.firstname,
         lastname: user.lastname,
         email: user.email,
-        role: user.role
+        role: user.role,
+        applicationStatus: user.applicationStatus,
+        applicationRole: user.applicationRole,
+        applicationSubmittedAt: user.applicationSubmittedAt,
       }
     });
   } catch (error) {

@@ -42,6 +42,17 @@ app.use('/api', require('./routes/mentorRoutes'));
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
+// Global error handler to ensure JSON responses (e.g., multer/file upload errors)
+// Must come after routes and static handlers
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  // Basic content negotiation: default to JSON
+  console.error('Unhandled error:', err);
+  const status = err.status || 500;
+  const message = err.message || 'An unexpected error occurred';
+  return res.status(status).json({ success: false, error: 'SERVER_ERROR', message });
+});
+
 const start = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
   const port = process.env.PORT || 4000;

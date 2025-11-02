@@ -342,7 +342,8 @@ const listApplications = async (req, res) => {
       query.applicationRole = role;
     }
     if (status !== 'all') {
-      query.applicationStatus = status;
+      // Classify 'not_submitted' as pending for listing/filtering
+      query.applicationStatus = status === 'pending' ? { $in: ['pending', 'not_submitted'] } : status;
     }
 
     const applications = await User.find(query)
@@ -386,7 +387,8 @@ const approveApplication = async (req, res) => {
       });
     }
 
-    if (user.applicationStatus !== 'pending') {
+    // Treat 'not_submitted' like 'pending' for admin review actions
+    if (!['pending', 'not_submitted'].includes(user.applicationStatus)) {
       return res.status(400).json({
         success: false,
         error: 'INVALID_STATUS',
@@ -428,7 +430,8 @@ const rejectApplication = async (req, res) => {
       });
     }
 
-    if (user.applicationStatus !== 'pending') {
+    // Treat 'not_submitted' like 'pending' for admin review actions
+    if (!['pending', 'not_submitted'].includes(user.applicationStatus)) {
       return res.status(400).json({
         success: false,
         error: 'INVALID_STATUS',

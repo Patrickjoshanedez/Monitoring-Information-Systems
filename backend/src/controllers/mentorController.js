@@ -179,6 +179,10 @@ exports.listMentors = async (req, res) => {
       minRating: req.query.minRating || '',
     };
 
+    // Optional pagination (defaults keep existing behavior)
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+
     const mentorsFromDb = await User.find({
       role: 'mentor',
       applicationStatus: 'approved',
@@ -189,14 +193,24 @@ exports.listMentors = async (req, res) => {
     const normalizedMentors = mentorsFromDb.map(normalizeMentor);
     const filteredMentors = normalizedMentors.filter((mentor) => matchesFilters(mentor, filters));
 
+    const total = filteredMentors.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const pageItems = filteredMentors.slice(start, end);
+
     return res.json({
       success: true,
-      mentors: filteredMentors,
+      mentors: pageItems,
       meta: {
         source: 'api',
         message: 'Mentors are sourced from approved mentor profiles in the platform database.',
-        total: filteredMentors.length,
+        total,
         available: normalizedMentors.length,
+        page,
+        limit,
+        totalPages,
+        count: pageItems.length,
       },
     });
   } catch (error) {
