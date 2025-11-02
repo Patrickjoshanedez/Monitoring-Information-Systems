@@ -62,8 +62,18 @@ const Header: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const notifRef = useRef<HTMLDivElement | null>(null);
   const [user, setUser] = useState<UserSummary | null>(() => getStoredUser());
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    title: string;
+    message: string;
+    createdAt: string;
+    readAt?: string | null;
+  }>>([]);
+  const [loadingNotif, setLoadingNotif] = useState(false);
 
   useEffect(() => {
     const handleStorage = () => setUser(getStoredUser());
@@ -72,17 +82,91 @@ const Header: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!dropdownOpen) {
+    if (!dropdownOpen && !notifOpen) {
       return;
     }
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setDropdownOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(target)) {
+        setNotifOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [dropdownOpen]);
+  }, [dropdownOpen, notifOpen]);
+
+  // Notifications API helpers
+  const API_BASE = useMemo(() => {
+    try {
+      // VITE_API_URL should be configured; fallback provided
+      const base = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
+      return String(base).replace(/\/+$/, '');
+    } catch {
+      return 'http://localhost:4000/api';
+    }
+  }, []);
+
+  const buildApiUrl = (path: string) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+
+  const fetchNotifications = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    setLoadingNotif(true);
+    try {
+      const res = await fetch(buildApiUrl('/notifications'), {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to load notifications');
+      const data = await res.json();
+      setNotifications(Array.isArray(data.notifications) ? data.notifications : []);
+    } catch (err) {
+      logger.error('Notification fetch failed:', err);
+    } finally {
+      setLoadingNotif(false);
+    }
+  };
+
+  const markAllRead = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(buildApiUrl('/notifications/read-all'), {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to mark all read');
+      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
+    } catch (err) {
+      logger.error('Mark all notifications read failed:', err);
+    }
+  };
+
+  const markOneRead = async (id: string) => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const res = await fetch(buildApiUrl(`/notifications/${id}/read`), {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to mark read');
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: n.readAt || new Date().toISOString() } : n)));
+    } catch (err) {
+      logger.error('Mark notification read failed:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const i = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(i);
+  }, []);
 
   const navItems = useMemo(() => {
     if (!user?.role) {
@@ -134,6 +218,8 @@ const Header: React.FC = () => {
     return user.email || 'Account';
   }, [user]);
 
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
+
   const handleShowProfile = () => {
     setDropdownOpen(false);
     navigate('/profile');
@@ -182,6 +268,63 @@ const Header: React.FC = () => {
           )}
 
           <div className="tw-flex tw-items-center tw-space-x-3">
+            {user && (
+              <div className="tw-relative" ref={notifRef}>
+                <button
+                  type="button"
+                  aria-label="Notifications"
+                  onClick={() => setNotifOpen((o) => !o)}
+                  className="tw-relative tw-h-10 tw-w-10 tw-rounded-full tw-bg-white/10 tw-flex tw-items-center tw-justify-center hover:tw-bg-white/20 tw-transition-colors"
+                >
+                  <svg className="tw-w-5 tw-h-5 tw-text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="tw-absolute tw--top-1 tw--right-1 tw-bg-red-500 tw-text-white tw-rounded-full tw-text-[10px] tw-leading-none tw-px-1.5 tw-py-0.5">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                {notifOpen && (
+                  <div className="tw-absolute tw-right-0 tw-mt-2 tw-w-80 tw-bg-white tw-text-gray-800 tw-rounded-lg tw-shadow-lg tw-border tw-border-gray-100 tw-z-50">
+                    <div className="tw-flex tw-items-center tw-justify-between tw-px-4 tw-py-2 tw-border-b tw-border-gray-100">
+                      <span className="tw-text-sm tw-font-semibold">Notifications</span>
+                      <button
+                        type="button"
+                        onClick={markAllRead}
+                        className="tw-text-xs tw-text-purple-600 hover:tw-text-purple-800 disabled:tw-opacity-50"
+                        disabled={loadingNotif || unreadCount === 0}
+                      >
+                        Mark all read
+                      </button>
+                    </div>
+                    <div className="tw-max-h-80 tw-overflow-y-auto">
+                      {loadingNotif && (
+                        <div className="tw-flex tw-justify-center tw-items-center tw-p-4">
+                          <div className="tw-animate-spin tw-rounded-full tw-h-5 tw-w-5 tw-border-b-2 tw-border-purple-500" />
+                        </div>
+                      )}
+                      {!loadingNotif && notifications.length === 0 && (
+                        <div className="tw-p-4 tw-text-sm tw-text-gray-500">No notifications yet.</div>
+                      )}
+                      {!loadingNotif && notifications.map((n) => (
+                        <button
+                          key={n.id}
+                          type="button"
+                          onClick={() => markOneRead(n.id)}
+                          className={`tw-w-full tw-text-left tw-px-4 tw-py-3 tw-text-sm hover:tw-bg-gray-50 ${!n.readAt ? 'tw-bg-purple-50' : ''}`}
+                        >
+                          <p className="tw-font-medium tw-text-gray-900 tw-truncate">{n.title}</p>
+                          <p className="tw-text-gray-600 tw-text-xs tw-mt-0.5 tw-line-clamp-2">{n.message}</p>
+                          <p className="tw-text-gray-400 tw-text-[11px] tw-mt-1">{new Date(n.createdAt).toLocaleString()}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="tw-hidden sm:tw-flex tw-flex-col tw-items-end">
               <span className="tw-text-sm tw-font-semibold tw-leading-5">{displayName}</span>
               {user?.email && (
