@@ -13,6 +13,7 @@ router.post('/auth/register', controller.register);
 router.post('/auth/login', controller.login);
 router.post('/auth/forgot-password', controller.forgotPassword);
 router.post('/auth/reset-password/:token', controller.resetPassword);
+router.post('/auth/set-password', auth, controller.setPassword);
 
 router.get('/auth/google', (req, res, next) => {
   if (!isGoogleConfigured) return res.status(503).json({ error: 'OAUTH_DISABLED' });

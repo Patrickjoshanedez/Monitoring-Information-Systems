@@ -99,8 +99,8 @@ function ProtectedRoute({ children, requiredRole }) {
 
   // If authenticated but no role yet, send to role selection first
   if (!user.role) {
-    // Allow the role selection page itself to render without redirect loop
-    if (location.pathname === '/role-selection') {
+    // Allow role selection and set password pages to render without redirect loop
+    if (location.pathname === '/role-selection' || location.pathname === '/set-password') {
       return children;
     }
     return <Navigate to="/role-selection" replace />;

@@ -217,7 +217,8 @@ exports.profile = async (req, res) => {
   try {
     const userId = req.user && req.user.id;
     if (!userId) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
-    const user = await User.findById(userId).select('firstname lastname email role applicationStatus applicationRole applicationData');
+    // Select password only to compute passwordSet; do not return it to client
+    const user = await User.findById(userId).select('firstname lastname email role applicationStatus applicationRole applicationData password');
     if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
 
     return res.json({
@@ -228,7 +229,8 @@ exports.profile = async (req, res) => {
       role: user.role || null,
       applicationStatus: user.applicationStatus || 'not_submitted',
       applicationRole: user.applicationRole || null,
-      applicationData: user.applicationData || {}
+      applicationData: user.applicationData || {},
+      passwordSet: Boolean(user.password)
     });
   } catch (err) {
     console.error('Profile fetch error:', err);
@@ -278,6 +280,33 @@ exports.updateProfile = async (req, res) => {
     });
   } catch (err) {
     console.error('Profile update error:', err);
+    return res.status(500).json({ error: 'NETWORK_ERROR' });
+  }
+};
+
+exports.setPassword = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
+
+    const { password } = req.body || {};
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: 'WEAK_PASSWORD', message: 'Password must be at least 8 characters.' });
+    }
+
+    const user = await User.findById(userId).select('password');
+    if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
+
+    if (user.password) {
+      return res.status(400).json({ error: 'PASSWORD_ALREADY_SET', message: 'Password already set. Use reset password instead.' });
+    }
+
+    user.password = password; // will be hashed by pre-save hook
+    await user.save();
+
+    return res.json({ success: true, message: 'PASSWORD_SET' });
+  } catch (err) {
+    console.error('Set password error:', err);
     return res.status(500).json({ error: 'NETWORK_ERROR' });
   }
 };

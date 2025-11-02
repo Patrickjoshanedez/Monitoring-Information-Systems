@@ -44,6 +44,12 @@ export default function OAuthCallbackPage() {
             const user = await res.json();
             localStorage.setItem('user', JSON.stringify(user));
 
+            // If password is not set (OAuth-created account), direct user to set a password first
+            if (user && user.passwordSet === false) {
+              navigate('/set-password');
+              return;
+            }
+
             // Redirect based on role and application status
             const role = user.role;
             const applicationStatus = user.applicationStatus || 'not_submitted';

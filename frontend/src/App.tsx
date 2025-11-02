@@ -26,6 +26,7 @@ import RoleSelectionPage from './pages/RoleSelectionPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProfilePage from './pages/menteeDashboards/ProfilePage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import SetPasswordPage from './features/auth/pages/SetPasswordPage.jsx';
 
 // Wrapper components for better TypeScript support
 const AdminRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminDashboard />} />;
@@ -41,6 +42,7 @@ const MentorApplicationRoute = () => <ProtectedRoute requiredRole="mentor" child
 const MentorPendingRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorPendingPage />} />;
 const AdminPendingRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminPendingPage />} />;
 const ProfileRoute = () => <ProtectedRoute requiredRole={undefined} children={<ProfilePage />} />;
+const SetPasswordRoute = () => <ProtectedRoute requiredRole={undefined} children={<SetPasswordPage />} />;
 
 const App = () => {
   const location = useLocation();
@@ -62,6 +64,7 @@ const App = () => {
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           <Route path="/role-selection" element={<RoleSelectionPage />} />
           <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+          <Route path="/set-password" element={<SetPasswordRoute />} />
       
       {/* Dashboard Routes */}
       <Route path="/admin/dashboard" element={<AdminRoute />} />
