@@ -29,6 +29,12 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
             if (existingUser) {
               // Link Google account to existing user
               existingUser.googleId = profile.id;
+              // If the existing user has no role yet, set sensible defaults to avoid forcing role selection
+              if (!existingUser.role) {
+                existingUser.role = 'mentee';
+                existingUser.applicationStatus = 'not_submitted';
+                existingUser.applicationRole = 'mentee';
+              }
               await existingUser.save();
               return done(null, existingUser);
             }
@@ -38,8 +44,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
               firstname: profile.name?.givenName || profile.displayName?.split(' ')[0] || 'Google',
               lastname: profile.name?.familyName || profile.displayName?.split(' ').slice(1).join(' ') || 'User',
               email: profile.emails?.[0]?.value,
-              googleId: profile.id
-              // Do not set role here; keep null so app redirects to role selection
+              googleId: profile.id,
+              // Default role: mentee to streamline onboarding; user can change later in settings
+              role: 'mentee',
+              applicationStatus: 'not_submitted',
+              applicationRole: 'mentee'
             });
             await user.save();
             console.log('Created new Google user:', user.email);
@@ -82,6 +91,12 @@ if (process.env.FACEBOOK_APP_ID && (process.env.FACEBOOK_APP_SECRET || process.e
             const existingUser = await User.findOne({ email });
             if (existingUser) {
               existingUser.facebookId = profile.id;
+              // If the existing user has no role yet, set sensible defaults to avoid forcing role selection
+              if (!existingUser.role) {
+                existingUser.role = 'mentee';
+                existingUser.applicationStatus = 'not_submitted';
+                existingUser.applicationRole = 'mentee';
+              }
               await existingUser.save();
               user = existingUser;
             } else {
@@ -93,8 +108,11 @@ if (process.env.FACEBOOK_APP_ID && (process.env.FACEBOOK_APP_SECRET || process.e
                 firstname,
                 lastname,
                 email,
-                facebookId: profile.id
-                // Do not set role; keep null to force role selection on first login
+                facebookId: profile.id,
+                // Default role: mentee to streamline onboarding; user can change later in settings
+                role: 'mentee',
+                applicationStatus: 'not_submitted',
+                applicationRole: 'mentee'
               });
               await user.save();
             }
