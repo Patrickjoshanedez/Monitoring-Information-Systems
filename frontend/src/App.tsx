@@ -27,6 +27,7 @@ import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProfilePage from './pages/menteeDashboards/ProfilePage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SetPasswordPage from './features/auth/pages/SetPasswordPage.jsx';
+import ProfileSettings from './features/profile/pages/ProfileSettings.jsx';
 
 // Wrapper components for better TypeScript support
 const AdminRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminDashboard />} />;
@@ -42,6 +43,7 @@ const MentorApplicationRoute = () => <ProtectedRoute requiredRole="mentor" child
 const MentorPendingRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorPendingPage />} />;
 const AdminPendingRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminPendingPage />} />;
 const ProfileRoute = () => <ProtectedRoute requiredRole={undefined} children={<ProfilePage />} />;
+const ProfileSettingsRoute = () => <ProtectedRoute requiredRole="mentee" children={<ProfileSettings />} />;
 const SetPasswordRoute = () => <ProtectedRoute requiredRole={undefined} children={<SetPasswordPage />} />;
 
 const App = () => {
@@ -82,6 +84,7 @@ const App = () => {
   <Route path="/mentor/pending" element={<MentorPendingRoute />} />
       <Route path="/admin/pending" element={<AdminPendingRoute />} />
       <Route path="/profile" element={<ProfileRoute />} />
+  <Route path="/profile/settings" element={<ProfileSettingsRoute />} />
     </Routes>
     </AnimatePresence>
   );

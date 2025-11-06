@@ -51,7 +51,34 @@ const userSchema = new mongoose.Schema(
     },
     applicationSubmittedAt: { type: Date },
     applicationReviewedAt: { type: Date },
-    applicationReviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    applicationReviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+    // Mentee/Mentor Profile (separate from application data)
+    profile: {
+      displayName: { type: String, trim: true },
+      photoUrl: { type: String },
+      bio: { type: String, trim: true },
+      education: {
+        program: { type: String, trim: true },
+        yearLevel: { type: String, trim: true },
+        major: { type: String, trim: true }
+      },
+      coursesNeeded: [{ type: String, trim: true }],
+      interests: [{ type: String, trim: true }],
+      learningGoals: { type: String, trim: true },
+      timezone: { type: String, trim: true },
+      contactPreferences: [{ type: String, enum: ['email', 'in_app', 'sms'] }],
+      privacy: {
+        bio: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
+        education: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
+        interests: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
+        learningGoals: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
+        coursesNeeded: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
+        contact: { type: String, enum: ['public', 'mentors', 'private'], default: 'private' },
+        photo: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
+        displayName: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' }
+      }
+    }
   },
   { timestamps: true }
 );

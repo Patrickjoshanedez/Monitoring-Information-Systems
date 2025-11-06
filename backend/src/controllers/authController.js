@@ -218,7 +218,7 @@ exports.profile = async (req, res) => {
     const userId = req.user && req.user.id;
     if (!userId) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
     // Select password only to compute passwordSet; do not return it to client
-    const user = await User.findById(userId).select('firstname lastname email role applicationStatus applicationRole applicationData password');
+  const user = await User.findById(userId).select('firstname lastname email role applicationStatus applicationRole applicationData profile password');
     if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
 
     return res.json({
@@ -230,6 +230,7 @@ exports.profile = async (req, res) => {
       applicationStatus: user.applicationStatus || 'not_submitted',
       applicationRole: user.applicationRole || null,
       applicationData: user.applicationData || {},
+      profile: user.profile || {},
       passwordSet: Boolean(user.password)
     });
   } catch (err) {
