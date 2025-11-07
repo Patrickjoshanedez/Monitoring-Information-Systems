@@ -8,9 +8,6 @@ const {
   acceptMentorshipRequest,
   declineMentorshipRequest,
   withdrawMentorshipRequest,
-  listNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
 } = require('../controllers/mentorController');
 
 router.get('/mentors', auth, listMentors);
@@ -19,9 +16,5 @@ router.post('/mentorship/requests', auth, submitMentorshipRequest);
 router.patch('/mentorship/requests/:id/accept', auth, acceptMentorshipRequest);
 router.patch('/mentorship/requests/:id/decline', auth, declineMentorshipRequest);
 router.patch('/mentorship/requests/:id/withdraw', auth, withdrawMentorshipRequest);
-
-router.get('/notifications', auth, listNotifications);
-router.patch('/notifications/:id/read', auth, markNotificationRead);
-router.patch('/notifications/read-all', auth, markAllNotificationsRead);
 
 module.exports = router;

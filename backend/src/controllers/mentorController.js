@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const MentorshipRequest = require('../models/MentorshipRequest');
 const Notification = require('../models/Notification');
+const { sendNotification } = require('../utils/notificationService');
 
 const toArray = (value) => {
   if (!value) return [];
@@ -132,24 +133,6 @@ const formatPerson = (user) => {
     name: name || user.email,
     email: user.email,
   };
-};
-
-const createNotification = async (userId, type, title, message, data = {}) => {
-  if (!mongoose.Types.ObjectId.isValid(userId)) {
-    return;
-  }
-
-  try {
-    await Notification.create({
-      user: userId,
-      type,
-      title,
-      message,
-      data,
-    });
-  } catch (error) {
-    console.error('createNotification error:', error);
-  }
 };
 
 const serializeRequest = (request) => ({
@@ -285,20 +268,20 @@ exports.submitMentorshipRequest = async (req, res) => {
     });
 
     await Promise.all([
-      createNotification(
-        mentee._id,
-        'MENTORSHIP_REQUEST_SUBMITTED',
-        'Mentorship request sent',
-        `You requested mentorship from ${[mentor.firstname, mentor.lastname].filter(Boolean).join(' ') || mentor.email}.`,
-        { requestId: request._id, mentorId: mentor._id }
-      ),
-      createNotification(
-        mentor._id,
-        'MENTORSHIP_REQUEST_RECEIVED',
-        'New mentorship request',
-        `${[mentee.firstname, mentee.lastname].filter(Boolean).join(' ') || mentee.email} requested mentorship in ${request.subject}.`,
-        { requestId: request._id, menteeId: mentee._id }
-      ),
+      sendNotification({
+        userId: mentee._id,
+        type: 'MENTORSHIP_REQUEST_SUBMITTED',
+        title: 'Mentorship request sent',
+        message: `You requested mentorship from ${[mentor.firstname, mentor.lastname].filter(Boolean).join(' ') || mentor.email}.`,
+        data: { requestId: request._id, mentorId: mentor._id },
+      }),
+      sendNotification({
+        userId: mentor._id,
+        type: 'MENTORSHIP_REQUEST_RECEIVED',
+        title: 'New mentorship request',
+        message: `${[mentee.firstname, mentee.lastname].filter(Boolean).join(' ') || mentee.email} requested mentorship in ${request.subject}.`,
+        data: { requestId: request._id, menteeId: mentee._id },
+      }),
     ]);
 
     const populatedRequest = await MentorshipRequest.findById(request._id)
@@ -404,20 +387,20 @@ exports.acceptMentorshipRequest = async (req, res) => {
     await request.save();
 
     await Promise.all([
-      createNotification(
-        request.mentee._id,
-        'MENTORSHIP_MATCHED',
-        'Mentorship request accepted',
-        `${[request.mentor.firstname, request.mentor.lastname].filter(Boolean).join(' ') || request.mentor.email} accepted your mentorship request${request.sessionSuggestion ? ` and suggested ${request.sessionSuggestion}` : ''}.`,
-        { requestId: request._id, sessionSuggestion: request.sessionSuggestion }
-      ),
-      createNotification(
-        request.mentor._id,
-        'MENTORSHIP_MATCH_CONFIRMED',
-        'Mentorship match confirmed',
-        `You accepted the mentorship request from ${[request.mentee.firstname, request.mentee.lastname].filter(Boolean).join(' ') || request.mentee.email}.`,
-        { requestId: request._id }
-      ),
+      sendNotification({
+        userId: request.mentee._id,
+        type: 'MENTORSHIP_MATCHED',
+        title: 'Mentorship request accepted',
+        message: `${[request.mentor.firstname, request.mentor.lastname].filter(Boolean).join(' ') || request.mentor.email} accepted your mentorship request${request.sessionSuggestion ? ` and suggested ${request.sessionSuggestion}` : ''}.`,
+        data: { requestId: request._id, sessionSuggestion: request.sessionSuggestion },
+      }),
+      sendNotification({
+        userId: request.mentor._id,
+        type: 'MENTORSHIP_MATCH_CONFIRMED',
+        title: 'Mentorship match confirmed',
+        message: `You accepted the mentorship request from ${[request.mentee.firstname, request.mentee.lastname].filter(Boolean).join(' ') || request.mentee.email}.`,
+        data: { requestId: request._id },
+      }),
     ]);
 
     const refreshed = await MentorshipRequest.findById(request._id)
@@ -481,20 +464,20 @@ exports.declineMentorshipRequest = async (req, res) => {
     await request.save();
 
     await Promise.all([
-      createNotification(
-        request.mentee._id,
-        'MENTORSHIP_DECLINED',
-        'Mentorship request declined',
-        `${[request.mentor.firstname, request.mentor.lastname].filter(Boolean).join(' ') || request.mentor.email} declined your mentorship request${request.declineReason ? `: ${request.declineReason}` : '.'}`,
-        { requestId: request._id, declineReason: request.declineReason }
-      ),
-      createNotification(
-        request.mentor._id,
-        'MENTORSHIP_RESPONSE_RECORDED',
-        'Mentorship request declined',
-        `You declined the mentorship request from ${[request.mentee.firstname, request.mentee.lastname].filter(Boolean).join(' ') || request.mentee.email}.`,
-        { requestId: request._id }
-      ),
+      sendNotification({
+        userId: request.mentee._id,
+        type: 'MENTORSHIP_DECLINED',
+        title: 'Mentorship request declined',
+        message: `${[request.mentor.firstname, request.mentor.lastname].filter(Boolean).join(' ') || request.mentor.email} declined your mentorship request${request.declineReason ? `: ${request.declineReason}` : '.'}`,
+        data: { requestId: request._id, declineReason: request.declineReason },
+      }),
+      sendNotification({
+        userId: request.mentor._id,
+        type: 'MENTORSHIP_RESPONSE_RECORDED',
+        title: 'Mentorship request declined',
+        message: `You declined the mentorship request from ${[request.mentee.firstname, request.mentee.lastname].filter(Boolean).join(' ') || request.mentee.email}.`,
+        data: { requestId: request._id },
+      }),
     ]);
 
     const refreshed = await MentorshipRequest.findById(request._id)
@@ -557,20 +540,20 @@ exports.withdrawMentorshipRequest = async (req, res) => {
     await request.save();
 
     await Promise.all([
-      createNotification(
-        request.mentor._id,
-        'MENTORSHIP_WITHDRAWN',
-        'Mentorship request withdrawn',
-        `${[request.mentee.firstname, request.mentee.lastname].filter(Boolean).join(' ') || request.mentee.email} withdrew their mentorship request.`,
-        { requestId: request._id }
-      ),
-      createNotification(
-        request.mentee._id,
-        'MENTORSHIP_WITHDRAWAL_CONFIRMED',
-        'Mentorship request withdrawn',
-        'You withdrew your mentorship request.',
-        { requestId: request._id }
-      ),
+      sendNotification({
+        userId: request.mentor._id,
+        type: 'MENTORSHIP_WITHDRAWN',
+        title: 'Mentorship request withdrawn',
+        message: `${[request.mentee.firstname, request.mentee.lastname].filter(Boolean).join(' ') || request.mentee.email} withdrew their mentorship request.`,
+        data: { requestId: request._id },
+      }),
+      sendNotification({
+        userId: request.mentee._id,
+        type: 'MENTORSHIP_WITHDRAWAL_CONFIRMED',
+        title: 'Mentorship request withdrawn',
+        message: 'You withdrew your mentorship request.',
+        data: { requestId: request._id },
+      }),
     ]);
 
     const refreshed = await MentorshipRequest.findById(request._id)

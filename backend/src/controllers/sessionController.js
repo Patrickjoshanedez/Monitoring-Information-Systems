@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 const Session = require('../models/Session');
-const User = require('../models/User');
 
 const toObjectId = (id) => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null);
 

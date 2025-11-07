@@ -10,6 +10,16 @@ const sessionSchema = new mongoose.Schema(
     attended: { type: Boolean, default: true },
     tasksCompleted: { type: Number, default: 0, min: 0 },
     notes: { type: String, trim: true },
+    remindersSent: [
+      {
+        offsetMinutes: { type: Number, required: true, min: 1 },
+        sentAt: { type: Date, default: Date.now },
+        channels: {
+          inApp: { type: Boolean, default: false },
+          email: { type: Boolean, default: false },
+        },
+      },
+    ],
   },
   { timestamps: true }
 );

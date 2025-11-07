@@ -78,7 +78,45 @@ const userSchema = new mongoose.Schema(
         photo: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
         displayName: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' }
       }
-    }
+    },
+    notificationSettings: {
+      channels: {
+        sessionReminders: {
+          inApp: { type: Boolean, default: true },
+          email: { type: Boolean, default: true }
+        },
+        matches: {
+          inApp: { type: Boolean, default: true },
+          email: { type: Boolean, default: true }
+        },
+        announcements: {
+          inApp: { type: Boolean, default: true },
+          email: { type: Boolean, default: false }
+        },
+        messages: {
+          inApp: { type: Boolean, default: true },
+          email: { type: Boolean, default: true }
+        }
+      },
+      sessionReminders: {
+        enabled: { type: Boolean, default: true },
+        offsets: {
+          type: [Number],
+          default: function () {
+            return [2880, 1440, 60];
+          },
+          validate: {
+            validator(value) {
+              if (!Array.isArray(value) || value.length === 0) {
+                return false;
+              }
+              return value.every((item) => Number.isFinite(item) && item > 0 && item <= 10080);
+            },
+            message: 'Reminders must be between 1 and 10080 minutes.',
+          },
+        },
+      },
+    },
   },
   { timestamps: true }
 );

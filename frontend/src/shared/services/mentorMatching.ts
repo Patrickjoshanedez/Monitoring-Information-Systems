@@ -86,6 +86,37 @@ export type MatchNotification = {
   createdAt: string;
 };
 
+export type NotificationChannelPreference = {
+  inApp: boolean;
+  email: boolean;
+};
+
+export type NotificationPreferences = {
+  channels: {
+    sessionReminders: NotificationChannelPreference;
+    matches: NotificationChannelPreference;
+    announcements: NotificationChannelPreference;
+    messages: NotificationChannelPreference;
+  };
+  sessionReminders: {
+    enabled: boolean;
+    offsets: number[];
+  };
+};
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  channels: {
+    sessionReminders: { inApp: true, email: true },
+    matches: { inApp: true, email: true },
+    announcements: { inApp: true, email: false },
+    messages: { inApp: true, email: true },
+  },
+  sessionReminders: {
+    enabled: true,
+    offsets: [2880, 1440, 60],
+  },
+};
+
 const FEATURE_MENTOR_API = import.meta.env.VITE_FEATURE_MENTOR_API !== 'false';
 
 const FALLBACK_MENTORS: MentorProfile[] = [
@@ -390,6 +421,54 @@ export const markAllNotificationsRead = async () => {
 
   const { data } = await apiClient.patch('/notifications/read-all');
   return data;
+};
+
+const clonePreferences = (prefs: NotificationPreferences): NotificationPreferences =>
+  JSON.parse(JSON.stringify(prefs));
+
+export const getNotificationPreferences = async (): Promise<NotificationPreferences> => {
+  if (!FEATURE_MENTOR_API) {
+    return clonePreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+  }
+
+  try {
+    const { data } = await apiClient.get('/notifications/preferences');
+    if (data?.success && data?.preferences) {
+      return clonePreferences(data.preferences as NotificationPreferences);
+    }
+  } catch (error) {
+    logger.warn('getNotificationPreferences: falling back to defaults', error);
+  }
+
+  return clonePreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+};
+
+export const updateNotificationPreferences = async (
+  preferences: NotificationPreferences
+): Promise<NotificationPreferences> => {
+  if (!FEATURE_MENTOR_API) {
+    return clonePreferences(preferences);
+  }
+
+  const payload = {
+    channels: preferences.channels,
+    sessionReminders: {
+      enabled: preferences.sessionReminders.enabled,
+      offsets: preferences.sessionReminders.offsets,
+    },
+  };
+
+  try {
+    const { data } = await apiClient.put('/notifications/preferences', payload);
+    if (data?.success && data?.preferences) {
+      return clonePreferences(data.preferences as NotificationPreferences);
+    }
+  } catch (error) {
+    logger.error('updateNotificationPreferences error', error);
+    throw error;
+  }
+
+  return clonePreferences(preferences);
 };
 
 // Lightweight meta fetch to avoid large payloads when only counts are needed

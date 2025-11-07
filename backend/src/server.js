@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const passport = require('./config/passport');
 const helmet = require('helmet');
+const { startSessionReminderWorker } = require('./services/sessionReminderWorker');
 
 const app = express();
 
@@ -40,6 +41,7 @@ app.use('/api', require('./routes/applicationRoutes'));
 app.use('/api', require('./routes/mentorRoutes'));
 app.use('/api', require('./routes/profileRoutes'));
 app.use('/api', require('./routes/sessionRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
@@ -58,7 +60,10 @@ app.use((err, req, res, next) => {
 const start = async () => {
   await mongoose.connect(process.env.MONGODB_URI);
   const port = process.env.PORT || 4000;
-  app.listen(port, () => console.log(`API running on :${port}`));
+  app.listen(port, () => {
+    console.log(`API running on :${port}`);
+    startSessionReminderWorker();
+  });
 };
 
 start();
