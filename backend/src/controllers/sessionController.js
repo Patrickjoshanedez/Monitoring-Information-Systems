@@ -33,8 +33,9 @@ const parseFilters = (req) => {
 
 exports.getMenteeSessions = async (req, res) => {
   try {
-    const { filters, page, limit } = parseFilters(req);
-    const { cursor } = req.query || {};
+  const { filters, page, limit } = parseFilters(req);
+  const { cursor } = req.query || {};
+  const { parseDateCursor } = require('../utils/cursor');
 
     // Cursor pagination (preferred) falls back to page-based if no cursor provided
     const query = Session.find(filters).sort({ date: -1 });
@@ -42,13 +43,8 @@ exports.getMenteeSessions = async (req, res) => {
     let usingCursor = false;
     if (cursor) {
       usingCursor = true;
-      // cursor expected as ISO date or millisecond timestamp
-      let cursorDate = new Date(cursor);
-      if (Number.isNaN(cursorDate.getTime())) {
-        const asNumber = Number(cursor);
-        if (!Number.isNaN(asNumber)) cursorDate = new Date(asNumber);
-      }
-      if (!Number.isNaN(cursorDate.getTime())) {
+      const cursorDate = parseDateCursor(cursor);
+      if (cursorDate) {
         query.where({ date: { $lt: cursorDate } });
       }
     } else {
@@ -74,12 +70,13 @@ exports.getMenteeSessions = async (req, res) => {
       nextCursor = sessions[sessions.length - 1].date.toISOString();
     }
 
+    const { getFullName } = require('../utils/person');
     const rows = sessions.map((s) => ({
       id: s._id.toString(),
       subject: s.subject,
       mentor: s.mentor ? {
         id: s.mentor._id.toString(),
-        name: [s.mentor.firstname, s.mentor.lastname].filter(Boolean).join(' ').trim() || s.mentor.email,
+        name: getFullName(s.mentor) || s.mentor.email,
         email: s.mentor.email,
       } : null,
       date: s.date,

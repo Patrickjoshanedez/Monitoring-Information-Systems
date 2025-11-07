@@ -80,9 +80,8 @@ const processSessions = async () => {
                 continue;
             }
 
-            const mentorName = session.mentor
-                ? [session.mentor.firstname, session.mentor.lastname].filter(Boolean).join(' ').trim() || session.mentor.email
-                : 'your mentor';
+            const { getFullName } = require('../utils/person');
+            const mentorName = session.mentor ? (getFullName(session.mentor) || session.mentor.email) : 'your mentor';
 
             const timezone = mentee.profile?.timezone || 'UTC';
             const formattedDate = formatSessionDate(new Date(session.date), timezone);

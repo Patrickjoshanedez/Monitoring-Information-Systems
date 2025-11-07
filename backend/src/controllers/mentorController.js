@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const MentorshipRequest = require('../models/MentorshipRequest');
-const Notification = require('../models/Notification');
+// Notification handlers moved to notificationController for compactness
 const { sendNotification } = require('../utils/notificationService');
 
 const toArray = (value) => {
@@ -39,11 +39,11 @@ const buildAvailability = (applicationData = {}) => {
   return days.map((day) => (suffix ? `${day} (${suffix})` : day));
 };
 
+const { getFullName, personFromUser } = require('../utils/person');
+
 const normalizeMentor = (user) => {
   const data = user.applicationData || {};
-  const firstname = user.firstname || '';
-  const lastname = user.lastname || '';
-  const fullName = [firstname, lastname].join(' ').replace(/\s+/g, ' ').trim() || 'Mentor';
+  const fullName = getFullName(user) || 'Mentor';
 
   const topics = toArray(data.mentoringTopics);
   const expertise = toArray(data.expertiseAreas);
@@ -118,22 +118,7 @@ const matchesFilters = (mentor, filters) => {
   return true;
 };
 
-const formatPerson = (user) => {
-  if (!user) {
-    return {
-      id: null,
-      name: 'Unknown user',
-      email: null,
-    };
-  }
-
-  const name = [user.firstname, user.lastname].filter(Boolean).join(' ').trim();
-  return {
-    id: user._id.toString(),
-    name: name || user.email,
-    email: user.email,
-  };
-};
+const formatPerson = personFromUser;
 
 const serializeRequest = (request) => ({
   id: request._id.toString(),
@@ -272,14 +257,14 @@ exports.submitMentorshipRequest = async (req, res) => {
         userId: mentee._id,
         type: 'MENTORSHIP_REQUEST_SUBMITTED',
         title: 'Mentorship request sent',
-        message: `You requested mentorship from ${[mentor.firstname, mentor.lastname].filter(Boolean).join(' ') || mentor.email}.`,
+    message: `You requested mentorship from ${getFullName(mentor) || mentor.email}.`,
         data: { requestId: request._id, mentorId: mentor._id },
       }),
       sendNotification({
         userId: mentor._id,
         type: 'MENTORSHIP_REQUEST_RECEIVED',
         title: 'New mentorship request',
-        message: `${[mentee.firstname, mentee.lastname].filter(Boolean).join(' ') || mentee.email} requested mentorship in ${request.subject}.`,
+    message: `${getFullName(mentee) || mentee.email} requested mentorship in ${request.subject}.`,
         data: { requestId: request._id, menteeId: mentee._id },
       }),
     ]);
@@ -391,14 +376,14 @@ exports.acceptMentorshipRequest = async (req, res) => {
         userId: request.mentee._id,
         type: 'MENTORSHIP_MATCHED',
         title: 'Mentorship request accepted',
-        message: `${[request.mentor.firstname, request.mentor.lastname].filter(Boolean).join(' ') || request.mentor.email} accepted your mentorship request${request.sessionSuggestion ? ` and suggested ${request.sessionSuggestion}` : ''}.`,
+    message: `${getFullName(request.mentor) || request.mentor.email} accepted your mentorship request${request.sessionSuggestion ? ` and suggested ${request.sessionSuggestion}` : ''}.`,
         data: { requestId: request._id, sessionSuggestion: request.sessionSuggestion },
       }),
       sendNotification({
         userId: request.mentor._id,
         type: 'MENTORSHIP_MATCH_CONFIRMED',
         title: 'Mentorship match confirmed',
-        message: `You accepted the mentorship request from ${[request.mentee.firstname, request.mentee.lastname].filter(Boolean).join(' ') || request.mentee.email}.`,
+    message: `You accepted the mentorship request from ${getFullName(request.mentee) || request.mentee.email}.`,
         data: { requestId: request._id },
       }),
     ]);
@@ -468,14 +453,14 @@ exports.declineMentorshipRequest = async (req, res) => {
         userId: request.mentee._id,
         type: 'MENTORSHIP_DECLINED',
         title: 'Mentorship request declined',
-        message: `${[request.mentor.firstname, request.mentor.lastname].filter(Boolean).join(' ') || request.mentor.email} declined your mentorship request${request.declineReason ? `: ${request.declineReason}` : '.'}`,
+    message: `${getFullName(request.mentor) || request.mentor.email} declined your mentorship request${request.declineReason ? `: ${request.declineReason}` : '.'}`,
         data: { requestId: request._id, declineReason: request.declineReason },
       }),
       sendNotification({
         userId: request.mentor._id,
         type: 'MENTORSHIP_RESPONSE_RECORDED',
         title: 'Mentorship request declined',
-        message: `You declined the mentorship request from ${[request.mentee.firstname, request.mentee.lastname].filter(Boolean).join(' ') || request.mentee.email}.`,
+    message: `You declined the mentorship request from ${getFullName(request.mentee) || request.mentee.email}.`,
         data: { requestId: request._id },
       }),
     ]);
@@ -544,14 +529,14 @@ exports.withdrawMentorshipRequest = async (req, res) => {
         userId: request.mentor._id,
         type: 'MENTORSHIP_WITHDRAWN',
         title: 'Mentorship request withdrawn',
-        message: `${[request.mentee.firstname, request.mentee.lastname].filter(Boolean).join(' ') || request.mentee.email} withdrew their mentorship request.`,
+    message: `${getFullName(request.mentee) || request.mentee.email} withdrew their mentorship request.`,
         data: { requestId: request._id },
       }),
       sendNotification({
         userId: request.mentee._id,
         type: 'MENTORSHIP_WITHDRAWAL_CONFIRMED',
         title: 'Mentorship request withdrawn',
-        message: 'You withdrew your mentorship request.',
+    message: 'You withdrew your mentorship request.',
         data: { requestId: request._id },
       }),
     ]);
@@ -576,113 +561,3 @@ exports.withdrawMentorshipRequest = async (req, res) => {
   }
 };
 
-exports.listNotifications = async (req, res) => {
-  try {
-    const { cursor, limit } = req.query || {};
-    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
-
-    const baseQuery = { user: req.user.id };
-    const findQuery = Notification.find(baseQuery).sort({ createdAt: -1 });
-
-    let usingCursor = false;
-    if (cursor) {
-      usingCursor = true;
-      // cursor is ISO date or ms timestamp; use createdAt < cursor
-      let cursorDate = new Date(cursor);
-      if (Number.isNaN(cursorDate.getTime())) {
-        const asNum = Number(cursor);
-        if (!Number.isNaN(asNum)) cursorDate = new Date(asNum);
-      }
-      if (!Number.isNaN(cursorDate.getTime())) {
-        findQuery.where({ createdAt: { $lt: cursorDate } });
-      }
-    }
-
-    const notifications = await findQuery
-      .limit(pageLimit)
-      .select('type title message data readAt createdAt')
-      .lean();
-
-    let nextCursor = null;
-    if (notifications.length === pageLimit) {
-      nextCursor = notifications[notifications.length - 1].createdAt.toISOString();
-    }
-
-    return res.json({
-      success: true,
-      notifications: notifications.map((n) => ({
-        id: n._id.toString(),
-        type: n.type,
-        title: n.title,
-        message: n.message,
-        data: n.data || {},
-        readAt: n.readAt || null,
-        createdAt: n.createdAt,
-      })),
-      meta: usingCursor ? { cursor: nextCursor, limit: pageLimit, count: notifications.length, usingCursor: true } : { limit: pageLimit, count: notifications.length, usingCursor: false }
-    });
-  } catch (error) {
-    console.error('listNotifications error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'NOTIFICATION_FETCH_FAILED',
-      message: 'Unable to fetch notifications at this time.',
-    });
-  }
-};
-
-exports.markNotificationRead = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const notification = await Notification.findOneAndUpdate(
-      { _id: id, user: req.user.id },
-      { readAt: new Date() },
-      { new: true }
-    );
-
-    if (!notification) {
-      return res.status(404).json({
-        success: false,
-        error: 'NOTIFICATION_NOT_FOUND',
-        message: 'Notification not found.',
-      });
-    }
-
-    return res.json({
-      success: true,
-      notification: {
-        id: notification._id.toString(),
-        readAt: notification.readAt,
-      },
-    });
-  } catch (error) {
-    console.error('markNotificationRead error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'NOTIFICATION_UPDATE_FAILED',
-      message: 'Unable to update notification at this time.',
-    });
-  }
-};
-
-exports.markAllNotificationsRead = async (req, res) => {
-  try {
-    await Notification.updateMany(
-      { user: req.user.id, readAt: { $exists: false } },
-      { readAt: new Date() }
-    );
-
-    return res.json({
-      success: true,
-      message: 'Notifications marked as read.',
-    });
-  } catch (error) {
-    console.error('markAllNotificationsRead error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'NOTIFICATION_UPDATE_FAILED',
-      message: 'Unable to update notifications at this time.',
-    });
-  }
-};
