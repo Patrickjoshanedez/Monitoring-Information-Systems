@@ -21,11 +21,16 @@ export default defineConfig({
         warn(warning);
       },
       output: {
-        manualChunks: {
-          // Split heavy vendors to keep app chunk leaner
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'tanstack': ['@tanstack/react-query', '@tanstack/react-query-devtools'],
-          'framer': ['framer-motion'],
+        // Dynamic chunk strategy: if not matched by explicit groups below, keep default behavior.
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react/')) return 'react-vendor';
+            if (id.includes('react-dom')) return 'react-vendor';
+            if (id.includes('react-router')) return 'react-vendor';
+            if (id.includes('@tanstack/react-query')) return 'tanstack';
+            if (id.includes('framer-motion')) return 'framer';
+            if (id.includes('chart.js') || id.includes('d3')) return 'charts';
+          }
         },
       },
     },

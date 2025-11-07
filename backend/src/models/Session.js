@@ -27,5 +27,8 @@ const sessionSchema = new mongoose.Schema(
 sessionSchema.index({ mentee: 1, date: -1 });
 sessionSchema.index({ mentor: 1, date: -1 });
 sessionSchema.index({ mentee: 1, subject: 1 });
+// Helpful for feeds and exports
+sessionSchema.index({ mentee: 1, createdAt: -1 });
+sessionSchema.index({ mentor: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Session', sessionSchema);

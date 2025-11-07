@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const passport = require('./config/passport');
 const helmet = require('helmet');
 const { startSessionReminderWorker } = require('./services/sessionReminderWorker');
+const compression = require('compression');
 
 const app = express();
 
@@ -28,6 +29,9 @@ app.use(
     },
   })
 );
+
+// HTTP compression for JSON/text responses (minimal risk, boosts throughput)
+app.use(compression());
 
 // Silence .well-known 404s for devtools/chrome probes
 app.use('/.well-known', (req, res) => {

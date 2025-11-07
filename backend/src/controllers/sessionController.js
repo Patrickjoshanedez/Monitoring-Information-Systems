@@ -34,14 +34,45 @@ const parseFilters = (req) => {
 exports.getMenteeSessions = async (req, res) => {
   try {
     const { filters, page, limit } = parseFilters(req);
+    const { cursor } = req.query || {};
 
-    const total = await Session.countDocuments(filters);
-    const sessions = await Session.find(filters)
-      .sort({ date: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
+    // Cursor pagination (preferred) falls back to page-based if no cursor provided
+    const query = Session.find(filters).sort({ date: -1 });
+
+    let usingCursor = false;
+    if (cursor) {
+      usingCursor = true;
+      // cursor expected as ISO date or millisecond timestamp
+      let cursorDate = new Date(cursor);
+      if (Number.isNaN(cursorDate.getTime())) {
+        const asNumber = Number(cursor);
+        if (!Number.isNaN(asNumber)) cursorDate = new Date(asNumber);
+      }
+      if (!Number.isNaN(cursorDate.getTime())) {
+        query.where({ date: { $lt: cursorDate } });
+      }
+    } else {
+      query.skip((page - 1) * limit);
+    }
+
+    query.limit(limit)
+      .select('subject mentor date durationMinutes attended tasksCompleted notes')
       .populate('mentor', 'firstname lastname email')
       .lean();
+
+    const sessions = await query.exec();
+
+    // Only compute total count when not using cursor (costly on large collections)
+    let total; let totalPages; let nextCursor = null;
+    if (!usingCursor) {
+      total = await Session.countDocuments(filters);
+      totalPages = Math.max(1, Math.ceil(total / limit));
+    }
+
+    if (sessions.length === limit) {
+      // nextCursor is the last session's date (descending sort)
+      nextCursor = sessions[sessions.length - 1].date.toISOString();
+    }
 
     const rows = sessions.map((s) => ({
       id: s._id.toString(),
@@ -61,7 +92,9 @@ exports.getMenteeSessions = async (req, res) => {
     return res.json({
       success: true,
       sessions: rows,
-      meta: { total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) },
+      meta: usingCursor
+        ? { cursor: nextCursor, limit, count: rows.length, usingCursor: true }
+        : { total, page, limit, totalPages, count: rows.length, usingCursor: false },
     });
   } catch (error) {
     console.error('getMenteeSessions error:', error);
@@ -72,7 +105,11 @@ exports.getMenteeSessions = async (req, res) => {
 exports.getMenteeReport = async (req, res) => {
   try {
     const { filters } = parseFilters(req);
-    const all = await Session.find(filters).sort({ date: -1 }).limit(500).lean();
+    const all = await Session.find(filters)
+      .sort({ date: -1 })
+      .limit(500)
+      .select('date subject attended tasksCompleted')
+      .lean();
 
     const total = all.length;
     const attendedCount = all.filter((s) => s.attended).length;
@@ -112,7 +149,11 @@ exports.exportMenteeData = async (req, res) => {
   try {
     const { filters } = parseFilters(req);
     const format = (req.query.format || 'csv').toString().toLowerCase();
-    const all = await Session.find(filters).sort({ date: -1 }).populate('mentor', 'firstname lastname').lean();
+    const all = await Session.find(filters)
+      .sort({ date: -1 })
+      .select('date subject durationMinutes attended tasksCompleted notes mentor')
+      .populate('mentor', 'firstname lastname')
+      .lean();
 
     if (format === 'csv') {
       const csv = toCsv(all);

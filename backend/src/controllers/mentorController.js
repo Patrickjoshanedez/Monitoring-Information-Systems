@@ -578,22 +578,48 @@ exports.withdrawMentorshipRequest = async (req, res) => {
 
 exports.listNotifications = async (req, res) => {
   try {
-    const notifications = await Notification.find({ user: req.user.id })
-      .sort({ createdAt: -1 })
-      .limit(50)
+    const { cursor, limit } = req.query || {};
+    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+
+    const baseQuery = { user: req.user.id };
+    const findQuery = Notification.find(baseQuery).sort({ createdAt: -1 });
+
+    let usingCursor = false;
+    if (cursor) {
+      usingCursor = true;
+      // cursor is ISO date or ms timestamp; use createdAt < cursor
+      let cursorDate = new Date(cursor);
+      if (Number.isNaN(cursorDate.getTime())) {
+        const asNum = Number(cursor);
+        if (!Number.isNaN(asNum)) cursorDate = new Date(asNum);
+      }
+      if (!Number.isNaN(cursorDate.getTime())) {
+        findQuery.where({ createdAt: { $lt: cursorDate } });
+      }
+    }
+
+    const notifications = await findQuery
+      .limit(pageLimit)
+      .select('type title message data readAt createdAt')
       .lean();
+
+    let nextCursor = null;
+    if (notifications.length === pageLimit) {
+      nextCursor = notifications[notifications.length - 1].createdAt.toISOString();
+    }
 
     return res.json({
       success: true,
-      notifications: notifications.map((notification) => ({
-        id: notification._id.toString(),
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        data: notification.data || {},
-        readAt: notification.readAt || null,
-        createdAt: notification.createdAt,
+      notifications: notifications.map((n) => ({
+        id: n._id.toString(),
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        data: n.data || {},
+        readAt: n.readAt || null,
+        createdAt: n.createdAt,
       })),
+      meta: usingCursor ? { cursor: nextCursor, limit: pageLimit, count: notifications.length, usingCursor: true } : { limit: pageLimit, count: notifications.length, usingCursor: false }
     });
   } catch (error) {
     console.error('listNotifications error:', error);

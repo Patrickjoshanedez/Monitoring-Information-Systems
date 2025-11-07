@@ -12,7 +12,14 @@ const notificationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Existing indexes
 notificationSchema.index({ user: 1, createdAt: -1 });
 notificationSchema.index({ user: 1, readAt: 1 });
+
+// Faster unread queries & counts (partial index)
+notificationSchema.index({ user: 1, createdAt: -1 }, { partialFilterExpression: { readAt: { $exists: false } }, name: 'unread_by_user_created_desc' });
+
+// Optional future filtering by type
+notificationSchema.index({ user: 1, type: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);
