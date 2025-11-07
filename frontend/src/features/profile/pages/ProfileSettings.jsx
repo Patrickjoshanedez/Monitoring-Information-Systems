@@ -88,7 +88,7 @@ export default function ProfileSettings() {
           contactPreferences: prof.contactPreferences || ['in_app'],
           privacy: { ...prev.privacy, ...(prof.privacy || {}) }
         }));
-      } catch (e) {
+      } catch {
         setError('Failed to load profile');
       } finally {
         setLoading(false);

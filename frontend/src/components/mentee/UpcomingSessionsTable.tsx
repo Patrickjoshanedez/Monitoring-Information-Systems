@@ -1,82 +1,49 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useMenteeInsights } from '../../features/mentorship/hooks/useMenteeInsights';
 
-interface UpcomingSession {
+type Row = {
   id: string;
   subject: string;
   mentor: string;
-  dateTime: string;
-  decision: 'Accepted' | 'Delete' | 'Cancel';
-  status: 'Upcoming' | 'Deleted' | 'Reschedule';
-}
+  suggestion: string | null;
+  createdAt: string;
+};
 
 const UpcomingSessionsTable: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('dateTime');
-  const [sessions, setSessions] = useState<UpcomingSession[]>([
-    {
-      id: '1',
-      subject: 'Networking',
-      mentor: 'James Reid',
-      dateTime: '10/8/2025 | 3:00-5:00',
-      decision: 'Accepted',
-      status: 'Upcoming'
-    },
-    {
-      id: '2',
-      subject: 'Computer Pro',
-      mentor: 'James Reid',
-      dateTime: '10/8/2025 | 3:00-5:00',
-      decision: 'Delete',
-      status: 'Deleted'
-    },
-    {
-      id: '3',
-      subject: 'Database',
-      mentor: 'James Reid',
-      dateTime: '10/8/2025 | 3:00-5:00',
-      decision: 'Cancel',
-      status: 'Reschedule'
-    }
-  ]);
+  const [sortBy, setSortBy] = useState<'subject' | 'mentor' | 'date' | 'created'>('date');
+  const { insights, isLoading } = useMenteeInsights();
 
-  const filteredSessions = sessions.filter(session =>
-    session.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    session.mentor.toLowerCase().includes(searchTerm.toLowerCase())
+  const rows = useMemo<Row[]>(() => {
+    return insights.upcomingSessions.map((s) => ({
+      id: s.id,
+      subject: s.subject,
+      mentor: s.mentorName,
+      suggestion: s.sessionSuggestion,
+      createdAt: s.createdAt,
+    }));
+  }, [insights.upcomingSessions]);
+
+  const filtered = rows.filter((r) =>
+    r.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.mentor.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const sortedSessions = [...filteredSessions].sort((a, b) => {
+  const toTime = (val?: string | null) => (val ? Date.parse(val) : 0);
+
+  const sorted = [...filtered].sort((a, b) => {
     switch (sortBy) {
       case 'subject':
         return a.subject.localeCompare(b.subject);
       case 'mentor':
         return a.mentor.localeCompare(b.mentor);
-      case 'dateTime':
-        return a.dateTime.localeCompare(b.dateTime);
-      case 'status':
-        return a.status.localeCompare(b.status);
+      case 'created':
+        return toTime(b.createdAt) - toTime(a.createdAt);
+      case 'date':
       default:
-        return 0;
+        return toTime(b.suggestion) - toTime(a.suggestion);
     }
   });
-
-  const handleDecisionChange = (id: string, newDecision: 'Accepted' | 'Delete' | 'Cancel') => {
-    setSessions(sessions.map(session =>
-      session.id === id ? { ...session, decision: newDecision } : session
-    ));
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Upcoming':
-        return 'tw-bg-green-100 tw-text-green-800';
-      case 'Deleted':
-        return 'tw-bg-red-100 tw-text-red-800';
-      case 'Reschedule':
-        return 'tw-bg-yellow-100 tw-text-yellow-800';
-      default:
-        return 'tw-bg-gray-100 tw-text-gray-800';
-    }
-  };
 
   return (
     <div className="tw-bg-white tw-rounded-lg tw-shadow-md tw-p-6 tw-mb-8">
@@ -102,15 +69,15 @@ const UpcomingSessionsTable: React.FC = () => {
           </div>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => setSortBy(e.target.value as any)}
             className="tw-px-4 tw-py-2 tw-border tw-border-gray-300 tw-rounded-lg tw-text-sm focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-primary"
             title="Sort sessions by"
             aria-label="Sort sessions by"
           >
             <option value="subject">Sort by Subject</option>
             <option value="mentor">Sort by Mentor</option>
-            <option value="dateTime">Sort by Date</option>
-            <option value="status">Sort by Status</option>
+            <option value="date">Sort by Session Date</option>
+            <option value="created">Sort by Requested</option>
           </select>
         </div>
       </div>
@@ -126,48 +93,27 @@ const UpcomingSessionsTable: React.FC = () => {
                 Mentor
               </th>
               <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">
-                Date & Time
+                Suggested Date/Time
               </th>
               <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">
-                Decision
-              </th>
-              <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">
-                Status
+                Requested
               </th>
             </tr>
           </thead>
           <tbody className="tw-bg-white tw-divide-y tw-divide-gray-200">
-            {sortedSessions.map((session) => (
-              <tr key={session.id} className="hover:tw-bg-gray-50">
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-font-medium tw-text-gray-900">
-                  {session.subject}
-                </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-600">
-                  {session.mentor}
-                </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-600">
-                  {session.dateTime}
-                </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-600">
-                  <select
-                    value={session.decision}
-                    onChange={(e) => handleDecisionChange(session.id, e.target.value as 'Accepted' | 'Delete' | 'Cancel')}
-                    className="tw-px-3 tw-py-1 tw-border tw-border-gray-300 tw-rounded tw-text-sm focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-primary"
-                    title="Session decision"
-                    aria-label={`Decision for ${session.subject} session with ${session.mentor}`}
-                  >
-                    <option value="Accepted">Accepted</option>
-                    <option value="Delete">Delete</option>
-                    <option value="Cancel">Cancel</option>
-                  </select>
-                </td>
-                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
-                  <span className={`tw-inline-flex tw-px-2 tw-py-1 tw-text-xs tw-font-semibold tw-rounded-full ${getStatusColor(session.status)}`}>
-                    {session.status}
-                  </span>
-                </td>
+            {(isLoading ? [] : sorted).map((r) => (
+              <tr key={r.id} className="hover:tw-bg-gray-50">
+                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-font-medium tw-text-gray-900">{r.subject}</td>
+                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-600">{r.mentor}</td>
+                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-600">{r.suggestion || '—'}</td>
+                <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-600">{new Date(r.createdAt).toLocaleString()}</td>
               </tr>
             ))}
+            {(!isLoading && sorted.length === 0) && (
+              <tr>
+                <td className="tw-px-6 tw-py-6 tw-text-sm tw-text-gray-500" colSpan={4}>No upcoming sessions. When a mentor accepts and suggests a time, it will appear here.</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

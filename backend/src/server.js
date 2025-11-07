@@ -39,6 +39,7 @@ app.use('/api', require('./routes/authRoutes'));
 app.use('/api', require('./routes/applicationRoutes'));
 app.use('/api', require('./routes/mentorRoutes'));
 app.use('/api', require('./routes/profileRoutes'));
+app.use('/api', require('./routes/sessionRoutes'));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));

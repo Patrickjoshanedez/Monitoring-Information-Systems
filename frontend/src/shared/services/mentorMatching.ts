@@ -391,3 +391,22 @@ export const markAllNotificationsRead = async () => {
   const { data } = await apiClient.patch('/notifications/read-all');
   return data;
 };
+
+// Lightweight meta fetch to avoid large payloads when only counts are needed
+export const fetchMentorMeta = async (): Promise<{
+  available?: number;
+  total?: number;
+}> => {
+  if (!FEATURE_MENTOR_API) {
+    return { available: FALLBACK_MENTORS.length, total: FALLBACK_MENTORS.length };
+  }
+  try {
+    const { data } = await apiClient.get('/mentors', { params: { limit: 1 } });
+    return {
+      available: data?.meta?.available,
+      total: data?.meta?.total,
+    };
+  } catch {
+    return {};
+  }
+};
