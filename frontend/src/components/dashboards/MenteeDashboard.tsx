@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import WelcomeBanner from '../mentee/WelcomeBanner';
 import IconTileRow from '../mentee/IconTileRow';
@@ -6,6 +6,8 @@ import StatsPanel from '../mentee/StatsPanel';
 import MentorDirectorySection from '../mentee/MentorDirectorySection';
 import MenteeRequestsTable from '../mentee/MenteeRequestsTable';
 import PeopleBehind from '../mentee/PeopleBehind';
+const MaterialsLibrary = React.lazy(() => import('../mentee/MaterialsLibrary'));
+const ProgressDashboard = React.lazy(() => import('../mentee/ProgressDashboard'));
 
 const MenteeDashboard: React.FC = () => {
   return (
@@ -26,6 +28,20 @@ const MenteeDashboard: React.FC = () => {
         {/* My Requests */}
         <div className="tw-mt-8">
           <MenteeRequestsTable />
+        </div>
+
+        {/* Progress Dashboard */}
+        <div className="tw-mt-8">
+          <Suspense fallback={<div className="tw-text-sm tw-text-gray-500">Loading progress...</div>}>
+            <ProgressDashboard />
+          </Suspense>
+        </div>
+
+        {/* Materials Library */}
+        <div className="tw-mt-8">
+          <Suspense fallback={<div className="tw-text-sm tw-text-gray-500">Loading materials...</div>}>
+            <MaterialsLibrary />
+          </Suspense>
         </div>
 
         {/* People Behind This */}

@@ -46,6 +46,9 @@ app.use('/api', require('./routes/mentorRoutes'));
 app.use('/api', require('./routes/profileRoutes'));
 app.use('/api', require('./routes/sessionRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api', require('./routes/materialRoutes'));
+app.use('/api', require('./routes/goalRoutes'));
+app.use('/api', require('./routes/progressRoutes'));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
