@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer className="tw-px-6 tw-py-8 tw-border-t tw-border-gray-200 tw-bg-white">
+  <footer className="tw-mt-12 md:tw-mt-16 tw-px-6 tw-py-8 tw-border-t tw-border-gray-200 tw-bg-white">
       <div className="tw-max-w-6xl tw-mx-auto">
         <div className="tw-text-sm tw-text-gray-500 tw-space-y-2">
           <p>© 2025 Computer Society</p>

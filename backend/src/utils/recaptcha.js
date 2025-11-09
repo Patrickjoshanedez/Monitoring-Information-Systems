@@ -13,11 +13,10 @@ const verifyRecaptchaToken = async (token, remoteIp) => {
   const secret = process.env.RECAPTCHA_SECRET_KEY;
 
   if (!secret) {
-    return buildResponse({
-      status: 500,
-      code: 'RECAPTCHA_NOT_CONFIGURED',
-      message: 'reCAPTCHA secret key is not configured on the server.'
-    });
+    // If the server does not have a reCAPTCHA secret configured, skip verification in dev.
+    // Log a warning so operators know verification is disabled.
+    console.warn('reCAPTCHA secret key not configured; skipping verification. Set RECAPTCHA_SECRET_KEY to enable.');
+    return { ok: true, skipped: true };
   }
 
   if (!token) {

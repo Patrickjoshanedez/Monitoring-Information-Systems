@@ -7,26 +7,23 @@ const { verifyRecaptchaToken } = require('../utils/recaptcha');
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutes
 
-const createJwt = (user) =>
-  jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+const createJwt = (user) => {
+  const secret = process.env.JWT_SECRET || 'dev-secret';
+  if (!process.env.JWT_SECRET) {
+    console.warn('JWT_SECRET is not set; using fallback dev-secret. Set JWT_SECRET in production.');
+  }
+  return jwt.sign({ id: user._id, role: user.role }, secret, { expiresIn: '1h' });
+};
 
 exports.register = async (req, res) => {
   try {
-    const { firstname, lastname, email, password, role, recaptchaToken } = req.body;
-
-    const recaptchaResult = await verifyRecaptchaToken(recaptchaToken, req.ip);
-    if (!recaptchaResult.ok) {
-      return res.status(recaptchaResult.status).json({
-        error: recaptchaResult.code,
-        message: recaptchaResult.message,
-        details: recaptchaResult.details
-      });
-    }
+    const { firstname, lastname, email, password, role } = req.body;
+    // reCAPTCHA removed for registration
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ error: 'EMAIL_EXISTS' });
-  const resolvedRole = role || 'mentee';
-  // Admins must be explicitly approved by another admin
-  const initialStatus = resolvedRole === 'admin' ? 'pending' : 'not_submitted';
+    const resolvedRole = role || 'mentee';
+    // Admins must be explicitly approved by another admin
+    const initialStatus = resolvedRole === 'admin' ? 'pending' : 'not_submitted';
     const initialApplicationRole = resolvedRole === 'admin' ? 'admin' : resolvedRole;
 
     const user = new User({
@@ -40,8 +37,77 @@ exports.register = async (req, res) => {
       applicationData: {}
     });
     await user.save();
+    // Generate email verification code (6-digit) and send email if possible
+    try {
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      user.verificationCode = code;
+      user.verificationCodeExpires = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
+      await user.save();
+      const { sendNotificationEmail } = require('../utils/emailService');
+      const base = process.env.CLIENT_URL || 'http://localhost:5173';
+      const sent = await sendNotificationEmail({
+        to: user.email,
+        subject: 'Verify your email',
+        text: `Your verification code is: ${code}. It expires in 1 hour.`
+      });
+      // If send failed, we don't fail registration; just log it
+      if (!sent) console.warn('Verification email failed to send to', user.email);
+    } catch (e) {
+      console.warn('Error sending verification email', e);
+    }
     return res.status(201).json({ message: 'REGISTERED' });
   } catch (err) {
+    console.error('Login error:', err);
+    // Return a helpful message for the client while keeping details out of production logs
+    return res.status(500).json({ error: 'NETWORK_ERROR', message: err.message || 'Internal server error' });
+  }
+};
+
+// Send a verification code to an existing user's email (or re-send)
+exports.sendVerificationCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'EMAIL_REQUIRED' });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    user.verificationCode = code;
+    user.verificationCodeExpires = new Date(Date.now() + 1000 * 60 * 60);
+    await user.save();
+    const { sendNotificationEmail } = require('../utils/emailService');
+    const sent = await sendNotificationEmail({
+      to: user.email,
+      subject: 'Verify your email',
+      text: `Your verification code is: ${code}. It expires in 1 hour.`
+    });
+    if (!sent) console.warn('Verification email failed to send to', user.email);
+    return res.json({ message: 'CODE_SENT' });
+  } catch (err) {
+    console.error('sendVerificationCode error', err);
+    return res.status(500).json({ error: 'NETWORK_ERROR' });
+  }
+};
+
+// Verify code endpoint
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'EMAIL_AND_CODE_REQUIRED' });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
+    if (!user.verificationCode || !user.verificationCodeExpires) {
+      return res.status(400).json({ error: 'NO_CODE_SENT' });
+    }
+    if (user.verificationCode !== code) return res.status(400).json({ error: 'INVALID_CODE' });
+    if (user.verificationCodeExpires < Date.now()) return res.status(400).json({ error: 'CODE_EXPIRED' });
+    user.emailVerified = true;
+    user.verificationCode = undefined;
+    user.verificationCodeExpires = undefined;
+    await user.save();
+    return res.json({ message: 'EMAIL_VERIFIED' });
+  } catch (err) {
+    console.error('verifyEmail error', err);
     return res.status(500).json({ error: 'NETWORK_ERROR' });
   }
 };

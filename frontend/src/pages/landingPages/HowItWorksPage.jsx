@@ -21,12 +21,12 @@ export default function HowItWorksPage() {
             <div className="tw-space-y-4">
               <div className="tw-flex tw-items-start tw-gap-4 tw-p-4 tw-border tw-border-primary/20 tw-rounded-xl">
                 <div className="tw-w-8 tw-h-8 tw-bg-primary tw-text-white tw-rounded-full tw-flex tw-items-center tw-justify-center tw-font-bold tw-text-sm">1</div>
-                <p className="tw-text-gray-700 ">Click "Register", enter student email and password</p>
+                <p className="tw-text-gray-700 ">Click "Register/Signup", enter Institutional Email and Password</p>
               </div>
               
               <div className="tw-flex tw-items-start tw-gap-4 tw-p-4 tw-border tw-border-primary/20 tw-rounded-xl">
                 <div className="tw-w-8 tw-h-8 tw-bg-primary tw-text-white tw-rounded-full tw-flex tw-items-center tw-justify-center tw-font-bold tw-text-sm">2</div>
-                <p className="tw-text-gray-700 ">Verify email with Code</p>
+                <p className="tw-text-gray-700 ">Verify email with code</p>
               </div>
               
               <div className="tw-flex tw-items-start tw-gap-4 tw-p-4 tw-border tw-border-primary/20 tw-rounded-xl">

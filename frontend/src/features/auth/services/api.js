@@ -8,6 +8,8 @@ export const register = (data) => api.post('/auth/register', data).then(r => r.d
 export const login = (data) => api.post('/auth/login', data).then(r => r.data);
 export const forgotPassword = (data) => api.post('/auth/forgot-password', data).then(r => r.data);
 export const resetPassword = (token, data) => api.post(`/auth/reset-password/${token}`, data).then(r => r.data);
+export const sendVerificationCode = (data) => api.post('/auth/send-verification-code', data).then(r => r.data);
+export const verifyEmail = (data) => api.post('/auth/verify-email', data).then(r => r.data);
 
 const buildOAuthUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 

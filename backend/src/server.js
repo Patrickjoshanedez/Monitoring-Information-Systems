@@ -65,7 +65,12 @@ app.use((err, req, res, next) => {
 });
 
 const start = async () => {
-  await mongoose.connect(process.env.MONGODB_URI);
+  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  if (!mongoUri) {
+    console.error('Mongoose connection string is not set. Set MONGODB_URI or MONGO_URI in your environment.');
+    process.exit(1);
+  }
+  await mongoose.connect(mongoUri);
   const port = process.env.PORT || 4000;
   app.listen(port, () => {
     console.log(`API running on :${port}`);

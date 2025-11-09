@@ -18,15 +18,15 @@ const STEPS = [
 
 const FEATURES = [
   {
-    title: 'Structured learning tracks',
+    title: 'Structured Learning Tracks',
     body: 'Personalized pathways keep mentees progressing with curated modules and mentor guidance.'
   },
   {
-    title: 'Session planning & analytics',
+    title: 'Session Planning & Analytics',
     body: 'Built-in scheduling, attendance tracking, and insights help administrators keep the program on course.'
   },
   {
-    title: 'Community recognition',
+    title: 'Community Recognition',
     body: 'Celebrate achievements with digital certificates, highlight reels, and mentor spotlights.'
   }
 ];
@@ -50,7 +50,7 @@ export default function LandingPage() {
       <Header />
 
   <PageTransition>
-  <main className="tw-flex-1 tw-space-y-24 tw-pt-10">
+  <main className="tw-flex-1 tw-space-y-24 tw-pt-0">
         {/* Hero Section */}
   <section className="tw-relative tw-overflow-hidden tw-bg-gradient-to-br tw-from-purple-50 tw-via-white tw-to-orange-50">
           <span
@@ -71,7 +71,7 @@ export default function LandingPage() {
                 Mentor smarter, grow faster
               </span>
               <h1 className="tw-text-4xl sm:tw-text-5xl tw-font-extrabold tw-leading-tight tw-text-gray-900">
-                A modern mentoring hub built for collaborative growth
+                A Modern Mentoring Hub Built for Collaborative Growth
               </h1>
               <p className="tw-text-lg tw-text-gray-600 tw-leading-relaxed">
                 Bring mentors, mentees, and administrators together with a unified workspace for planning sessions,
@@ -165,7 +165,7 @@ export default function LandingPage() {
           <div className="tw-max-w-6xl tw-mx-auto tw-px-6 lg:tw-px-8 tw-space-y-10">
             <div className="tw-text-center tw-space-y-4">
               <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-purple-100 tw-px-3 tw-py-1 tw-text-xs tw-font-semibold tw-text-purple-700">How it works</span>
-              <h2 className="tw-text-3xl tw-font-bold tw-text-gray-900">Guided mentoring from onboarding to outcomes</h2>
+              <h2 className="tw-text-3xl tw-font-bold tw-text-gray-900">Guided Mentoring from Onboarding to Outcomes</h2>
               <p className="tw-text-gray-600 tw-max-w-2xl tw-mx-auto">
                 We streamline every stage of the mentoring lifecycle so mentors can focus on coaching and mentees can focus on learning.
               </p>
@@ -189,7 +189,7 @@ export default function LandingPage() {
         <section className="tw-max-w-6xl tw-mx-auto tw-px-6 lg:tw-px-8">
           <div className="tw-text-center tw-mb-12">
             <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-purple-100 tw-px-3 tw-py-1 tw-text-xs tw-font-semibold tw-text-primary">Platform capabilities</span>
-            <h2 className="tw-mt-4 tw-text-3xl tw-font-bold tw-text-gray-900">Tools that keep mentors, mentees, and admins aligned</h2>
+            <h2 className="tw-mt-4 tw-text-3xl tw-font-bold tw-text-gray-900">Tools that keep Mentors, Mentees, and Admins aligned.</h2>
           </div>
           <div className="tw-grid tw-grid-cols-1 lg:tw-grid-cols-3 tw-gap-8">
             {FEATURES.map((feature) => (
@@ -217,7 +217,7 @@ export default function LandingPage() {
             {TESTIMONIALS.map((item) => (
               <blockquote key={item.name} className="tw-rounded-3xl tw-bg-white/15 tw-p-8 tw-backdrop-blur-sm tw-border tw-border-white/20 tw-space-y-4">
                 <p className="tw-text-lg tw-leading-relaxed">“{item.quote}”</p>
-                <footer className="tw-text-sm tw-font-semibold">{item.name} · {item.role}</footer>
+                <footer className="tw-text-sm tw-font-semibold">{item.name} — {item.role}</footer>
               </blockquote>
             ))}
           </div>

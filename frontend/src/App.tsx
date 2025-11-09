@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import LandingPage from './pages/landingPages/LandingPage';
 import AboutPage from './pages/landingPages/AboutPage';
@@ -7,7 +7,6 @@ import HowItWorksPage from './pages/landingPages/HowItWorksPage';
 import FeaturesPage from './pages/landingPages/FeaturesPage';
 import ContactPage from './pages/landingPages/ContactPage';
 import LoginPage from './features/auth/pages/LoginPage';
-import RegisterPage from './features/auth/pages/RegisterPage';
 import ForgotPasswordPage from './features/auth/pages/ForgotPasswordPage';
 import ResetPasswordPage from './features/auth/pages/ResetPasswordPage';
 import AdminDashboard from './components/dashboards/AdminDashboard';
@@ -18,6 +17,10 @@ import SessionPage from './pages/menteeDashboards/SessionPage';
 import ApplyPage from './pages/menteeDashboards/ApplyPage';
 import AnnouncementsPage from './pages/menteeDashboards/AnnouncementsPage';
 import MenteeApplicationForm from './pages/applicationPages/MenteeApplicationForm';
+import MenteeApplication from './pages/applicationPages/MenteeApplication';
+import MentorApplication from './pages/applicationPages/MentorApplication';
+import AdminApplication from './pages/applicationPages/AdminApplication';
+import { RoleModalProvider } from './shared/ui/RoleModalContext';
 import PendingApprovalPage from './pages/PendingApprovalPage';
 import MentorApplicationForm from './pages/applicationPages/MentorApplicationForm';
 import MentorPendingPage from './pages/MentorPendingPage';
@@ -49,8 +52,26 @@ const SetPasswordRoute = () => <ProtectedRoute requiredRole={undefined} children
 const App = () => {
   const location = useLocation();
 
+  const DashboardRedirect = () => {
+    const nav = useNavigate();
+    React.useEffect(() => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const role = (user?.role || '').toLowerCase();
+        if (role === 'admin') return nav('/admin/dashboard');
+        if (role === 'mentor') return nav('/mentor/dashboard');
+        if (role === 'mentee') return nav('/mentee/dashboard');
+      } catch (e) {
+        // fallback
+      }
+      nav('/login');
+    }, [nav]);
+    return null;
+  };
+
   return (
     <AnimatePresence mode="wait">
+    <RoleModalProvider>
     <Routes location={location} key={location.pathname}>
   {/* Public Pages */}
   <Route path="/" element={<LandingPage />} />
@@ -61,11 +82,11 @@ const App = () => {
       
           {/* Auth Pages */}
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           <Route path="/role-selection" element={<RoleSelectionPage />} />
           <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+            <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/set-password" element={<SetPasswordRoute />} />
       
       {/* Dashboard Routes */}
@@ -78,14 +99,19 @@ const App = () => {
       <Route path="/mentee/announcements" element={<AnnouncementsRoute />} />
       
       {/* Application Routes */}
-      <Route path="/mentee/application" element={<ApplicationRoute />} />
+    <Route path="/mentee/application" element={<ApplicationRoute />} />
       <Route path="/mentee/pending" element={<PendingRoute />} />
   <Route path="/mentor/application" element={<MentorApplicationRoute />} />
   <Route path="/mentor/pending" element={<MentorPendingRoute />} />
+    {/* New simplified application pages */}
+    <Route path="/mentee-application" element={<MenteeApplication />} />
+    <Route path="/mentor-application" element={<MentorApplication />} />
+    <Route path="/admin-application" element={<AdminApplication />} />
       <Route path="/admin/pending" element={<AdminPendingRoute />} />
       <Route path="/profile" element={<ProfileRoute />} />
   <Route path="/profile/settings" element={<ProfileSettingsRoute />} />
     </Routes>
+    </RoleModalProvider>
     </AnimatePresence>
   );
 };

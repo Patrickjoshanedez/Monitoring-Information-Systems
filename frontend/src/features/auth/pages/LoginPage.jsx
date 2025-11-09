@@ -11,6 +11,7 @@ export default function LoginPage() {
   const [recaptchaToken, setRecaptchaToken] = useState('');
   const [recaptchaError, setRecaptchaError] = useState('');
   const recaptchaRef = useRef(null);
+  const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '';
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -18,67 +19,78 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setRecaptchaError('');
-    if (!recaptchaToken) {
+    
+    // Only require reCAPTCHA when a site key is configured in the client env
+    if (siteKey && !recaptchaToken) {
       setRecaptchaError('Please complete the verification step.');
       return;
     }
+
     setLoading(true);
     try {
-      const res = await login({ ...form, recaptchaToken });
-      const token = res.token;
-      localStorage.setItem('token', token);
+      const response = await login({
+        email: form.email,
+        password: form.password,
+        recaptchaToken
+      });
+      
+      // Store the auth token
+      localStorage.setItem('token', response.token);
+      
+      // Store user data
+      localStorage.setItem('user', JSON.stringify({
+        id: response.user.id,
+        role: response.user.role,
+        applicationStatus: response.user.applicationStatus,
+        applicationRole: response.user.applicationRole
+      }));
 
-      const normalizedRole = (res.role || res.user?.role || '').toLowerCase();
-      const sanitizedUser = {
-        ...res.user,
-        role: normalizedRole || null
-      };
-      localStorage.setItem('user', JSON.stringify(sanitizedUser));
+      // Role and application status based redirect
+      const { role, applicationStatus } = response.user;
       
-      const applicationStatus = res.user?.applicationStatus || 'not_submitted';
-      
-      // Check if user has selected a role
-      if (!normalizedRole) {
-        // User hasn't selected a role yet, redirect to role selection
-        window.location.href = '/role-selection';
-        return;
-      }
-      
-      // Redirect based on role and application status
-      if (normalizedRole === 'admin') {
-        window.location.href = '/admin/dashboard';
-      } else if (normalizedRole === 'mentor') {
-        if (applicationStatus === 'not_submitted' || !applicationStatus) {
-          window.location.href = '/mentor/application';
-        } else if (applicationStatus === 'pending') {
-          window.location.href = '/mentor/pending';
-        } else if (applicationStatus === 'approved') {
-          window.location.href = '/mentor/dashboard';
-        } else {
-          window.location.href = '/mentor/application';
-        }
-      } else if (normalizedRole === 'mentee') {
-        // Handle mentee application flow
-        if (applicationStatus === 'not_submitted' || !applicationStatus) {
-          window.location.href = '/mentee/application';
-        } else if (applicationStatus === 'pending') {
-          window.location.href = '/mentee/pending';
-        } else if (applicationStatus === 'approved') {
-          window.location.href = '/mentee/dashboard';
-        } else {
-          // Default to application form for rejected or unknown status
-          window.location.href = '/mentee/application';
-        }
+      switch (role) {
+        case 'admin':
+          window.location.href = '/admin/dashboard';
+          break;
+        case 'mentor':
+          if (applicationStatus === 'approved') {
+            window.location.href = '/mentor/dashboard';
+          } else if (applicationStatus === 'pending') {
+            window.location.href = '/mentor/pending';
+          } else {
+            window.location.href = '/mentor/application';
+          }
+          break;
+        case 'mentee':
+          if (applicationStatus === 'approved') {
+            window.location.href = '/mentee/dashboard';
+          } else if (applicationStatus === 'pending') {
+            window.location.href = '/mentee/pending';
+          } else {
+            window.location.href = '/mentee/application';
+          }
+          break;
+        default:
+          window.location.href = '/role-selection';
       }
     } catch (err) {
+      // Prefer server-provided message when available
+      const serverMessage = err?.response?.data?.message;
       const code = err?.response?.data?.error;
-      setError(mapErrorCodeToMessage(code));
-    } finally {
-      setLoading(false);
+      if (serverMessage) {
+        setError(serverMessage);
+      } else if (!err?.response) {
+        // Network or CORS error
+        setError(err?.message || 'Network error. Please try again.');
+      } else {
+        setError(mapErrorCodeToMessage(code));
+      }
       if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
+        try { recaptchaRef.current.reset(); } catch (e) { /* ignore */ }
       }
       setRecaptchaToken('');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -202,7 +214,7 @@ export default function LoginPage() {
 
         {/* Register Link */}
         <p className="tw-text-sm tw-text-center tw-text-gray-600">
-          Don't have an account? <Link to="/register" className="tw-text-purple-600 hover:tw-text-purple-700 tw-font-semibold">Register</Link>
+          Don't have an account? <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('openRoleModal'))} className="tw-text-purple-600 hover:tw-text-purple-700 tw-font-semibold">Register</button>
         </p>
       </form>
     </AuthLayout>
