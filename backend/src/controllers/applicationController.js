@@ -1,5 +1,24 @@
+const path = require('path');
 const User = require('../models/User');
 const { verifyRecaptchaToken } = require('../utils/recaptcha');
+const { uploadBuffer } = require('../utils/cloudinary');
+
+const applicationFolder = process.env.CLOUDINARY_APPLICATIONS_FOLDER || 'mentoring/applications';
+
+const uploadApplicationFile = async (file) => {
+  if (!file) return null;
+  const sanitizedBase = path
+    .basename(file.originalname, path.extname(file.originalname))
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .slice(0, 120) || 'application_document';
+
+  return uploadBuffer(file.buffer, {
+    folder: applicationFolder,
+    resource_type: 'auto',
+    public_id: `${sanitizedBase}_${Date.now()}`,
+    overwrite: false,
+  });
+};
 
 const sanitizeArrayInput = (value) => {
   if (Array.isArray(value)) {
@@ -86,7 +105,19 @@ const submitMenteeApplication = async (req, res) => {
 
     let corUrl = '';
     if (req.file) {
-      corUrl = `/uploads/applications/${req.file.filename}`;
+      try {
+        const uploadResult = await uploadApplicationFile(req.file);
+        corUrl = uploadResult ? uploadResult.secure_url || uploadResult.url || '' : '';
+      } catch (storageErr) {
+        const message = storageErr.code === 'CLOUDINARY_NOT_CONFIGURED'
+          ? 'Cloud storage is not configured on the server.'
+          : storageErr.message;
+        return res.status(502).json({
+          success: false,
+          error: 'DOCUMENT_UPLOAD_FAILED',
+          message,
+        });
+      }
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -204,7 +235,19 @@ const submitMentorApplication = async (req, res) => {
 
     let supportingDocumentUrl = '';
     if (req.file) {
-      supportingDocumentUrl = `/uploads/applications/${req.file.filename}`;
+      try {
+        const uploadResult = await uploadApplicationFile(req.file);
+        supportingDocumentUrl = uploadResult ? uploadResult.secure_url || uploadResult.url || '' : '';
+      } catch (storageErr) {
+        const message = storageErr.code === 'CLOUDINARY_NOT_CONFIGURED'
+          ? 'Cloud storage is not configured on the server.'
+          : storageErr.message;
+        return res.status(502).json({
+          success: false,
+          error: 'DOCUMENT_UPLOAD_FAILED',
+          message,
+        });
+      }
     }
 
     const updatedUser = await User.findByIdAndUpdate(

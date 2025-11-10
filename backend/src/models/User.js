@@ -57,6 +57,7 @@ const userSchema = new mongoose.Schema(
     profile: {
       displayName: { type: String, trim: true },
       photoUrl: { type: String },
+      photoPublicId: { type: String, trim: true },
       bio: { type: String, trim: true },
       education: {
         program: { type: String, trim: true },
@@ -117,6 +118,12 @@ const userSchema = new mongoose.Schema(
         },
       },
     },
+    feedbackStats: {
+      totalReviews: { type: Number, default: 0 },
+      totalScore: { type: Number, default: 0 },
+      averageRating: { type: Number, default: 0 },
+      lastReviewAt: { type: Date },
+    },
   },
   { timestamps: true }
 );
@@ -124,6 +131,7 @@ const userSchema = new mongoose.Schema(
 // Indexes for common queries
 // Optimize mentor directory lookups and general auth by role/status and email
 userSchema.index({ role: 1, applicationStatus: 1 });
+userSchema.index({ role: 1, 'feedbackStats.averageRating': -1 });
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password') || !this.password) return next();

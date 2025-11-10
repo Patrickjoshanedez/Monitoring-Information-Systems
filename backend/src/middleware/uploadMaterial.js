@@ -1,23 +1,7 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, '../../uploads/materials');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => {
-    const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
-    const ext = path.extname(file.originalname);
-    const name = path.basename(sanitizedName, ext);
-    cb(null, `${name}_${Date.now()}${ext}`);
-  },
-});
+const storage = multer.memoryStorage();
 
 // Accept common doc/image types; adjust as needed
 const fileFilter = (req, file, cb) => {
@@ -30,7 +14,7 @@ const fileFilter = (req, file, cb) => {
 
 const uploadMaterial = multer({
   storage,
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
+  limits: { fileSize: 25 * 1024 * 1024 },
   fileFilter,
 });
 

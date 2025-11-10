@@ -1,4 +1,8 @@
+const path = require('path');
 const User = require('../models/User');
+const { uploadBuffer, deleteAsset } = require('../utils/cloudinary');
+
+const avatarFolder = process.env.CLOUDINARY_AVATAR_FOLDER || 'mentoring/avatars';
 
 const pick = (obj, allowed) => Object.keys(obj || {}).reduce((acc, k) => {
   if (allowed.includes(k) && obj[k] !== undefined) acc[k] = obj[k];
@@ -118,13 +122,48 @@ exports.getPublicProfile = async (req, res) => {
 exports.afterPhotoUploaded = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'NO_FILE' });
-    const url = `/uploads/avatars/${req.file.filename}`;
+
+    const user = await User.findById(req.user.id).select('profile');
+    if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
+
+    const sanitizedBase = path
+      .basename(req.file.originalname, path.extname(req.file.originalname))
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .slice(0, 120) || 'profile_photo';
+
+    let uploadResult;
+    try {
+      uploadResult = await uploadBuffer(req.file.buffer, {
+        folder: avatarFolder,
+        resource_type: 'image',
+        public_id: `${sanitizedBase}_${Date.now()}`,
+        overwrite: false,
+        transformation: [{ width: 512, height: 512, crop: 'limit' }],
+      });
+    } catch (storageErr) {
+      const message = storageErr.code === 'CLOUDINARY_NOT_CONFIGURED'
+        ? 'Cloud storage is not configured on the server.'
+        : storageErr.message;
+      return res.status(502).json({ error: 'UPLOAD_FAILED', message });
+    }
+
+    const updatePayload = {
+      'profile.photoUrl': uploadResult.secure_url || uploadResult.url,
+      'profile.photoPublicId': uploadResult.public_id,
+    };
+
     const updated = await User.findByIdAndUpdate(
       req.user.id,
-      { $set: { 'profile.photoUrl': url } },
+      { $set: updatePayload },
       { new: true }
     ).select('profile');
-    return res.json({ photoUrl: updated.profile?.photoUrl || url });
+
+    const previousPublicId = user.profile?.photoPublicId;
+    if (previousPublicId && previousPublicId !== uploadResult.public_id) {
+      deleteAsset(previousPublicId, 'image').catch(() => {});
+    }
+
+    return res.json({ photoUrl: updated.profile?.photoUrl || updatePayload['profile.photoUrl'] });
   } catch (err) {
     return res.status(500).json({ error: 'NETWORK_ERROR' });
   }

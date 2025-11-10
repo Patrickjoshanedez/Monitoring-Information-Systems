@@ -49,6 +49,8 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api', require('./routes/materialRoutes'));
 app.use('/api', require('./routes/goalRoutes'));
 app.use('/api', require('./routes/progressRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/feedback', require('./routes/feedbackRoutes'));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));

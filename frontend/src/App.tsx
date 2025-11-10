@@ -28,6 +28,7 @@ import ProfilePage from './pages/menteeDashboards/ProfilePage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SetPasswordPage from './features/auth/pages/SetPasswordPage.jsx';
 import ProfileSettings from './features/profile/pages/ProfileSettings.jsx';
+import ChatPage from './pages/ChatPage';
 
 // Wrapper components for better TypeScript support
 const AdminRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminDashboard />} />;
@@ -45,47 +46,51 @@ const AdminPendingRoute = () => <ProtectedRoute requiredRole="admin" children={<
 const ProfileRoute = () => <ProtectedRoute requiredRole={undefined} children={<ProfilePage />} />;
 const ProfileSettingsRoute = () => <ProtectedRoute requiredRole="mentee" children={<ProfileSettings />} />;
 const SetPasswordRoute = () => <ProtectedRoute requiredRole={undefined} children={<SetPasswordPage />} />;
+const MentorChatRoute = () => <ProtectedRoute requiredRole="mentor" children={<ChatPage />} />;
+const MenteeChatRoute = () => <ProtectedRoute requiredRole="mentee" children={<ChatPage />} />;
 
 const App = () => {
   const location = useLocation();
 
   return (
     <AnimatePresence mode="wait">
-    <Routes location={location} key={location.pathname}>
-  {/* Public Pages */}
-  <Route path="/" element={<LandingPage />} />
-  <Route path="/about" element={<AboutPage />} />
-  <Route path="/how-it-works" element={<HowItWorksPage />} />
-  <Route path="/features" element={<FeaturesPage />} />
-  <Route path="/contact" element={<ContactPage />} />
-      
-          {/* Auth Pages */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
-          <Route path="/role-selection" element={<RoleSelectionPage />} />
-          <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
-          <Route path="/set-password" element={<SetPasswordRoute />} />
-      
-      {/* Dashboard Routes */}
-      <Route path="/admin/dashboard" element={<AdminRoute />} />
-      <Route path="/mentor/dashboard" element={<MentorRoute />} />
-      <Route path="/mentee/dashboard" element={<MenteeRoute />} />
-      <Route path="/mentee/my-mentor" element={<MyMentorRoute />} />
-      <Route path="/mentee/session" element={<SessionRoute />} />
-      <Route path="/mentee/apply" element={<ApplyRoute />} />
-      <Route path="/mentee/announcements" element={<AnnouncementsRoute />} />
-      
-      {/* Application Routes */}
-      <Route path="/mentee/application" element={<ApplicationRoute />} />
-      <Route path="/mentee/pending" element={<PendingRoute />} />
-  <Route path="/mentor/application" element={<MentorApplicationRoute />} />
-  <Route path="/mentor/pending" element={<MentorPendingRoute />} />
-      <Route path="/admin/pending" element={<AdminPendingRoute />} />
-      <Route path="/profile" element={<ProfileRoute />} />
-  <Route path="/profile/settings" element={<ProfileSettingsRoute />} />
-    </Routes>
+      <Routes location={location} key={location.pathname}>
+        {/* Public Pages */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/how-it-works" element={<HowItWorksPage />} />
+        <Route path="/features" element={<FeaturesPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+
+        {/* Auth Pages */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/role-selection" element={<RoleSelectionPage />} />
+        <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+        <Route path="/set-password" element={<SetPasswordRoute />} />
+
+        {/* Dashboard Routes */}
+        <Route path="/admin/dashboard" element={<AdminRoute />} />
+        <Route path="/mentor/dashboard" element={<MentorRoute />} />
+        <Route path="/mentor/chat" element={<MentorChatRoute />} />
+        <Route path="/mentee/dashboard" element={<MenteeRoute />} />
+        <Route path="/mentee/chat" element={<MenteeChatRoute />} />
+        <Route path="/mentee/my-mentor" element={<MyMentorRoute />} />
+        <Route path="/mentee/session" element={<SessionRoute />} />
+        <Route path="/mentee/apply" element={<ApplyRoute />} />
+        <Route path="/mentee/announcements" element={<AnnouncementsRoute />} />
+
+        {/* Application Routes */}
+        <Route path="/mentee/application" element={<ApplicationRoute />} />
+        <Route path="/mentee/pending" element={<PendingRoute />} />
+        <Route path="/mentor/application" element={<MentorApplicationRoute />} />
+        <Route path="/mentor/pending" element={<MentorPendingRoute />} />
+        <Route path="/admin/pending" element={<AdminPendingRoute />} />
+        <Route path="/profile" element={<ProfileRoute />} />
+        <Route path="/profile/settings" element={<ProfileSettingsRoute />} />
+      </Routes>
     </AnimatePresence>
   );
 };

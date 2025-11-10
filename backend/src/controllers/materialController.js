@@ -3,6 +3,9 @@ const path = require('path');
 const Material = require('../models/Material');
 const Session = require('../models/Session');
 const { fail, ok } = require('../utils/responses');
+const { uploadBuffer, deleteAsset } = require('../utils/cloudinary');
+
+const materialsFolder = process.env.CLOUDINARY_MATERIALS_FOLDER || 'mentoring/materials';
 
 // POST /api/materials/upload
 // Mentor-only upload. Optional mentee or session association.
@@ -26,6 +29,26 @@ exports.uploadMaterial = async (req, res) => {
       }
     }
 
+    const sanitizedBase = path
+      .basename(req.file.originalname, path.extname(req.file.originalname))
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .slice(0, 120) || 'material';
+
+    let uploadResult;
+    try {
+      uploadResult = await uploadBuffer(req.file.buffer, {
+        folder: materialsFolder,
+        resource_type: 'auto',
+        public_id: `${sanitizedBase}_${Date.now()}`,
+        overwrite: false,
+      });
+    } catch (cloudErr) {
+      if (cloudErr.code === 'CLOUDINARY_NOT_CONFIGURED') {
+        return fail(res, 500, 'STORAGE_NOT_CONFIGURED', cloudErr.message);
+      }
+      return fail(res, 502, 'STORAGE_UPLOAD_FAILED', cloudErr.message || 'Failed to upload to storage provider.');
+    }
+
     const doc = await Material.create({
       mentor: req.user.id,
       mentee: menteeId || undefined,
@@ -33,11 +56,16 @@ exports.uploadMaterial = async (req, res) => {
       title: String(title).trim(),
       description: description ? String(description).trim() : undefined,
       originalName: req.file.originalname,
-      storedName: req.file.filename,
-      sizeBytes: req.file.size,
+      storedName: undefined,
+      sizeBytes: uploadResult.bytes || req.file.size,
       mimeType: req.file.mimetype,
       tags: Array.isArray(tags) ? tags : typeof tags === 'string' ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
       visibility: visibility === 'mentor-only' ? 'mentor-only' : 'shared',
+      cloudinaryPublicId: uploadResult.public_id,
+      cloudinaryUrl: uploadResult.url,
+      cloudinarySecureUrl: uploadResult.secure_url,
+      cloudinaryResourceType: uploadResult.resource_type,
+      cloudinaryFormat: uploadResult.format,
     });
 
     return ok(res, { material: { id: doc._id.toString(), title: doc.title } });
@@ -88,7 +116,14 @@ exports.listMaterials = async (req, res) => {
       session: m.session || null,
       mentee: m.mentee || null,
       createdAt: m.createdAt,
-      downloadUrl: `/uploads/materials/${m.storedName}`,
+      downloadUrl: m.cloudinarySecureUrl || m.cloudinaryUrl || (m.storedName ? `/uploads/materials/${m.storedName}` : null),
+      asset: m.cloudinaryPublicId
+        ? {
+            publicId: m.cloudinaryPublicId,
+            resourceType: m.cloudinaryResourceType || null,
+            format: m.cloudinaryFormat || null,
+          }
+        : null,
     }));
 
     return ok(res, { materials: rows }, { count: rows.length, limit: pageLimit });
@@ -116,8 +151,13 @@ exports.downloadMaterial = async (req, res) => {
       if (!allowed && !sessionAllowed) return fail(res, 403, 'FORBIDDEN', 'Access denied.');
     }
 
-    // Redirect to static file (served by /uploads)
-    return res.redirect(`/uploads/materials/${m.storedName}`);
+    if (m.cloudinarySecureUrl) {
+      return res.redirect(m.cloudinarySecureUrl);
+    }
+    if (m.storedName) {
+      return res.redirect(`/uploads/materials/${m.storedName}`);
+    }
+    return fail(res, 404, 'NOT_FOUND', 'Material asset missing.');
   } catch (err) {
     return fail(res, 500, 'MATERIAL_DOWNLOAD_FAILED', err.message);
   }
@@ -130,9 +170,14 @@ exports.deleteMaterial = async (req, res) => {
     const doc = await Material.findOne({ _id: req.params.id, mentor: req.user.id });
     if (!doc) return fail(res, 404, 'NOT_FOUND', 'Material not found.');
 
-    const filePath = path.join(__dirname, `../../uploads/materials/${doc.storedName}`);
     await Material.deleteOne({ _id: doc._id });
-    fs.promises.unlink(filePath).catch(() => {}); // best-effort
+    if (doc.cloudinaryPublicId) {
+      deleteAsset(doc.cloudinaryPublicId, doc.cloudinaryResourceType).catch(() => {});
+    }
+    if (doc.storedName) {
+      const filePath = path.join(__dirname, `../../uploads/materials/${doc.storedName}`);
+      fs.promises.unlink(filePath).catch(() => {});
+    }
     return ok(res, { deleted: true });
   } catch (err) {
     return fail(res, 500, 'MATERIAL_DELETE_FAILED', err.message);

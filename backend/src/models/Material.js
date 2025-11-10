@@ -10,9 +10,14 @@ const materialSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     originalName: { type: String, required: true, trim: true },
-    storedName: { type: String, required: true, trim: true },
+    storedName: { type: String, trim: true },
     sizeBytes: { type: Number, required: true, min: 0 },
     mimeType: { type: String, required: true },
+    cloudinaryPublicId: { type: String, trim: true },
+    cloudinaryUrl: { type: String, trim: true },
+    cloudinarySecureUrl: { type: String, trim: true },
+    cloudinaryResourceType: { type: String, trim: true },
+    cloudinaryFormat: { type: String, trim: true },
     tags: [{ type: String, trim: true }],
     visibility: { type: String, enum: ['mentor-only', 'shared'], default: 'shared' },
   },
@@ -24,5 +29,6 @@ materialSchema.index({ mentee: 1, createdAt: -1 });
 materialSchema.index({ session: 1, createdAt: -1 });
 materialSchema.index({ mentor: 1, visibility: 1, createdAt: -1 });
 materialSchema.index({ tags: 1 });
+materialSchema.index({ cloudinaryPublicId: 1 });
 
 module.exports = mongoose.model('Material', materialSchema);

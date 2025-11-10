@@ -22,14 +22,16 @@ const NAV_MAP: Record<string, NavItem[]> = {
     { label: 'Applications', to: '/admin/dashboard#applications', matches: ['/admin/dashboard'], hash: '#applications' }
   ],
   mentor: [
-    { label: 'Dashboard', to: '/mentor/dashboard', matches: ['/mentor/dashboard'] }
+    { label: 'Dashboard', to: '/mentor/dashboard', matches: ['/mentor/dashboard'] },
+    { label: 'Chat', to: '/mentor/chat', matches: ['/mentor/chat'] }
   ],
   mentee: [
     { label: 'Home', to: '/mentee/dashboard', matches: ['/mentee/dashboard'] },
     { label: 'My Mentor', to: '/mentee/my-mentor', matches: ['/mentee/my-mentor'] },
     { label: 'Session', to: '/mentee/session', matches: ['/mentee/session'] },
     { label: 'Apply', to: '/mentee/apply', matches: ['/mentee/apply'] },
-    { label: 'Announcements', to: '/mentee/announcements', matches: ['/mentee/announcements'] }
+    { label: 'Announcements', to: '/mentee/announcements', matches: ['/mentee/announcements'] },
+    { label: 'Chat', to: '/mentee/chat', matches: ['/mentee/chat'] }
   ]
 };
 
