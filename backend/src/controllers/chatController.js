@@ -239,7 +239,7 @@ exports.sendMessage = async (req, res) => {
     const updateDoc = {
       $set: {
         lastMessage: messageBody,
-        lastSender: mongoose.Types.ObjectId(senderId),
+  lastSender: new mongoose.Types.ObjectId(senderId),
         lastMessageAt: message.createdAt,
         updatedAt: message.createdAt,
       },
