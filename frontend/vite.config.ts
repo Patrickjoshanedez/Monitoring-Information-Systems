@@ -7,6 +7,10 @@ import react from '@vitejs/plugin-react';
 // 3) Relax the chunk-size warning threshold a bit for DX
 export default defineConfig({
   plugins: [react()],
+  define: {
+    // Expose Vite's env for modules that can't directly reference import.meta.env in Jest tests
+    importMetaEnv: 'import.meta.env',
+  },
   build: {
     rollupOptions: {
       onwarn(warning, warn) {

@@ -29,6 +29,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import SetPasswordPage from './features/auth/pages/SetPasswordPage.jsx';
 import ProfileSettings from './features/profile/pages/ProfileSettings.jsx';
 import ChatPage from './pages/ChatPage';
+import MentorProfileEditor from './components/mentor/MentorProfileEditor';
 
 // Wrapper components for better TypeScript support
 const AdminRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminDashboard />} />;
@@ -48,6 +49,7 @@ const ProfileSettingsRoute = () => <ProtectedRoute requiredRole="mentee" childre
 const SetPasswordRoute = () => <ProtectedRoute requiredRole={undefined} children={<SetPasswordPage />} />;
 const MentorChatRoute = () => <ProtectedRoute requiredRole="mentor" children={<ChatPage />} />;
 const MenteeChatRoute = () => <ProtectedRoute requiredRole="mentee" children={<ChatPage />} />;
+const MentorProfileEditRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorProfileEditor />} />;
 
 const App = () => {
   const location = useLocation();
@@ -75,6 +77,7 @@ const App = () => {
         <Route path="/admin/dashboard" element={<AdminRoute />} />
         <Route path="/mentor/dashboard" element={<MentorRoute />} />
         <Route path="/mentor/chat" element={<MentorChatRoute />} />
+  <Route path="/mentor/profile/edit" element={<MentorProfileEditRoute />} />
         <Route path="/mentee/dashboard" element={<MenteeRoute />} />
         <Route path="/mentee/chat" element={<MenteeChatRoute />} />
         <Route path="/mentee/my-mentor" element={<MyMentorRoute />} />

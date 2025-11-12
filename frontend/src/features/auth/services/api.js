@@ -20,6 +20,15 @@ export const mapErrorCodeToMessage = (code) => {
     case 'EMAIL_EXISTS': return 'An account with this email already exists.';
     case 'ACCOUNT_LOCKED': return 'Account locked due to failed attempts. Try again later.';
     case 'INVALID_TOKEN': return 'Invalid or expired token.';
+    // reCAPTCHA specific errors
+    case 'RECAPTCHA_REQUIRED': return 'Please complete the verification step.';
+    case 'RECAPTCHA_FAILED': return 'Verification failed. Please try again.';
+    case 'RECAPTCHA_ERROR': return 'Verification service error. Please try again shortly.';
+    case 'RECAPTCHA_UPSTREAM_ERROR': return 'Unable to verify with reCAPTCHA. Try again later.';
+    case 'RECAPTCHA_NOT_CONFIGURED': return 'Verification is temporarily unavailable. Please contact support.';
+    // Generic server/network
+    case 'NETWORK_ERROR': return 'A server error occurred. Please try again.';
+    case 'SERVER_ERROR': return 'A server error occurred. Please try again.';
     default: return 'Network error. Please try again.';
   }};
 

@@ -59,6 +59,16 @@ const userSchema = new mongoose.Schema(
       photoUrl: { type: String },
       photoPublicId: { type: String, trim: true },
       bio: { type: String, trim: true },
+        // Mentor-facing fields
+        expertiseAreas: [{ type: String, trim: true }],
+        skills: [{ type: String, trim: true }],
+        availabilitySlots: [
+          {
+            day: { type: String, enum: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] },
+            start: { type: String, trim: true }, // HH:mm (24h)
+            end: { type: String, trim: true },   // HH:mm (24h)
+          },
+        ],
       education: {
         program: { type: String, trim: true },
         yearLevel: { type: String, trim: true },
@@ -72,6 +82,9 @@ const userSchema = new mongoose.Schema(
       privacy: {
         bio: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
         education: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
+          expertiseAreas: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
+          skills: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
+          availabilitySlots: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
         interests: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
         learningGoals: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
         coursesNeeded: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },

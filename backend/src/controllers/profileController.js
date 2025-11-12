@@ -9,6 +9,38 @@ const pick = (obj, allowed) => Object.keys(obj || {}).reduce((acc, k) => {
   return acc;
 }, {});
 
+const sanitizeStringArray = (value, options = {}) => {
+  const { max = 50, itemMaxLen = 64 } = options;
+  if (!Array.isArray(value)) return [];
+  const out = [];
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const trimmed = item.trim().slice(0, itemMaxLen);
+    if (trimmed) out.push(trimmed);
+    if (out.length >= max) break;
+  }
+  return out;
+};
+
+const isValidTime = (s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(s || ''));
+const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const sanitizeAvailability = (slots) => {
+  if (!Array.isArray(slots)) return [];
+  const cleaned = [];
+  for (const slot of slots) {
+    if (!slot || typeof slot !== 'object') continue;
+    const day = String(slot.day || '').toLowerCase();
+    const start = slot.start;
+    const end = slot.end;
+    if (!DAYS.includes(day)) continue;
+    if (!isValidTime(start) || !isValidTime(end)) continue;
+    if (start >= end) continue;
+    cleaned.push({ day, start, end });
+    if (cleaned.length >= 56) break; // 8/day worst-case safety bound
+  }
+  return cleaned;
+};
+
 const getViewerLevel = (requester, targetUser) => {
   if (!requester) return 'public';
   if (requester.role === 'admin') return 'admin';
@@ -31,6 +63,9 @@ const filterByPrivacy = (profile, level) => {
   if (allowed('photo')) out.photoUrl = profile.photoUrl;
   if (allowed('bio')) out.bio = profile.bio;
   if (allowed('education')) out.education = profile.education;
+  if (allowed('expertiseAreas')) out.expertiseAreas = profile.expertiseAreas;
+  if (allowed('skills')) out.skills = profile.skills;
+  if (allowed('availabilitySlots')) out.availabilitySlots = profile.availabilitySlots;
   if (allowed('coursesNeeded')) out.coursesNeeded = profile.coursesNeeded;
   if (allowed('interests')) out.interests = profile.interests;
   if (allowed('learningGoals')) out.learningGoals = profile.learningGoals;
@@ -60,7 +95,7 @@ exports.getMyProfile = async (req, res) => {
 exports.updateMyProfile = async (req, res) => {
   try {
     const { profile } = req.body || {};
-    const allowedTop = ['displayName', 'photoUrl', 'bio', 'education', 'coursesNeeded', 'interests', 'learningGoals', 'timezone', 'contactPreferences', 'privacy'];
+    const allowedTop = ['displayName', 'photoUrl', 'bio', 'education', 'coursesNeeded', 'interests', 'learningGoals', 'timezone', 'contactPreferences', 'privacy', 'expertiseAreas', 'skills', 'availabilitySlots'];
     const allowedEducation = ['program', 'yearLevel', 'major'];
     const clean = {};
 
@@ -69,15 +104,12 @@ exports.updateMyProfile = async (req, res) => {
       if (picked.education) {
         picked.education = pick(picked.education, allowedEducation);
       }
-      if (picked.coursesNeeded && !Array.isArray(picked.coursesNeeded)) {
-        picked.coursesNeeded = [];
-      }
-      if (picked.interests && !Array.isArray(picked.interests)) {
-        picked.interests = [];
-      }
-      if (picked.contactPreferences && !Array.isArray(picked.contactPreferences)) {
-        picked.contactPreferences = [];
-      }
+      picked.coursesNeeded = sanitizeStringArray(picked.coursesNeeded, { max: 50 });
+      picked.interests = sanitizeStringArray(picked.interests, { max: 50 });
+      picked.expertiseAreas = sanitizeStringArray(picked.expertiseAreas, { max: 50 });
+      picked.skills = sanitizeStringArray(picked.skills, { max: 100 });
+      if (!Array.isArray(picked.contactPreferences)) picked.contactPreferences = [];
+      if (picked.availabilitySlots) picked.availabilitySlots = sanitizeAvailability(picked.availabilitySlots);
       clean.profile = picked;
     }
 
