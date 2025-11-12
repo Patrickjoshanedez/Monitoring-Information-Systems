@@ -6,6 +6,7 @@ import StatsPanel from '../mentee/StatsPanel';
 import MentorDirectorySection from '../mentee/MentorDirectorySection';
 import MenteeRequestsTable from '../mentee/MenteeRequestsTable';
 import PeopleBehind from '../mentee/PeopleBehind';
+import MatchNotificationBanner from '../mentee/MatchNotificationBanner';
 const MaterialsLibrary = React.lazy(() => import('../mentee/MaterialsLibrary'));
 const ProgressDashboard = React.lazy(() => import('../mentee/ProgressDashboard'));
 
@@ -15,6 +16,9 @@ const MenteeDashboard: React.FC = () => {
       <div className="tw-max-w-7xl tw-mx-auto tw-px-4 sm:tw-px-6 lg:tw-px-8 tw-py-8">
         {/* Welcome Banner */}
         <WelcomeBanner />
+
+  {/* Mentor Match Notification */}
+  <MatchNotificationBanner />
 
         {/* Icon Tiles */}
         <IconTileRow />
