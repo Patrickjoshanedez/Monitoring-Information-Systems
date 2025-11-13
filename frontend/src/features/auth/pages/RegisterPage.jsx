@@ -1,16 +1,48 @@
-import React, { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
 import { register, googleOAuthUrl, facebookOAuthUrl, mapErrorCodeToMessage } from '../services/api.js';
 import RecaptchaField from '../../../components/common/RecaptchaField.jsx';
 
+const ROLE_OPTIONS = [
+	{
+		id: 'mentee',
+		label: 'Mentee',
+		description: 'Request guidance from mentors and follow curated learning tracks.'
+	},
+	{
+		id: 'mentor',
+		label: 'Mentor',
+		description: 'Coach mentees, share expertise, and manage session plans.'
+	},
+	{
+		id: 'admin',
+		label: 'Administrator',
+		description: 'Oversee cohorts, review applications, and monitor outcomes.'
+	}
+];
+
 export default function RegisterPage() {
+ const [searchParams] = useSearchParams();
+ const initialRoleParam = searchParams.get('role');
+ const isValidRole = ROLE_OPTIONS.some((option) => option.id === initialRoleParam);
+ const initialRole = isValidRole ? initialRoleParam : 'mentee';
+
+ const [role, setRole] = useState(initialRole);
  const [form, setForm] = useState({ firstname: '', lastname: '', email: '', password: '', agree: false });
  const [error, setError] = useState('');
  const [loading, setLoading] = useState(false);
  const [recaptchaToken, setRecaptchaToken] = useState('');
  const [recaptchaError, setRecaptchaError] = useState('');
  const recaptchaRef = useRef(null);
+
+ useEffect(() => {
+ if (isValidRole && initialRoleParam && initialRoleParam !== role) {
+ setRole(initialRoleParam);
+ }
+ }, [initialRoleParam, isValidRole, role]);
+
+ const selectedRole = ROLE_OPTIONS.find((option) => option.id === role) ?? ROLE_OPTIONS[0];
 
  const onChange = (e) => {
  const { name, value, type, checked } = e.target;
@@ -36,7 +68,7 @@ export default function RegisterPage() {
  lastname: form.lastname,
  email: form.email,
  password: form.password,
- role: 'mentee',
+ role,
  recaptchaToken
  });
  window.location.href = '/login';
@@ -56,6 +88,37 @@ export default function RegisterPage() {
  <AuthLayout title="WELCOME!" subtitle="Your path to guided learning and mentorship starts here.">
  <form onSubmit={onSubmit} className="tw-space-y-4">
  {error && <div className="tw-p-3 tw-rounded tw-bg-red-50 tw-text-red-700 tw-text-sm ">{error}</div>}
+ 
+ {/* Role selection summary */}
+ <div className="tw-rounded-2xl tw-border tw-border-purple-100 tw-bg-purple-50/50 tw-p-4 tw-space-y-3">
+ <div className="tw-flex tw-items-center tw-justify-between tw-gap-3">
+ <p className="tw-text-sm tw-font-semibold tw-text-gray-700">You're creating an account as</p>
+ <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-white tw-px-3 tw-py-1 tw-text-xs tw-font-semibold tw-text-primary">
+ {selectedRole.label}
+ </span>
+ </div>
+ <p className="tw-text-xs tw-text-gray-500">{selectedRole.description}</p>
+ <div className="tw-flex tw-flex-wrap tw-gap-2">
+ {ROLE_OPTIONS.map((option) => {
+ const isActive = role === option.id;
+ return (
+ <button
+ key={option.id}
+ type="button"
+ onClick={() => setRole(option.id)}
+ className={`tw-rounded-xl tw-border tw-px-3 tw-py-1 tw-text-xs tw-font-semibold tw-transition ${
+ isActive
+ ? 'tw-border-primary tw-bg-primary tw-text-white'
+ : 'tw-border-transparent tw-bg-white tw-text-gray-600 hover:tw-border-purple-200'
+ }`}
+ aria-pressed={isActive}
+ >
+ {option.label}
+ </button>
+ );
+ })}
+ </div>
+ </div>
  
  {/* Name Fields */}
  <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../../components/Header.jsx';
 import Footer from '../../components/Footer.jsx';
 import PageTransition from '../../shared/ui/PageTransition';
+import RoleSelectionModal from '../../components/auth/RoleSelectionModal';
 
 const HIGHLIGHTS = [
   { title: '1,200+', description: 'Active mentees collaborating with mentors each semester.' },
@@ -45,11 +46,14 @@ const TESTIMONIALS = [
 ];
 
 export default function LandingPage() {
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+
   return (
     <div className="tw-min-h-screen tw-bg-white tw-flex tw-flex-col">
       <Header />
 
   <PageTransition>
+  <RoleSelectionModal open={isRoleModalOpen} onClose={() => setIsRoleModalOpen(false)} />
   <main className="tw-flex-1 tw-space-y-24 tw-pt-10">
         {/* Hero Section */}
   <section className="tw-relative tw-overflow-hidden tw-bg-gradient-to-br tw-from-purple-50 tw-via-white tw-to-orange-50">
@@ -78,12 +82,13 @@ export default function LandingPage() {
                 measuring progress, and celebrating achievements.
               </p>
               <div className="tw-flex tw-flex-col sm:tw-flex-row tw-gap-4">
-                <Link
-                  to="/register"
+                <button
+                  type="button"
+                  onClick={() => setIsRoleModalOpen(true)}
                   className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-xl tw-bg-primary tw-text-white tw-px-8 tw-py-3 tw-text-base tw-font-semibold hover:tw-brightness-110 tw-transition"
                 >
                   Create an account
-                </Link>
+                </button>
                 <Link
                   to="/features"
                   className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-xl tw-border tw-border-purple-200 tw-bg-white tw-text-primary tw-px-8 tw-py-3 tw-text-base tw-font-semibold hover:tw-border-purple-400 tw-transition"
@@ -233,12 +238,13 @@ export default function LandingPage() {
                 Launch a structured mentorship experience that keeps everyone aligned—from mentees seeking guidance to admins monitoring impact.
               </p>
             </div>
-            <Link
-              to="/register"
+            <button
+              type="button"
+              onClick={() => setIsRoleModalOpen(true)}
               className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-xl tw-bg-primary tw-text-white tw-px-6 tw-py-3 tw-text-sm tw-font-semibold hover:tw-brightness-110 tw-transition"
             >
               Get started today
-            </Link>
+            </button>
           </div>
         </section>
   </main>
