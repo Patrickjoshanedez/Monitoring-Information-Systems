@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useMentorshipRequests } from '../../features/mentorship/hooks/useMentorshipRequests';
+import MenteeProfileDrawer from './MenteeProfileDrawer';
 
 const fmt = (iso?: string | null) => (iso ? new Date(iso).toLocaleString() : '—');
 
@@ -18,15 +19,51 @@ const StatusPill: React.FC<{ status: string }> = ({ status }) => {
 const MentorRequestsTable: React.FC = () => {
   const { requests, isLoading, isRefetching, meta, acceptRequest, declineRequest, isMutating } = useMentorshipRequests('mentor');
 
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedMenteeId, setSelectedMenteeId] = useState<string | null>(null);
+
+  const openProfile = useCallback((id?: string | null) => {
+    if (!id) return;
+    setSelectedMenteeId(id);
+    setDrawerOpen(true);
+  }, []);
+
+  const closeProfile = useCallback(() => {
+    setDrawerOpen(false);
+    setSelectedMenteeId(null);
+  }, []);
+
   const handleAccept = useCallback(async (id: string) => {
     const sessionSuggestion = window.prompt('Suggest a first session slot (optional):');
-    await acceptRequest(id, sessionSuggestion || undefined);
+
+    // ask for confirmation before sending
+    const confirmed = window.confirm(
+      `Confirm accepting this request${sessionSuggestion ? ` and suggesting "${sessionSuggestion}"` : ''}?`
+    );
+    if (!confirmed) return;
+
+    try {
+      await acceptRequest(id, sessionSuggestion || undefined);
+      // small success feedback
+      window.alert('Request accepted — mentee will be notified.');
+    } catch (error) {
+      void error;
+      window.alert('Unable to accept request. Please try again.');
+    }
   }, [acceptRequest]);
 
   const handleDecline = useCallback(async (id: string) => {
     const declineReason = window.prompt('Provide a reason for declining (optional):');
     await declineRequest(id, declineReason || undefined);
   }, [declineRequest]);
+
+  const computeMatchScore = useCallback((r: any) => {
+    // Simple heuristic: base 50, +25 if they provided goals, +25 if notes provided
+    let score = 50;
+    if (r.goals) score += 25;
+    if (r.notes) score += 25;
+    return Math.min(100, score);
+  }, []);
 
   if (isLoading && !isRefetching) {
     return (
@@ -68,6 +105,25 @@ const MentorRequestsTable: React.FC = () => {
                 <tr key={r.id} className="tw-border-b tw-border-gray-100 hover:tw-bg-gray-50/50">
                   <td className="tw-py-2 tw-pr-4 tw-font-medium tw-text-gray-900">{r.subject}</td>
                   <td className="tw-py-2 tw-pr-4">{r.mentee?.name || '—'}</td>
+                  <td className="tw-py-2 tw-pr-4 tw-flex tw-items-center tw-gap-2">
+                    <span>{r.mentee?.name || '—'}</span>
+                    <button
+                      type="button"
+                      onClick={() => openProfile(r.mentee?.id ?? null)}
+                      className="tw-text-xs tw-text-blue-600 hover:tw-underline"
+                    >
+                      View profile
+                    </button>
+                    <span className="tw-ml-2">
+                      <span
+                        className={`tw-inline-flex tw-items-center tw-px-2 tw-py-0.5 tw-rounded-full tw-text-xs tw-font-medium ${
+                          computeMatchScore(r) >= 75 ? 'tw-bg-green-100 tw-text-green-800' : 'tw-bg-yellow-100 tw-text-yellow-800'
+                        }`}
+                      >
+                        {computeMatchScore(r)}%
+                      </span>
+                    </span>
+                  </td>
                   <td className="tw-py-2 tw-pr-4">{fmt(r.createdAt)}</td>
                   <td className="tw-py-2 tw-pr-4">{r.preferredSlot || '—'}</td>
                   <td className="tw-py-2 tw-pr-4"><StatusPill status={r.status} /></td>
@@ -101,6 +157,8 @@ const MentorRequestsTable: React.FC = () => {
           </table>
         </div>
       )}
+
+      <MenteeProfileDrawer open={drawerOpen} onClose={closeProfile} menteeId={selectedMenteeId} />
     </div>
   );
 };
