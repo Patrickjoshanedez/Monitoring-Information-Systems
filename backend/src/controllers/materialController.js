@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const Material = require('../models/Material');
 const Session = require('../models/Session');
+const MentorshipRequest = require('../models/MentorshipRequest');
 const { fail, ok } = require('../utils/responses');
 const { uploadBuffer, deleteAsset } = require('../utils/cloudinary');
 
@@ -90,14 +91,38 @@ exports.listMaterials = async (req, res) => {
     const q = {};
     if (req.user.role === 'mentor') {
       q.mentor = req.user.id;
-      if (menteeId) q.mentee = menteeId;
+      if (menteeId) {
+        q.mentee = menteeId;
+      }
     } else {
-      // mentee: explicitly addressed OR shared materials tied to their sessions
-      const sessionIds = await getMenteeSessionIds(req.user.id);
-      q.$or = [{ mentee: req.user.id }, { visibility: 'shared', session: { $in: sessionIds } }];
+      const [sessionIds, acceptedMentors] = await Promise.all([
+        getMenteeSessionIds(req.user.id),
+        MentorshipRequest.find({ mentee: req.user.id, status: 'accepted' }).select('mentor').lean()
+      ]);
+
+      const acceptedMentorIds = acceptedMentors
+        .map((item) => item.mentor && item.mentor.toString())
+        .filter(Boolean);
+
+      const visibilityConditions = [];
+      if (sessionIds.length) {
+        visibilityConditions.push({ visibility: 'shared', session: { $in: sessionIds } });
+      }
+      if (acceptedMentorIds.length) {
+        visibilityConditions.push({ visibility: 'shared', mentor: { $in: acceptedMentorIds } });
+      }
+
+      q.$or = [
+        { mentee: req.user.id },
+        ...visibilityConditions
+      ];
     }
-    if (session) q.session = session;
-    if (search) q.title = new RegExp(String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    if (session) {
+      q.session = session;
+    }
+    if (search) {
+      q.title = new RegExp(String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    }
 
     const items = await Material.find(q)
       .sort({ createdAt: -1 })
