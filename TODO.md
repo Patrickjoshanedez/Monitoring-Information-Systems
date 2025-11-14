@@ -1,2 +1,0 @@
-- [x] Install missing backend dependency `pdfkit`
-- [x] Verify certificate PDF generation endpoint after installing pdfkit

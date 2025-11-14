@@ -6,6 +6,11 @@ import PropTypes from 'prop-types';
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
 const buildApiUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 
+const normalizeRoles = (role) => {
+  if (!role) return [];
+  return Array.isArray(role) ? role : [role];
+};
+
 function ProtectedRoute({ children, requiredRole }) {
   const [user, setUser] = useState(null);
   const [applicationState, setApplicationState] = useState(null);
@@ -107,7 +112,8 @@ function ProtectedRoute({ children, requiredRole }) {
   }
 
   // Check role requirement
-  if (requiredRole && user.role !== requiredRole) {
+  const allowedRoles = normalizeRoles(requiredRole);
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
 
@@ -177,7 +183,10 @@ function ProtectedRoute({ children, requiredRole }) {
 
 ProtectedRoute.propTypes = {
   children: PropTypes.node.isRequired,
-  requiredRole: PropTypes.string
+  requiredRole: PropTypes.oneOfType([
+    PropTypes.string,
+    PropTypes.arrayOf(PropTypes.string)
+  ])
 };
 
 export default ProtectedRoute;
