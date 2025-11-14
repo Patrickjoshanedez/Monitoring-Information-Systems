@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const Material = require('../models/Material');
 const Session = require('../models/Session');
 const MentorshipRequest = require('../models/MentorshipRequest');
@@ -160,7 +161,9 @@ exports.listMaterials = async (req, res) => {
 // GET /api/materials/:id/download (auth + access check)
 exports.downloadMaterial = async (req, res) => {
   try {
-    const m = await Material.findById(req.params.id).select('mentor mentee session storedName visibility').lean();
+    const m = await Material.findById(req.params.id)
+      .select('mentor mentee session storedName visibility cloudinarySecureUrl cloudinaryUrl cloudinaryPublicId cloudinaryResourceType originalName title')
+      .lean();
     if (!m) return fail(res, 404, 'NOT_FOUND', 'Material not found.');
 
     if (req.user.role === 'mentor') {
@@ -169,15 +172,38 @@ exports.downloadMaterial = async (req, res) => {
       // mentee: must be addressed OR shared and from one of their sessions
       const allowed = m.mentee && m.mentee.toString() === req.user.id;
       let sessionAllowed = false;
+      let mentorMatchAllowed = false;
       if (!allowed && m.visibility === 'shared' && m.session) {
         const ownsSession = await Session.exists({ _id: m.session, mentee: req.user.id });
         sessionAllowed = !!ownsSession;
       }
-      if (!allowed && !sessionAllowed) return fail(res, 403, 'FORBIDDEN', 'Access denied.');
+      if (!allowed && !sessionAllowed && m.visibility === 'shared') {
+        const hasAcceptedMatch = await MentorshipRequest.exists({
+          mentor: m.mentor,
+          mentee: req.user.id,
+          status: 'accepted'
+        });
+        mentorMatchAllowed = !!hasAcceptedMatch;
+      }
+      if (!allowed && !sessionAllowed && !mentorMatchAllowed) return fail(res, 403, 'FORBIDDEN', 'Access denied.');
     }
 
-    if (m.cloudinarySecureUrl) {
-      return res.redirect(m.cloudinarySecureUrl);
+    const fileUrl = m.cloudinarySecureUrl || m.cloudinaryUrl;
+    if (fileUrl) {
+      try {
+        const upstream = await axios.get(fileUrl, { responseType: 'stream' });
+        const filenameBase = (m.originalName || m.title || 'material').replace(/"/g, '');
+        if (upstream.headers['content-type']) {
+          res.setHeader('Content-Type', upstream.headers['content-type']);
+        }
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filenameBase)}"`);
+        upstream.data.on('error', () => {
+          res.end();
+        });
+        return upstream.data.pipe(res);
+      } catch (err) {
+        return fail(res, 502, 'STORAGE_FETCH_FAILED', 'Unable to retrieve the material from storage.');
+      }
     }
     if (m.storedName) {
       return res.redirect(`/uploads/materials/${m.storedName}`);
