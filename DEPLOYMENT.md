@@ -44,6 +44,7 @@ The sections below list prerequisites, environment variables, and the click-by-c
 | --- | --- |
 | `PORT` | Leave blank; Render injects one automatically. Ensure `src/server.js` reads `process.env.PORT`. |
 | `MONGODB_URI` | MongoDB Atlas connection string with credentials. |
+| `CLIENT_URLS` | Comma-separated list of allowed frontend origins for CORS. Example: `https://your-app.vercel.app, http://localhost:5173` |
 | `JWT_SECRET` | Signing secret for auth tokens. |
 | `SESSION_SECRET` | Express session secret. |
 | `PUSHER_APP_ID`, `PUSHER_KEY`, `PUSHER_SECRET`, `PUSHER_CLUSTER` | Real-time messaging credentials. |
@@ -133,3 +134,28 @@ Visit `http://localhost:4173` and ensure it can talk to your local API before pu
 - [ ] Monitoring/alerting enabled (Render Health Checks, Vercel Analytics, Log drains).
 
 Following this guide, deployments become a push-to-release workflow with zero manual servers to babysit.
+
+## 8. Troubleshooting: MongoDB TLS errors on Node 22
+
+If you see errors like:
+
+```
+MongoNetworkError: SSL routines: ssl3_read_bytes: tlsv1 alert internal error (SSL alert number 80)
+Node.js v22.x
+```
+
+Fix steps:
+
+1) Use Node 20 LTS for the backend
+- This repo pins the backend to Node 20 in `backend/package.json` via the `engines` field. Ensure your Render service respects it or set the runtime to Node 20 explicitly in the service settings.
+
+2) Use the Atlas SRV connection string
+- Prefer the `mongodb+srv://` URI from Atlas, not manual `mongodb://host:port` lists. Ensure special characters in the password are URL-encoded.
+
+3) Network access in Atlas
+- Add your Render egress IPs to the Atlas Network Access allowlist. For a quick test only, you can use `0.0.0.0/0` then tighten later.
+
+4) Re-deploy and verify
+- Redeploy the backend on Render. Check the Logs tab for a successful MongoDB connection before pointing the frontend at it.
+
+These steps address TLS handshake issues caused by incompatibilities between Node 22’s OpenSSL and some cluster/driver configurations.
