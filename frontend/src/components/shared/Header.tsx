@@ -7,6 +7,13 @@ type UserSummary = {
   lastname?: string;
   email?: string;
   role?: string;
+  photoUrl?: string;
+  profile?: {
+    photoUrl?: string;
+    displayName?: string;
+  };
+  applicationStatus?: string;
+  applicationRole?: string;
 };
 
 type NavItem = {
@@ -80,7 +87,11 @@ const Header: React.FC = () => {
   useEffect(() => {
     const handleStorage = () => setUser(getStoredUser());
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener('user:updated', handleStorage as EventListener);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('user:updated', handleStorage as EventListener);
+    };
   }, []);
 
   useEffect(() => {
@@ -214,11 +225,19 @@ const Header: React.FC = () => {
     if (!user) {
       return 'Guest';
     }
+    if (user.profile?.displayName) {
+      return user.profile.displayName;
+    }
     if (user.firstname || user.lastname) {
       return `${user.firstname ?? ''} ${user.lastname ?? ''}`.trim();
     }
     return user.email || 'Account';
   }, [user]);
+
+  const avatarUrl = useMemo(() => {
+    const profilePhoto = typeof user?.profile === 'object' ? user?.profile?.photoUrl : undefined;
+    return profilePhoto || user?.photoUrl || null;
+  }, [user?.profile, user?.photoUrl]);
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
 
@@ -337,10 +356,20 @@ const Header: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDropdownOpen((open) => !open)}
-                className="tw-h-10 tw-w-10 tw-rounded-full tw-bg-white tw-flex tw-items-center tw-justify-center tw-text-primary tw-font-semibold tw-uppercase hover:tw-shadow-md tw-transition-shadow"
+                className="tw-h-10 tw-w-10 tw-rounded-full tw-bg-white tw-flex tw-items-center tw-justify-center tw-overflow-hidden hover:tw-shadow-md tw-transition-shadow"
                 aria-haspopup="menu"
               >
-                {initials}
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="Account avatar"
+                    className="tw-h-full tw-w-full tw-object-cover"
+                  />
+                ) : (
+                  <span className="tw-text-primary tw-font-semibold tw-uppercase">
+                    {initials}
+                  </span>
+                )}
               </button>
               {dropdownOpen && (
                 <div className="tw-absolute tw-right-0 tw-mt-2 tw-w-44 tw-bg-white tw-text-gray-700 tw-rounded-lg tw-shadow-lg tw-border tw-border-gray-100 tw-z-50">

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import DashboardLayout from '../../../components/layouts/DashboardLayout';
 import { getMyProfile, updateMyProfile, uploadPhoto } from '../../../shared/services/profileApi';
 import {
@@ -6,6 +6,7 @@ import {
   getNotificationPreferences,
   updateNotificationPreferences,
 } from '../../../shared/services/mentorMatching';
+import logger from '../../../shared/utils/logger';
 
 const PRIVACY_OPTIONS = [
   { value: 'public', label: 'Public' },
@@ -148,6 +149,48 @@ export default function ProfileSettings() {
     .filter((value) => !REMINDER_OPTIONS.some((option) => option.minutes === value))
     .sort((a, b) => b - a);
 
+  const emitUserUpdated = useCallback(() => {
+    try {
+      window.dispatchEvent(new Event('user:updated'));
+    } catch (err) {
+      logger.error('Failed to emit user update event:', err);
+    }
+  }, []);
+
+  const mergeStoredUser = useCallback((patch) => {
+    if (!patch) {
+      return;
+    }
+    try {
+      const raw = localStorage.getItem('user');
+      const current = raw ? JSON.parse(raw) : {};
+      const base = current && typeof current === 'object' ? { ...current } : {};
+
+      if (patch.firstname !== undefined) base.firstname = patch.firstname;
+      if (patch.lastname !== undefined) base.lastname = patch.lastname;
+      if (patch.email !== undefined) base.email = patch.email;
+      if (patch.role !== undefined) base.role = patch.role;
+      if (patch.applicationStatus !== undefined) base.applicationStatus = patch.applicationStatus;
+      if (patch.applicationRole !== undefined) base.applicationRole = patch.applicationRole;
+
+      if (patch.profile && typeof patch.profile === 'object') {
+        base.profile = { ...(base.profile || {}), ...patch.profile };
+        if (patch.profile.photoUrl) {
+          base.photoUrl = patch.profile.photoUrl;
+        }
+      }
+
+      if (patch.photoUrl) {
+        base.photoUrl = patch.photoUrl;
+      }
+
+      localStorage.setItem('user', JSON.stringify(base));
+      emitUserUpdated();
+    } catch (error) {
+      logger.error('Failed to sync user profile to storage:', error);
+    }
+  }, [emitUserUpdated]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -165,6 +208,7 @@ export default function ProfileSettings() {
           contactPreferences: prof.contactPreferences || ['in_app'],
           privacy: { ...prev.privacy, ...(prof.privacy || {}) }
         }));
+        mergeStoredUser(me);
         if (preferences) {
           setNotificationPrefs(preferences);
         }
@@ -174,7 +218,7 @@ export default function ProfileSettings() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [mergeStoredUser]);
 
   const toggleReminderOffset = (minutes) => {
     setNotificationPrefs((prev) => {
@@ -245,6 +289,7 @@ export default function ProfileSettings() {
       const { photoUrl } = await uploadPhoto(file);
       setForm((f) => ({ ...f, photoUrl }));
       setSuccess('Photo updated');
+      mergeStoredUser({ profile: { photoUrl } });
       setTimeout(() => setSuccess(''), 2000);
     } catch (_e) {
       setError(_e?.response?.data?.message || 'Failed to upload photo');
@@ -268,7 +313,19 @@ export default function ProfileSettings() {
         contactPreferences: form.contactPreferences,
         privacy: form.privacy,
       };
-      await updateMyProfile(payload);
+      const updatedAccount = await updateMyProfile(payload);
+      const nextProfile = updatedAccount?.profile || {};
+      setForm((prev) => ({
+        ...prev,
+        ...nextProfile,
+        education: { ...(prev.education || {}), ...(nextProfile.education || {}) },
+        coursesNeeded: nextProfile.coursesNeeded || [],
+        interests: nextProfile.interests || [],
+        contactPreferences: nextProfile.contactPreferences || ['in_app'],
+        privacy: { ...prev.privacy, ...(nextProfile.privacy || {}) },
+        photoUrl: nextProfile.photoUrl || prev.photoUrl,
+      }));
+      mergeStoredUser(updatedAccount);
       const offsets = sanitizeReminderOffsets(notificationPrefs.sessionReminders.offsets);
       const preferencesPayload = {
         channels: notificationPrefs.channels,
