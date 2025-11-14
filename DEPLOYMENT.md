@@ -91,6 +91,36 @@ The sections below list prerequisites, environment variables, and the click-by-c
 
 > Remember: Vite exposes only variables that start with `VITE_`, so keep secrets server-side; never put private keys here.
 
+### 3.4 Google OAuth configuration (required)
+
+In Google Cloud Console → Credentials → Your OAuth 2.0 Client:
+
+- Authorized JavaScript origins:
+   - `https://your-frontend.vercel.app`
+   - `http://localhost:5173` (optional for local dev)
+- Authorized redirect URIs:
+   - `https://your-backend.onrender.com/api/auth/google/callback`
+   - `http://localhost:4000/api/auth/google/callback` (for local dev)
+
+Backend env on Render:
+
+- `SERVER_URL=https://your-backend.onrender.com`
+- `CLIENT_URLS=https://your-frontend.vercel.app, http://localhost:5173`
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (from Google Console)
+
+Frontend usage:
+
+- The login button should navigate to `${VITE_API_URL}/auth/google` (already handled by the code via `googleOAuthUrl()`).
+- If you see `Cannot GET /auth/google` on the frontend domain, you’re likely opening `/auth/google` on the frontend host. Ensure links point to the backend URL (they do if `VITE_API_URL` is set correctly).
+
+### 3.5 reCAPTCHA configuration
+
+- In reCAPTCHA Admin Console, add your frontend domains:
+   - `your-frontend.vercel.app`
+   - `localhost` (for local dev)
+- Use the site key as `VITE_RECAPTCHA_SITE_KEY` in Vercel (Project → Settings → Environment Variables) and in `frontend/.env` for local.
+- Keep the secret key only on the backend (`RECAPTCHA_SECRET_KEY`). Do not place it in the frontend .env.
+
 ### 3.3 Connect frontend → backend
 
 1. After the backend deploy, copy its public HTTPS URL.
@@ -131,6 +161,8 @@ Visit `http://localhost:4173` and ensure it can talk to your local API before pu
 - [ ] MongoDB Atlas IP allowlist includes Render’s outbound IPs.
 - [ ] HTTPS URLs referenced everywhere (`VITE_API_URL`, OAuth callbacks, WebSockets).
 - [ ] Pusher, OAuth, and reCAPTCHA dashboards updated with the new domains.
+- [ ] `SERVER_URL` set on backend to the public API URL.
+- [ ] `CLIENT_URLS` includes both Vercel domain and localhost.
 - [ ] Monitoring/alerting enabled (Render Health Checks, Vercel Analytics, Log drains).
 
 Following this guide, deployments become a push-to-release workflow with zero manual servers to babysit.

@@ -17,7 +17,7 @@ router.post('/auth/set-password', auth, controller.setPassword);
 
 router.get('/auth/google', (req, res, next) => {
   if (!isGoogleConfigured) return res.status(503).json({ error: 'OAUTH_DISABLED' });
-  console.log('Starting Google OAuth flow...');
+  // Starting Google OAuth flow
   return passport.authenticate('google', { scope: ['profile', 'email'], session: false })(req, res, next);
 });
 
