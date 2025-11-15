@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
 const Session = require('../models/Session');
+const { getFullName } = require('../utils/person');
 
 const toObjectId = (id) => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null);
 
-const parseFilters = (req) => {
-  const { from, to, mentor, topic, page, limit } = req.query || {};
-  const filters = { mentee: req.user.id };
+const parseFilters = (req, scope = 'mentee') => {
+  const { from, to, mentor, mentee, topic, page, limit } = req.query || {};
+  const filters = scope === 'mentor' ? { mentor: req.user.id } : { mentee: req.user.id };
 
   if (from) {
     filters.date = filters.date || {};
@@ -17,9 +18,13 @@ const parseFilters = (req) => {
     const d = new Date(to);
     if (!Number.isNaN(d.getTime())) filters.date.$lte = d;
   }
-  if (mentor) {
+  if (scope === 'mentee' && mentor) {
     const oid = toObjectId(mentor);
     if (oid) filters.mentor = oid;
+  }
+  if (scope === 'mentor' && mentee) {
+    const oid = toObjectId(mentee);
+    if (oid) filters.mentee = oid;
   }
   if (topic) {
     filters.subject = new RegExp(String(topic).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -31,11 +36,46 @@ const parseFilters = (req) => {
   return { filters, page: pageNum, limit: limitNum };
 };
 
+const summarizePerson = (doc) => {
+  if (!doc || typeof doc !== 'object') {
+    return null;
+  }
+
+  const identifier = doc._id || doc.id || null;
+  if (!identifier && !doc.firstname && !doc.lastname && !doc.email) {
+    return null;
+  }
+
+  return {
+    id: identifier ? identifier.toString() : null,
+    name: getFullName(doc) || doc.email,
+    email: doc.email,
+  };
+};
+
+const formatSessionRow = (sessionDoc) => {
+  if (!sessionDoc) {
+    return null;
+  }
+
+  return {
+    id: sessionDoc._id.toString(),
+    subject: sessionDoc.subject,
+    mentor: summarizePerson(sessionDoc.mentor),
+    mentee: summarizePerson(sessionDoc.mentee),
+    date: sessionDoc.date,
+    durationMinutes: sessionDoc.durationMinutes,
+    attended: !!sessionDoc.attended,
+    tasksCompleted: sessionDoc.tasksCompleted || 0,
+    notes: sessionDoc.notes || null,
+  };
+};
+
 exports.getMenteeSessions = async (req, res) => {
   try {
-  const { filters, page, limit } = parseFilters(req);
-  const { cursor } = req.query || {};
-  const { parseDateCursor } = require('../utils/cursor');
+    const { filters, page, limit } = parseFilters(req, 'mentee');
+    const { cursor } = req.query || {};
+    const { parseDateCursor } = require('../utils/cursor');
 
     // Cursor pagination (preferred) falls back to page-based if no cursor provided
     const query = Session.find(filters).sort({ date: -1 });
@@ -52,8 +92,9 @@ exports.getMenteeSessions = async (req, res) => {
     }
 
     query.limit(limit)
-      .select('subject mentor date durationMinutes attended tasksCompleted notes')
+      .select('subject mentor mentee date durationMinutes attended tasksCompleted notes')
       .populate('mentor', 'firstname lastname email')
+      .populate('mentee', 'firstname lastname email')
       .lean();
 
     const sessions = await query.exec();
@@ -70,21 +111,7 @@ exports.getMenteeSessions = async (req, res) => {
       nextCursor = sessions[sessions.length - 1].date.toISOString();
     }
 
-    const { getFullName } = require('../utils/person');
-    const rows = sessions.map((s) => ({
-      id: s._id.toString(),
-      subject: s.subject,
-      mentor: s.mentor ? {
-        id: s.mentor._id.toString(),
-        name: getFullName(s.mentor) || s.mentor.email,
-        email: s.mentor.email,
-      } : null,
-      date: s.date,
-      durationMinutes: s.durationMinutes,
-      attended: !!s.attended,
-      tasksCompleted: s.tasksCompleted || 0,
-      notes: s.notes || null,
-    }));
+    const rows = sessions.map(formatSessionRow);
 
     return res.json({
       success: true,
@@ -99,9 +126,120 @@ exports.getMenteeSessions = async (req, res) => {
   }
 };
 
+exports.getMentorSessions = async (req, res) => {
+  if (req.user.role !== 'mentor') {
+    return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Mentor access required.' });
+  }
+
+  try {
+    const { filters, page, limit } = parseFilters(req, 'mentor');
+    const { cursor } = req.query || {};
+    const { parseDateCursor } = require('../utils/cursor');
+
+    const query = Session.find(filters).sort({ date: -1 });
+
+    let usingCursor = false;
+    if (cursor) {
+      usingCursor = true;
+      const cursorDate = parseDateCursor(cursor);
+      if (cursorDate) {
+        query.where({ date: { $lt: cursorDate } });
+      }
+    } else {
+      query.skip((page - 1) * limit);
+    }
+
+    query.limit(limit)
+      .select('subject mentor mentee date durationMinutes attended tasksCompleted notes')
+      .populate('mentee', 'firstname lastname email')
+      .populate('mentor', 'firstname lastname email')
+      .lean();
+
+    const sessions = await query.exec();
+
+    let total; let totalPages; let nextCursor = null;
+    if (!usingCursor) {
+      total = await Session.countDocuments(filters);
+      totalPages = Math.max(1, Math.ceil(total / limit));
+    }
+
+    if (sessions.length === limit) {
+      nextCursor = sessions[sessions.length - 1].date.toISOString();
+    }
+
+    const rows = sessions.map(formatSessionRow);
+
+    return res.json({
+      success: true,
+      sessions: rows,
+      meta: usingCursor
+        ? { cursor: nextCursor, limit, count: rows.length, usingCursor: true }
+        : { total, page, limit, totalPages, count: rows.length, usingCursor: false },
+    });
+  } catch (error) {
+    console.error('getMentorSessions error:', error);
+    return res.status(500).json({ success: false, error: 'SESSIONS_FETCH_FAILED', message: 'Unable to fetch mentor sessions.' });
+  }
+};
+
+exports.completeSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'INVALID_SESSION_ID', message: 'Invalid session identifier.' });
+    }
+
+    let ownerFilter;
+    if (req.user.role === 'mentor') {
+      ownerFilter = { mentor: req.user.id };
+    } else if (req.user.role === 'mentee') {
+      ownerFilter = { mentee: req.user.id };
+    } else {
+      return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Only mentors or mentees can update sessions.' });
+    }
+
+    const session = await Session.findOne({ _id: id, ...ownerFilter })
+      .populate('mentor', 'firstname lastname email')
+      .populate('mentee', 'firstname lastname email');
+
+    if (!session) {
+      return res.status(404).json({ success: false, error: 'SESSION_NOT_FOUND', message: 'Session not found for this account.' });
+    }
+
+    const { attended, tasksCompleted, notes } = req.body || {};
+    if (typeof attended !== 'undefined' && typeof attended !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'INVALID_ATTENDED_FLAG', message: 'attended must be a boolean value.' });
+    }
+
+    if (typeof tasksCompleted !== 'undefined') {
+      const parsedTasks = Number(tasksCompleted);
+      if (!Number.isFinite(parsedTasks) || parsedTasks < 0) {
+        return res.status(400).json({ success: false, error: 'INVALID_TASK_COUNT', message: 'tasksCompleted must be a non-negative number.' });
+      }
+      session.tasksCompleted = Math.round(parsedTasks);
+    }
+
+    if (typeof notes !== 'undefined') {
+      if (notes !== null && typeof notes !== 'string') {
+        return res.status(400).json({ success: false, error: 'INVALID_NOTES', message: 'notes must be a string.' });
+      }
+      session.notes = notes ? notes.toString().trim() : null;
+    }
+
+    session.attended = typeof attended === 'boolean' ? attended : true;
+
+    await session.save();
+
+    return res.json({ success: true, session: formatSessionRow(session) });
+  } catch (error) {
+    console.error('completeSession error:', error);
+    return res.status(500).json({ success: false, error: 'COMPLETE_SESSION_FAILED', message: 'Unable to update session.' });
+  }
+};
+
 exports.getMenteeReport = async (req, res) => {
   try {
-    const { filters } = parseFilters(req);
+    const { filters } = parseFilters(req, 'mentee');
     const all = await Session.find(filters)
       .sort({ date: -1 })
       .limit(500)
@@ -144,7 +282,7 @@ const toCsv = (rows) => {
 
 exports.exportMenteeData = async (req, res) => {
   try {
-    const { filters } = parseFilters(req);
+    const { filters } = parseFilters(req, 'mentee');
     const format = (req.query.format || 'csv').toString().toLowerCase();
     const all = await Session.find(filters)
       .sort({ date: -1 })

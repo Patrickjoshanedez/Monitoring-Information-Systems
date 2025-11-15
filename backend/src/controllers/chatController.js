@@ -4,6 +4,7 @@ const ChatMessage = require('../models/ChatMessage');
 const User = require('../models/User');
 const { ok, fail } = require('../utils/responses');
 const { getDisplayName } = require('../utils/person');
+const { sendNotification } = require('../utils/notificationService');
 const { isConfigured, ensureClient, triggerEvent } = require('../utils/pusher');
 
 const THREAD_CHANNEL_PREFIX = 'private-thread-';
@@ -276,6 +277,23 @@ exports.sendMessage = async (req, res) => {
       lastMessageAt: message.createdAt,
       lastSender: senderId,
     });
+
+    const isMentorSender = thread.mentor._id.toString() === senderId;
+    const senderDoc = isMentorSender ? thread.mentor : thread.mentee;
+    const recipientDoc = isMentorSender ? thread.mentee : thread.mentor;
+    if (recipientDoc) {
+      const preview = messageBody.length > 160 ? `${messageBody.slice(0, 157)}…` : messageBody;
+      sendNotification({
+        userId: recipientDoc._id,
+        type: 'MESSAGE_NEW',
+        title: `New message from ${getDisplayName(senderDoc)}`,
+        message: preview || 'You have a new message waiting.',
+        data: {
+          threadId: thread._id.toString(),
+          messageId: message._id.toString(),
+        },
+      }).catch((error) => console.error('chat notification error:', error));
+    }
 
     return ok(res, { message: payload });
   } catch (error) {

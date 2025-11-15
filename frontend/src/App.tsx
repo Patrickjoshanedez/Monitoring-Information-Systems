@@ -14,6 +14,7 @@ import AdminDashboard from './components/dashboards/AdminDashboard';
 import MentorDashboard from './components/dashboards/MentorDashboard';
 import MenteeDashboard from './components/dashboards/MenteeDashboard';
 import MaterialsUploadPage from './pages/mentorDashboards/MaterialsUploadPage';
+import MentorSessionsPage from './pages/mentorDashboards/MentorSessionsPage';
 import MyMentorPage from './pages/menteeDashboards/MyMentorPage';
 import SessionPage from './pages/menteeDashboards/SessionPage';
 import ApplyPage from './pages/menteeDashboards/ApplyPage';
@@ -52,6 +53,7 @@ const MentorChatRoute = () => <ProtectedRoute requiredRole="mentor" children={<C
 const MenteeChatRoute = () => <ProtectedRoute requiredRole="mentee" children={<ChatPage />} />;
 const MentorProfileEditRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorProfileEditor />} />;
 const MentorMaterialsUploadRoute = () => <ProtectedRoute requiredRole="mentor" children={<MaterialsUploadPage />} />;
+const MentorSessionsRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorSessionsPage />} />;
 
 const App = () => {
     const location = useLocation();
@@ -80,6 +82,7 @@ const App = () => {
                 <Route path="/mentor/dashboard" element={<MentorRoute />} />
                 <Route path="/mentor/chat" element={<MentorChatRoute />} />
                 <Route path="/mentor/materials/upload" element={<MentorMaterialsUploadRoute />} />
+                <Route path="/mentor/sessions" element={<MentorSessionsRoute />} />
                 <Route path="/mentor/profile/edit" element={<MentorProfileEditRoute />} />
                 <Route path="/mentee/dashboard" element={<MenteeRoute />} />
                 <Route path="/mentee/chat" element={<MenteeChatRoute />} />

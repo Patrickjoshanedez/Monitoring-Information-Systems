@@ -7,7 +7,7 @@ const sessionSchema = new mongoose.Schema(
     subject: { type: String, required: true, trim: true },
     date: { type: Date, required: true },
     durationMinutes: { type: Number, default: 60, min: 0 },
-    attended: { type: Boolean, default: true },
+  attended: { type: Boolean, default: false },
     tasksCompleted: { type: Number, default: 0, min: 0 },
     notes: { type: String, trim: true },
     remindersSent: [
