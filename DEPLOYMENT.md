@@ -121,6 +121,27 @@ Frontend usage:
 - Use the site key as `VITE_RECAPTCHA_SITE_KEY` in Vercel (Project → Settings → Environment Variables) and in `frontend/.env` for local.
 - Keep the secret key only on the backend (`RECAPTCHA_SECRET_KEY`). Do not place it in the frontend .env.
 
+#### 3.5.1 Fixing "Invalid domain for site key"
+
+If you see the widget error "ERROR for site owner: Invalid domain for site key":
+
+1) Verify the site key belongs to the correct reCAPTCHA property
+   - In reCAPTCHA Admin → Settings → Keys, make sure you copied the site key for the property that lists your domain(s).
+
+2) Allowlist all domains you use
+   - Add the following to the property’s Domains list (no protocol, no port):
+     - `localhost`
+     - `127.0.0.1`
+     - `<your-preview>.vercel.app` (Preview deployments)
+     - `<your-production-domain>` (Custom domain, if any)
+   - Save changes and wait ~2–5 minutes for propagation. Hard-refresh the page.
+
+3) Rebuild the frontend
+   - Vite inlines `import.meta.env` at build time. After you change the env var in Vercel, trigger a new deploy so the bundle picks up the new key.
+
+4) Local development fallback
+   - The component `src/components/common/RecaptchaField.jsx` automatically uses Google’s public test key in non-production when `VITE_RECAPTCHA_SITE_KEY` is missing. This lets you continue developing locally without domain allowlisting; production still requires a real site key.
+
 ### 3.3 Connect frontend → backend
 
 1. After the backend deploy, copy its public HTTPS URL.
@@ -191,3 +212,34 @@ Fix steps:
 - Redeploy the backend on Render. Check the Logs tab for a successful MongoDB connection before pointing the frontend at it.
 
 These steps address TLS handshake issues caused by incompatibilities between Node 22’s OpenSSL and some cluster/driver configurations.
+
+## 9. Branching and deployment strategy
+
+To keep production stable while you iterate quickly, this repo uses two main long-lived branches:
+
+- `master` → production-ready code only.
+- `development` → active feature work and integration testing.
+
+### 9.1 Recommended workflow
+
+1. Create feature branches from `development` (e.g., `feat/recaptcha-hardening`).
+2. Open pull requests **into `development`**, get reviews, and merge when green.
+3. When `development` is stable and tested, open a PR from `development` → `master` and merge to prepare a release.
+4. Tag releases on `master` if you want (`v1.0.0`, `v1.1.0`, etc.).
+
+> Tip: Protect `master` in GitHub (Settings → Branches → Branch protection) to require PRs, reviews, and passing checks.
+
+### 9.2 Mapping branches to deployments
+
+- **Backend (Render):**
+   - Production API → track `master`.
+   - Optional staging API → create a second Render service that tracks `development`.
+
+- **Frontend (Vercel):**
+   - Production frontend → use `master` as the Production Branch.
+   - Preview/staging → Vercel automatically builds previews for PRs and commits to `development`.
+
+This setup lets you:
+
+- Work primarily on `development` without risking the live site.
+- Use Vercel/Render previews to validate OAuth, reCAPTCHA, and other integrations before promoting changes to `master`.

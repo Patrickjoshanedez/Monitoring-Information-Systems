@@ -3,6 +3,7 @@ import DashboardLayout from '../../components/layouts/DashboardLayout';
 import SessionKPIs from '../../components/mentee/SessionKPIs';
 import UpcomingSessionsTable from '../../components/mentee/UpcomingSessionsTable';
 import SessionHistoryTable from '../../components/mentee/SessionHistoryTable';
+import PendingFeedbackList from '../../components/mentee/PendingFeedbackList';
 
 const SessionPage: React.FC = () => {
   return (
@@ -13,6 +14,9 @@ const SessionPage: React.FC = () => {
 
         {/* Upcoming Sessions */}
         <UpcomingSessionsTable />
+
+  {/* Pending feedback */}
+  <PendingFeedbackList />
 
         {/* Session History */}
         <SessionHistoryTable />

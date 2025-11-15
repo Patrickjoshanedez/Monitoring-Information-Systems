@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import DashboardLayout from '../../components/layouts/DashboardLayout';
+import PendingFeedbackList from '../../components/mentee/PendingFeedbackList';
 import { useMentorshipRequests } from '../../features/mentorship/hooks/useMentorshipRequests';
 import { useMaterials } from '../../shared/hooks/useMaterials';
 import { downloadMaterial, MaterialItem } from '../../shared/services/materialsService';
@@ -314,6 +315,16 @@ const MyMentorPage: React.FC = () => {
             </p>
           </header>
           {renderMaterialsTable()}
+        </section>
+
+        <section className="tw-space-y-4">
+          <header>
+            <h2 className="tw-text-xl tw-font-semibold tw-text-gray-900">Share session feedback</h2>
+            <p className="tw-text-sm tw-text-gray-600">
+              Reflect on your recent sessions without leaving this page. Your responses go straight to the mentor and admin review flows.
+            </p>
+          </header>
+          <PendingFeedbackList />
         </section>
       </div>
     </DashboardLayout>
