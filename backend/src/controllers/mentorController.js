@@ -137,6 +137,40 @@ const serializeRequest = (request) => ({
   declineReason: request.declineReason || null,
 });
 
+exports.listMentorRoster = async (req, res) => {
+  if (req.user.role !== 'mentor') {
+    return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Only mentors can view their roster.' });
+  }
+
+  try {
+    const acceptedRequests = await MentorshipRequest.find({
+      mentor: req.user.id,
+      status: 'accepted',
+    })
+      .populate('mentee', 'firstname lastname email profile.photoUrl profile.displayName')
+      .lean();
+
+    const rosterMap = new Map();
+    acceptedRequests.forEach((request) => {
+      if (request.mentee) {
+        rosterMap.set(request.mentee._id.toString(), request.mentee);
+      }
+    });
+
+    const mentees = Array.from(rosterMap.values()).map((mentee) => ({
+      id: mentee._id.toString(),
+      name: getFullName(mentee) || mentee.email,
+      email: mentee.email,
+      avatar: mentee.profile?.photoUrl || null,
+    }));
+
+    return res.json({ success: true, mentees, meta: { count: mentees.length } });
+  } catch (error) {
+    console.error('listMentorRoster error:', error);
+    return res.status(500).json({ success: false, error: 'MENTOR_ROSTER_FAILED', message: 'Unable to load mentee roster.' });
+  }
+};
+
 exports.listMentors = async (req, res) => {
   try {
     const filters = {

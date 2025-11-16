@@ -5,9 +5,10 @@ interface MentorCardsProps {
   mentors: MentorProfile[];
   loading?: boolean;
   onRequest?: (mentor: MentorProfile) => void;
+  requestDisabledReason?: string;
 }
 
-const MentorCards: React.FC<MentorCardsProps> = ({ mentors, loading, onRequest }) => {
+const MentorCards: React.FC<MentorCardsProps> = ({ mentors, loading, onRequest, requestDisabledReason }) => {
   if (loading) {
     return (
       <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 xl:tw-grid-cols-3 tw-gap-4">
@@ -102,8 +103,18 @@ const MentorCards: React.FC<MentorCardsProps> = ({ mentors, loading, onRequest }
             {onRequest ? (
               <button
                 type="button"
-                onClick={() => onRequest(mentor)}
-                className="tw-rounded-lg tw-bg-purple-600 tw-px-4 tw-py-2 tw-text-sm tw-font-semibold tw-text-white tw-transition-colors hover:tw-bg-purple-700 focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-purple-500 focus:tw-ring-offset-2"
+                onClick={() => {
+                  if (requestDisabledReason) {
+                    return;
+                  }
+                  onRequest(mentor);
+                }}
+                className={`tw-rounded-lg tw-px-4 tw-py-2 tw-text-sm tw-font-semibold tw-transition-colors focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-offset-2 ${requestDisabledReason
+                  ? 'tw-bg-gray-200 tw-text-gray-500 tw-cursor-not-allowed focus:tw-ring-gray-200'
+                  : 'tw-bg-purple-600 tw-text-white hover:tw-bg-purple-700 focus:tw-ring-purple-500'}`}
+                disabled={Boolean(requestDisabledReason)}
+                aria-disabled={requestDisabledReason ? 'true' : undefined}
+                title={requestDisabledReason}
               >
                 Request mentorship
               </button>

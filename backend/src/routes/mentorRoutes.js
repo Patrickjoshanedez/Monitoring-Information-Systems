@@ -8,9 +8,11 @@ const {
   acceptMentorshipRequest,
   declineMentorshipRequest,
   withdrawMentorshipRequest,
+  listMentorRoster,
 } = require('../controllers/mentorController');
 
 router.get('/mentors', auth, listMentors);
+router.get('/mentor/mentees', auth, listMentorRoster);
 router.get('/mentorship/requests', auth, listMentorshipRequests);
 router.post('/mentorship/requests', auth, submitMentorshipRequest);
 router.patch('/mentorship/requests/:id/accept', auth, acceptMentorshipRequest);

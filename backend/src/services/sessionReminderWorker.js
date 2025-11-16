@@ -42,75 +42,97 @@ const processSessions = async () => {
     const sessions = await Session.find({
         date: { $gte: now, $lte: horizon },
     })
-        .select('date mentee mentor remindersSent')
+        .select('date mentee mentor participants remindersSent subject room')
         .populate('mentee', 'firstname lastname email profile notificationSettings')
         .populate('mentor', 'firstname lastname email')
+        .populate('participants.user', 'firstname lastname email profile notificationSettings')
         .lean();
 
     for (const session of sessions) {
-        const mentee = session.mentee;
-        if (!mentee) continue;
+        const activeParticipants = Array.isArray(session.participants)
+            ? session.participants.filter((entry) => !['declined', 'removed'].includes(entry.status))
+            : [];
 
-        const offsets = getSessionReminderOffsets(mentee);
-        if (!offsets.length) continue;
+        const recipients = activeParticipants.length
+            ? activeParticipants.map((entry) => entry.user).filter(Boolean)
+            : session.mentee
+            ? [session.mentee]
+            : [];
+
+        if (!recipients.length) {
+            continue;
+        }
 
         const timeUntilSessionMs = new Date(session.date).getTime() - now.getTime();
         if (timeUntilSessionMs <= 0) continue;
 
-        for (const offsetMinutes of offsets) {
-            if (timeUntilSessionMs > offsetMinutes * 60000) continue; // Not yet inside window
+        const { getFullName } = require('../utils/person');
+        const mentorName = session.mentor ? (getFullName(session.mentor) || session.mentor.email) : 'your mentor';
 
-            // Atomic guard: attempt to record the reminder BEFORE sending; skip if already present
-            const preUpdate = await Session.findOneAndUpdate(
-                { _id: session._id, 'remindersSent.offsetMinutes': { $ne: offsetMinutes } },
-                {
-                    $push: {
-                        remindersSent: {
-                            offsetMinutes,
-                            sentAt: new Date(),
-                            channels: { inApp: false, email: false }, // will patch after send
-                        },
-                    },
-                },
-                { new: true }
-            ).select('_id');
+        for (const recipient of recipients) {
+            if (!recipient) continue;
 
-            if (!preUpdate) {
-                // Another worker/process already handled this offset
-                continue;
-            }
+            const offsets = getSessionReminderOffsets(recipient);
+            if (!offsets.length) continue;
 
-            const { getFullName } = require('../utils/person');
-            const mentorName = session.mentor ? (getFullName(session.mentor) || session.mentor.email) : 'your mentor';
-
-            const timezone = mentee.profile?.timezone || 'UTC';
+            const timezone = recipient.profile?.timezone || 'UTC';
             const formattedDate = formatSessionDate(new Date(session.date), timezone);
-            const friendlyOffset = describeOffset(offsetMinutes);
-            const message = `Reminder: You have a mentorship session with ${mentorName} on ${formattedDate} (${timezone})${friendlyOffset ? ` in about ${friendlyOffset}.` : '.'}`;
 
-            const result = await sendNotification({
-                userId: mentee._id,
-                type: 'SESSION_REMINDER',
-                title: 'Upcoming session reminder',
-                message,
-                data: {
-                    sessionId: session._id,
-                    mentorId: session.mentor ? session.mentor._id : null,
-                    scheduledAt: session.date,
-                    offsetMinutes,
-                },
-            });
+            for (const offsetMinutes of offsets) {
+                if (timeUntilSessionMs > offsetMinutes * 60000) continue;
 
-            // Patch channels only if delivered
-            if (result.delivered) {
-                await Session.updateOne(
-                    { _id: session._id, 'remindersSent.offsetMinutes': offsetMinutes },
+                const insertion = await Session.updateOne(
                     {
-                        $set: {
-                            'remindersSent.$.channels': result.channelsUsed,
+                        _id: session._id,
+                        remindersSent: { $not: { $elemMatch: { offsetMinutes, recipient: recipient._id } } },
+                    },
+                    {
+                        $push: {
+                            remindersSent: {
+                                offsetMinutes,
+                                recipient: recipient._id,
+                                sentAt: new Date(),
+                                channels: { inApp: false, email: false },
+                            },
                         },
                     }
                 );
+
+                if (!insertion.modifiedCount) {
+                    continue;
+                }
+
+                const friendlyOffset = describeOffset(offsetMinutes);
+                const message = `Reminder: You have a mentorship session with ${mentorName} on ${formattedDate} (${timezone})${friendlyOffset ? ` in about ${friendlyOffset}.` : '.'}`;
+
+                const result = await sendNotification({
+                    userId: recipient._id,
+                    type: 'SESSION_REMINDER',
+                    title: 'Upcoming session reminder',
+                    message,
+                    data: {
+                        sessionId: session._id,
+                        mentorId: session.mentor ? session.mentor._id : null,
+                        scheduledAt: session.date,
+                        offsetMinutes,
+                    },
+                });
+
+                if (result.delivered) {
+                    await Session.updateOne(
+                        {
+                            _id: session._id,
+                            'remindersSent.offsetMinutes': offsetMinutes,
+                            'remindersSent.recipient': recipient._id,
+                        },
+                        {
+                            $set: {
+                                'remindersSent.$.channels': result.channelsUsed,
+                                'remindersSent.$.sentAt': new Date(),
+                            },
+                        }
+                    );
+                }
             }
         }
     }

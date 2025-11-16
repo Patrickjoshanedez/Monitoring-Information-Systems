@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
+import { useSearchParams } from 'react-router-dom';
 import DashboardLayout from '../components/layouts/DashboardLayout';
 import ChatThreadList from '../components/chat/ChatThreadList';
 import ChatWindow from '../components/chat/ChatWindow';
@@ -35,15 +36,26 @@ const ChatPage: React.FC = () => {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [creationError, setCreationError] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const user = useMemo(() => readStoredUser(), []);
   const currentUserId: string | null = user?._id || user?.id || null;
 
+  const searchParamsString = searchParams.toString();
   useEffect(() => {
+    const requestedThreadId = searchParams.get('threadId');
+    if (requestedThreadId && threads.some((thread) => thread.id === requestedThreadId)) {
+      setActiveThreadId(requestedThreadId);
+      const nextParams = new URLSearchParams(searchParamsString);
+      nextParams.delete('threadId');
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+
     if (!activeThreadId && threads.length > 0) {
       setActiveThreadId(threads[0].id);
     }
-  }, [threads, activeThreadId]);
+  }, [threads, activeThreadId, searchParams, searchParamsString, setSearchParams]);
 
   const activeThread = useMemo(() => {
     if (!activeThreadId) return null;
@@ -143,6 +155,9 @@ const ChatPage: React.FC = () => {
           ) : (
             <ChatWindow
               counterpart={activeThread.counterpart}
+              threadTitle={activeThread.title}
+              participants={activeThread.participants}
+              session={activeThread.session}
               messages={messages}
               isLoading={messagesQuery.isLoading && !messagesQuery.isFetchingNextPage}
               onSend={handleSendMessage}

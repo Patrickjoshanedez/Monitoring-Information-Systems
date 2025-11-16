@@ -21,22 +21,113 @@ const normalizeUserDoc = (userDoc) => {
   };
 };
 
+const getParticipantIds = (threadDoc) => {
+  if (!threadDoc) return [];
+  const ids = [];
+  if (Array.isArray(threadDoc.participants) && threadDoc.participants.length) {
+    threadDoc.participants.forEach((participant) => {
+      if (!participant) return;
+      if (typeof participant === 'string') {
+        ids.push(participant);
+      } else if (participant._id) {
+        ids.push(participant._id.toString());
+      } else {
+        ids.push(participant.toString());
+      }
+    });
+  }
+
+  if (!ids.length) {
+    if (threadDoc.mentor) {
+      ids.push(threadDoc.mentor._id ? threadDoc.mentor._id.toString() : threadDoc.mentor.toString());
+    }
+    if (threadDoc.mentee) {
+      ids.push(threadDoc.mentee._id ? threadDoc.mentee._id.toString() : threadDoc.mentee.toString());
+    }
+  }
+
+  return [...new Set(ids.filter(Boolean))];
+};
+
+const ensureParticipantArray = (threadDoc, participantIds) => {
+  if (Array.isArray(threadDoc.participants) && threadDoc.participants.length) {
+    return;
+  }
+  threadDoc.participants = participantIds
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+};
+
+const ensureParticipantStates = (threadDoc, participantIds) => {
+  const existing = new Map(
+    (threadDoc.participantStates || []).map((state) => [state.user.toString(), state.unreadCount || 0])
+  );
+
+  threadDoc.participantStates = participantIds
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => ({
+      user: new mongoose.Types.ObjectId(id),
+      unreadCount: existing.get(id) || 0,
+    }));
+};
+
+const normalizeParticipants = (threadDoc) => {
+  if (!threadDoc) return [];
+  if (Array.isArray(threadDoc.participants) && threadDoc.participants.length) {
+    return threadDoc.participants.map((participant) => normalizeUserDoc(participant)).filter(Boolean);
+  }
+
+  const participants = [];
+  const mentor = normalizeUserDoc(threadDoc.mentor);
+  const mentee = normalizeUserDoc(threadDoc.mentee);
+  if (mentor) participants.push(mentor);
+  if (mentee) participants.push(mentee);
+  return participants;
+};
+
+const formatSessionSummary = (sessionDoc) => {
+  if (!sessionDoc) return null;
+  return {
+    id: sessionDoc._id ? sessionDoc._id.toString() : null,
+    subject: sessionDoc.subject,
+    date: sessionDoc.date,
+    room: sessionDoc.room || null,
+  };
+};
+
 const formatThread = (threadDoc, viewerId) => {
   const mentor = normalizeUserDoc(threadDoc.mentor);
   const mentee = normalizeUserDoc(threadDoc.mentee);
+  const participants = normalizeParticipants(threadDoc);
+  const session = formatSessionSummary(threadDoc.session);
+
   const isMentorViewer = mentor?.id === viewerId;
-  const counterpart = isMentorViewer ? mentee : mentor;
-  const unreadCount = isMentorViewer ? threadDoc.mentorUnreadCount : threadDoc.menteeUnreadCount;
+  const directCounterpart = isMentorViewer ? mentee : mentor;
+  const viewerState = (threadDoc.participantStates || []).find((state) => state.user.toString() === viewerId);
+  const fallbackUnread = isMentorViewer ? threadDoc.mentorUnreadCount : threadDoc.menteeUnreadCount;
+  const unreadCount = viewerState ? viewerState.unreadCount : fallbackUnread;
+
+  const isSessionThread = threadDoc.type === 'session';
+  const title = threadDoc.title || session?.subject || (directCounterpart?.name || 'Conversation');
+  const counterpart = isSessionThread
+    ? { id: session?.id || threadDoc._id.toString(), name: title, avatar: null }
+    : directCounterpart
+    ? { id: directCounterpart.id, name: directCounterpart.name, avatar: directCounterpart.avatar }
+    : null;
 
   return {
     id: threadDoc._id.toString(),
+    type: threadDoc.type || 'direct',
+    title,
+    session,
     mentor: mentor ? { id: mentor.id, name: mentor.name, avatar: mentor.avatar } : null,
     mentee: mentee ? { id: mentee.id, name: mentee.name, avatar: mentee.avatar } : null,
+    participants,
     lastMessage: threadDoc.lastMessage || null,
     lastMessageAt: threadDoc.lastMessageAt || threadDoc.updatedAt,
     lastSender: threadDoc.lastSender ? threadDoc.lastSender.toString() : null,
-    unreadCount,
-    counterpart: counterpart ? { id: counterpart.id, name: counterpart.name, avatar: counterpart.avatar } : null,
+    unreadCount: unreadCount || 0,
+    counterpart,
   };
 };
 
@@ -47,13 +138,16 @@ const loadThreadForUser = async (threadId, viewerId) => {
 
   const thread = await ChatThread.findById(threadId)
     .populate('mentor', 'firstname lastname email profile.photoUrl profile.displayName role')
-    .populate('mentee', 'firstname lastname email profile.photoUrl profile.displayName role');
+    .populate('mentee', 'firstname lastname email profile.photoUrl profile.displayName role')
+    .populate('participants', 'firstname lastname email profile.photoUrl profile.displayName role')
+    .populate('session', 'subject date room');
 
   if (!thread) {
     return { error: { status: 404, code: 'THREAD_NOT_FOUND', message: 'Conversation not found.' } };
   }
 
-  const isParticipant = thread.mentor._id.toString() === viewerId || thread.mentee._id.toString() === viewerId;
+  const participantIds = getParticipantIds(thread);
+  const isParticipant = participantIds.includes(viewerId);
   if (!isParticipant) {
     return { error: { status: 403, code: 'FORBIDDEN', message: 'Access denied.' } };
   }
@@ -94,15 +188,21 @@ exports.listThreads = async (req, res) => {
     }
 
     const userId = req.user.id;
-    const filter = currentRole === 'mentor'
-      ? { mentor: userId }
-      : { mentee: userId };
+    const filter = {
+      $or: [
+        { mentor: userId },
+        { mentee: userId },
+        { participants: userId },
+      ],
+    };
 
     const threads = await ChatThread.find(filter)
       .sort({ updatedAt: -1 })
       .limit(100)
       .populate('mentor', 'firstname lastname email profile.photoUrl profile.displayName role')
-      .populate('mentee', 'firstname lastname email profile.photoUrl profile.displayName role');
+      .populate('mentee', 'firstname lastname email profile.photoUrl profile.displayName role')
+      .populate('participants', 'firstname lastname email profile.photoUrl profile.displayName role')
+      .populate('session', 'subject date room');
 
     const formatted = threads.map((thread) => formatThread(thread, userId));
     return ok(res, { threads: formatted }, { count: formatted.length });
@@ -147,19 +247,36 @@ exports.ensureThread = async (req, res) => {
     const menteeId = currentRole === 'mentee' ? req.user.id : counterpart._id;
 
     const thread = await ChatThread.findOneAndUpdate(
-      { mentor: mentorId, mentee: menteeId },
+      { mentor: mentorId, mentee: menteeId, type: 'direct' },
       {
         $setOnInsert: {
           mentor: mentorId,
           mentee: menteeId,
+          type: 'direct',
           mentorUnreadCount: 0,
           menteeUnreadCount: 0,
+          participants: [mentorId, menteeId],
+          participantStates: [
+            { user: mentorId, unreadCount: 0 },
+            { user: menteeId, unreadCount: 0 },
+          ],
         },
       },
       { new: true, upsert: true }
     )
       .populate('mentor', 'firstname lastname email profile.photoUrl profile.displayName role')
-      .populate('mentee', 'firstname lastname email profile.photoUrl profile.displayName role');
+      .populate('mentee', 'firstname lastname email profile.photoUrl profile.displayName role')
+      .populate('participants', 'firstname lastname email profile.photoUrl profile.displayName role');
+
+    if (!thread.participants || thread.participants.length < 2) {
+      thread.participants = [thread.mentor._id, thread.mentee._id];
+      thread.participantStates = [
+        { user: thread.mentor._id, unreadCount: thread.mentorUnreadCount || 0 },
+        { user: thread.mentee._id, unreadCount: thread.menteeUnreadCount || 0 },
+      ];
+      await thread.save();
+      await thread.populate('participants', 'firstname lastname email profile.photoUrl profile.displayName role');
+    }
 
     return ok(res, { thread: formatThread(thread, req.user.id) });
   } catch (error) {
@@ -237,29 +354,35 @@ exports.sendMessage = async (req, res) => {
       readBy: [senderId],
     });
 
-    const updateDoc = {
-      $set: {
-        lastMessage: messageBody,
-  lastSender: new mongoose.Types.ObjectId(senderId),
-        lastMessageAt: message.createdAt,
-        updatedAt: message.createdAt,
-      },
-      $inc: {},
-    };
+  const participantIds = getParticipantIds(thread);
+  ensureParticipantArray(thread, participantIds);
+  ensureParticipantStates(thread, participantIds);
 
-    if (thread.mentor._id.toString() === senderId) {
-      updateDoc.$set.mentorUnreadCount = 0;
-      updateDoc.$inc.menteeUnreadCount = 1;
+    thread.lastMessage = messageBody;
+    thread.lastSender = new mongoose.Types.ObjectId(senderId);
+    thread.lastMessageAt = message.createdAt;
+    thread.updatedAt = message.createdAt;
+
+    thread.participantStates = thread.participantStates.map((state) => ({
+      user: state.user,
+      unreadCount: state.user.toString() === senderId ? 0 : (state.unreadCount || 0) + 1,
+    }));
+
+    if (thread.type === 'direct' && thread.mentor && thread.mentee) {
+      const isMentorSender = thread.mentor._id.toString() === senderId;
+      if (isMentorSender) {
+        thread.mentorUnreadCount = 0;
+        thread.menteeUnreadCount = (thread.menteeUnreadCount || 0) + 1;
+      } else {
+        thread.menteeUnreadCount = 0;
+        thread.mentorUnreadCount = (thread.mentorUnreadCount || 0) + 1;
+      }
     } else {
-      updateDoc.$set.menteeUnreadCount = 0;
-      updateDoc.$inc.mentorUnreadCount = 1;
+      thread.mentorUnreadCount = 0;
+      thread.menteeUnreadCount = 0;
     }
 
-    if (!updateDoc.$inc.mentorUnreadCount && !updateDoc.$inc.menteeUnreadCount) {
-      delete updateDoc.$inc;
-    }
-
-    await ChatThread.updateOne({ _id: thread._id }, updateDoc);
+    await thread.save();
 
     const payload = {
       id: message._id.toString(),
@@ -316,14 +439,29 @@ exports.markThreadRead = async (req, res) => {
     const thread = access.thread;
     const viewerId = req.user.id;
 
-    const update = { $set: {} };
-    if (thread.mentor._id.toString() === viewerId) {
-      update.$set.mentorUnreadCount = 0;
-    } else {
-      update.$set.menteeUnreadCount = 0;
+    const participantIds = getParticipantIds(thread);
+    if (participantIds.length) {
+      ensureParticipantArray(thread, participantIds);
+      ensureParticipantStates(thread, participantIds);
     }
 
-    await ChatThread.updateOne({ _id: thread._id }, update);
+    const viewerState = (thread.participantStates || []).find((state) => state.user.toString() === viewerId);
+    if (viewerState) {
+      viewerState.unreadCount = 0;
+    }
+
+    if (thread.type === 'direct' && thread.mentor && thread.mentee) {
+      if (thread.mentor._id.toString() === viewerId) {
+        thread.mentorUnreadCount = 0;
+      } else if (thread.mentee._id.toString() === viewerId) {
+        thread.menteeUnreadCount = 0;
+      }
+    } else {
+      thread.mentorUnreadCount = 0;
+      thread.menteeUnreadCount = 0;
+    }
+
+    await thread.save();
     await ChatMessage.updateMany(
       { thread: thread._id, readBy: { $ne: viewerId } },
       { $addToSet: { readBy: viewerId } }

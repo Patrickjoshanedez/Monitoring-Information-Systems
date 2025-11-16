@@ -8,6 +8,29 @@ const { ok, fail } = require('../utils/responses');
 
 const FEEDBACK_WINDOW_DAYS = 14;
 
+const normalizeObjectId = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (mongoose.Types.ObjectId.isValid(value)) {
+    return new mongoose.Types.ObjectId(value);
+  }
+
+  return null;
+};
+
+const buildMenteeOwnershipFilter = (userId) => {
+  const normalized = normalizeObjectId(userId);
+  if (!normalized) {
+    return null;
+  }
+
+  return {
+    $or: [{ mentee: normalized }, { participants: { $elemMatch: { user: normalized } } }],
+  };
+};
+
 const isValidRating = (value) => Number.isFinite(value) && value >= 1 && value <= 5;
 
 const buildAnonymizedCode = ({ menteeId, sessionId }) => {
@@ -21,6 +44,10 @@ exports.submitSessionFeedback = async (req, res) => {
     }
 
     const { sessionId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+      return fail(res, 400, 'INVALID_SESSION_ID', 'Invalid session identifier.');
+    }
+
     const { rating, comment, flagReason } = req.body || {};
     const parsedRating = Number(rating);
 
@@ -38,8 +65,15 @@ exports.submitSessionFeedback = async (req, res) => {
       return fail(res, 400, 'INVALID_FLAG_REASON', 'Flag reason exceeds the 1000 character limit.');
     }
 
-    const session = await Session.findById(sessionId).select('mentee mentor date attended');
-    if (!session || session.mentee.toString() !== req.user.id) {
+    const menteeFilter = buildMenteeOwnershipFilter(req.user.id);
+    if (!menteeFilter) {
+      return fail(res, 400, 'INVALID_USER_ID', 'Signed-in account identifier is invalid.');
+    }
+
+    const session = await Session.findOne({ _id: sessionId, ...menteeFilter })
+      .select('mentee mentor date attended participants')
+      .lean();
+    if (!session) {
       return fail(res, 404, 'SESSION_NOT_FOUND', 'Session not found or not owned by mentee.');
     }
 
@@ -57,7 +91,7 @@ exports.submitSessionFeedback = async (req, res) => {
       return fail(res, 400, 'FEEDBACK_WINDOW_CLOSED', 'Feedback window has closed for this session.');
     }
 
-    const existing = await SessionFeedback.findOne({ session: sessionId });
+  const existing = await SessionFeedback.findOne({ session: sessionId });
     if (existing) {
       return fail(res, 409, 'FEEDBACK_EXISTS', 'Feedback already submitted for this session.');
     }
@@ -124,8 +158,13 @@ exports.listPendingFeedback = async (req, res) => {
 
     const windowStart = new Date(Date.now() - FEEDBACK_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
+    const menteeFilter = buildMenteeOwnershipFilter(req.user.id);
+    if (!menteeFilter) {
+      return ok(res, { pending: [] }, { count: 0 });
+    }
+
     const sessions = await Session.find({
-      mentee: req.user.id,
+      ...menteeFilter,
       attended: true,
       date: { $lte: new Date(), $gte: windowStart },
     })

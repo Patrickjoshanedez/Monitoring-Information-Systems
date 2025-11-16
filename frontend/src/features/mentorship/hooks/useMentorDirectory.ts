@@ -32,6 +32,8 @@ export type MentorDirectoryHook = {
     ratings: number[];
   };
   meta?: MentorDirectoryMeta;
+  directorySource: MentorDirectoryMeta['source'];
+  isFallback: boolean;
   isLoading: boolean;
   isRefetching: boolean;
   submitRequest: (payload: MentorshipRequestPayload) => Promise<unknown>;
@@ -50,6 +52,8 @@ export const useMentorDirectory = (): MentorDirectoryHook => {
   });
 
   const mentors = queryResult.data?.mentors ?? [];
+  const directorySource = queryResult.data?.meta?.source ?? 'api';
+  const isFallback = directorySource === 'fallback';
 
   const options = useMemo(() => {
     const subjects = new Set<string>();
@@ -102,6 +106,8 @@ export const useMentorDirectory = (): MentorDirectoryHook => {
     resetFilters,
     options,
     meta: queryResult.data?.meta,
+    directorySource,
+    isFallback,
     isLoading: queryResult.isLoading,
     isRefetching: queryResult.isFetching,
     submitRequest,

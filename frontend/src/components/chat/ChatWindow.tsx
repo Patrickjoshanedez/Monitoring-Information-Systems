@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ChatMessage, ChatParticipant } from '../../shared/services/chatService';
+import type { ChatMessage, ChatParticipant, ChatThreadSessionMeta } from '../../shared/services/chatService';
 
 interface ChatWindowProps {
   counterpart: ChatParticipant | null;
+  threadTitle?: string | null;
+  session?: ChatThreadSessionMeta | null;
+  participants?: ChatParticipant[];
   messages: ChatMessage[];
   isLoading: boolean;
   onSend: (message: string) => Promise<void>;
@@ -15,6 +18,9 @@ interface ChatWindowProps {
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
   counterpart,
+  threadTitle,
+  session,
+  participants,
   messages,
   isLoading,
   onSend,
@@ -30,6 +36,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const orderedMessages = useMemo(() => {
     return [...messages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [messages]);
+
+  const sessionDetails = useMemo(() => {
+    if (!session) return '';
+    const parts: string[] = [];
+    if (session.date) {
+      const scheduled = new Date(session.date);
+      if (!Number.isNaN(scheduled.getTime())) {
+        parts.push(
+          new Intl.DateTimeFormat(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }).format(scheduled)
+        );
+      }
+    }
+    if (session.room) {
+      parts.push(session.room);
+    }
+    return parts.join(' · ');
+  }, [session]);
 
   useEffect(() => {
     if (endRef.current) {
@@ -50,9 +78,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   return (
     <section className="tw-flex-1 tw-flex tw-flex-col tw-h-full">
       <header className="tw-border-b tw-border-gray-200 tw-p-4">
-        <h2 className="tw-text-lg tw-font-semibold tw-text-gray-900">
-          {counterpart?.name || 'Select a conversation'}
-        </h2>
+        <div className="tw-flex tw-flex-col tw-gap-2">
+          <div className="tw-flex tw-flex-col sm:tw-flex-row sm:tw-items-center sm:tw-justify-between">
+            <h2 className="tw-text-lg tw-font-semibold tw-text-gray-900">
+              {threadTitle || counterpart?.name || 'Select a conversation'}
+            </h2>
+            {participants?.length ? (
+              <span className="tw-text-xs tw-text-gray-500">
+                {participants.length} participant{participants.length === 1 ? '' : 's'}
+              </span>
+            ) : null}
+          </div>
+          {sessionDetails ? (
+            <p className="tw-text-xs tw-text-gray-500">{sessionDetails}</p>
+          ) : null}
+          {participants?.length ? (
+            <div className="tw-flex tw-flex-wrap tw-gap-1">
+              {participants.slice(0, 4).map((participant) => (
+                <span
+                  key={participant.id}
+                  className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-gray-100 tw-text-gray-700 tw-text-xs tw-font-medium tw-px-3 tw-py-1"
+                >
+                  {participant.name}
+                </span>
+              ))}
+              {participants.length > 4 ? (
+                <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-gray-100 tw-text-gray-600 tw-text-xs tw-font-medium tw-px-3 tw-py-1">
+                  +{participants.length - 4} more
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <div className="tw-flex-1 tw-overflow-y-auto tw-bg-gray-50 tw-p-4 tw-space-y-3">

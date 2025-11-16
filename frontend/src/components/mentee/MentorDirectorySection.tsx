@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import useMentorDirectory from '../../features/mentorship/hooks/useMentorDirectory';
 import { MentorProfile } from '../../shared/services/mentorMatching';
 import MentorCards from './MentorCards';
@@ -11,7 +11,8 @@ const MentorDirectorySection: React.FC = () => {
     setFilter,
     resetFilters,
     options,
-    meta,
+  meta,
+  isFallback,
     isLoading,
     isRefetching,
     submitRequest,
@@ -20,7 +21,16 @@ const MentorDirectorySection: React.FC = () => {
 
   const [selectedMentor, setSelectedMentor] = useState<MentorProfile | null>(null);
 
+  useEffect(() => {
+    if (isFallback && selectedMentor) {
+      setSelectedMentor(null);
+    }
+  }, [isFallback, selectedMentor]);
+
   const handleRequestClick = (mentor: MentorProfile) => {
+    if (isFallback) {
+      return;
+    }
     setSelectedMentor(mentor);
   };
 
@@ -40,6 +50,12 @@ const MentorDirectorySection: React.FC = () => {
     if (filters.minRating) chips.push(`Rating ≥ ${filters.minRating}`);
     return chips;
   }, [filters]);
+
+  const requestDisabledReason = isFallback
+    ? 'Mentor requests are temporarily disabled while we reconnect to the mentor directory API. Please try again shortly.'
+    : undefined;
+
+  const modalOpen = Boolean(selectedMentor) && !isFallback;
 
   return (
     <section className="tw-mt-10">
@@ -182,8 +198,21 @@ const MentorDirectorySection: React.FC = () => {
         ) : null}
 
         {meta?.message ? (
-          <div className="tw-rounded-lg tw-border tw-border-amber-200 tw-bg-amber-50 tw-p-3 tw-text-sm tw-text-amber-800">
+          <div
+            className="tw-rounded-lg tw-border tw-border-amber-200 tw-bg-amber-50 tw-p-3 tw-text-sm tw-text-amber-800"
+            role="status"
+            aria-live="polite"
+          >
             {meta.message}
+          </div>
+        ) : null}
+
+        {requestDisabledReason ? (
+          <div
+            className="tw-rounded-lg tw-border tw-border-red-200 tw-bg-red-50 tw-p-3 tw-text-sm tw-text-red-700"
+            role="alert"
+          >
+            {requestDisabledReason}
           </div>
         ) : null}
 
@@ -198,7 +227,8 @@ const MentorDirectorySection: React.FC = () => {
         <MentorCards
           mentors={mentors}
           loading={isLoading || isRefetching}
-          onRequest={handleRequestClick}
+          onRequest={requestDisabledReason ? undefined : handleRequestClick}
+          requestDisabledReason={requestDisabledReason}
         />
 
         {!mentors.length && !isLoading ? (
@@ -209,8 +239,8 @@ const MentorDirectorySection: React.FC = () => {
       </div>
 
       <MentorshipRequestModal
-        open={Boolean(selectedMentor)}
-        mentor={selectedMentor}
+        open={modalOpen}
+        mentor={modalOpen ? selectedMentor : null}
         onClose={handleModalClose}
         onSubmit={handleSubmit}
         submitting={isSubmittingRequest}

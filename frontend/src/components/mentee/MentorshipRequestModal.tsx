@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import type { AxiosError } from 'axios';
 import { MentorProfile, MentorshipRequestPayload } from '../../shared/services/mentorMatching';
 import logger from '../../shared/utils/logger';
 
@@ -15,6 +16,13 @@ const EMPTY_FORM = {
   preferredSlot: '',
   goals: '',
   notes: '',
+};
+
+const ERROR_MESSAGES: Record<string, string> = {
+  APPLICATION_NOT_APPROVED: 'Your mentee application needs to be approved before you can send mentorship requests.',
+  REQUEST_EXISTS: 'You already have an active request with this mentor.',
+  MENTOR_NOT_AVAILABLE: 'This mentor is not available right now. Please pick another mentor.',
+  FORBIDDEN: 'Only mentees can send mentorship requests.',
 };
 
 const MentorshipRequestModal: React.FC<MentorshipRequestModalProps> = ({ open, mentor, onClose, onSubmit, submitting }) => {
@@ -71,7 +79,11 @@ const MentorshipRequestModal: React.FC<MentorshipRequestModalProps> = ({ open, m
       setForm(EMPTY_FORM);
     } catch (submissionError) {
       logger.error('Mentorship request failed', submissionError);
-      setError('Unable to submit request. Please try again.');
+      const axiosError = submissionError as AxiosError<{ message?: string; error?: string }>;
+      const serverCode = axiosError?.response?.data?.error;
+      const serverMessage = axiosError?.response?.data?.message;
+      const friendlyMessage = (serverCode && ERROR_MESSAGES[serverCode]) || serverMessage;
+      setError(friendlyMessage || 'Unable to submit request. Please try again.');
     }
   };
 

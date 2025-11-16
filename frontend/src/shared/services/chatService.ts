@@ -7,13 +7,25 @@ export interface ChatParticipant {
   id: string;
   name: string;
   avatar: string | null;
+  role?: string;
+}
+
+export interface ChatThreadSessionMeta {
+  id: string | null;
+  subject: string | null;
+  date: string | null;
+  room: string | null;
 }
 
 export interface ChatThread {
   id: string;
+  type: 'direct' | 'session';
+  title: string;
   mentor: ChatParticipant | null;
   mentee: ChatParticipant | null;
   counterpart: ChatParticipant | null;
+  participants: ChatParticipant[];
+  session: ChatThreadSessionMeta | null;
   lastMessage: string | null;
   lastMessageAt: string | Date | null;
   lastSender: string | null;

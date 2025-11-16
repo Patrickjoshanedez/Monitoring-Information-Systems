@@ -1,12 +1,29 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCompleteMentorSession, useMentorSessions } from '../../shared/hooks/useMentorSessions';
-import type { MentorSession } from '../../shared/services/sessionsService';
+import type { ApiWarning, MentorSession, SessionParticipant } from '../../shared/services/sessionsService';
+import MentorSessionComposer from './MentorSessionComposer';
 
 const formatDate = (value?: string | null) => {
     if (!value) return '—';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '—';
     return date.toLocaleString();
+};
+
+const getParticipantList = (session: MentorSession): SessionParticipant[] => {
+    if (session.participants && session.participants.length > 0) {
+        return session.participants;
+    }
+    if (session.mentee) {
+        return [session.mentee];
+    }
+    return [];
+};
+
+const getPrimaryParticipantName = (session: MentorSession) => {
+    const participants = getParticipantList(session);
+    return participants[0]?.name || '';
 };
 
 const MentorSessionsManager: React.FC = () => {
@@ -18,9 +35,32 @@ const MentorSessionsManager: React.FC = () => {
     const [notes, setNotes] = useState('');
     const [attended, setAttended] = useState(true);
     const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [isComposerOpen, setComposerOpen] = useState(false);
 
     const { data: sessions = [], isLoading, isError, isFetching, refetch } = useMentorSessions();
     const completeSession = useCompleteMentorSession();
+    const navigate = useNavigate();
+
+    const handleSessionScheduled = (session: MentorSession, warnings?: ApiWarning[]) => {
+        if (warnings && warnings.length > 0) {
+            const mergedWarnings = warnings.map((warning) => warning.message).join(' ');
+            setBanner({
+                type: 'success',
+                message: `Session "${session.subject}" scheduled. ${mergedWarnings}`,
+            });
+            return;
+        }
+
+        setBanner({ type: 'success', message: `Session "${session.subject}" scheduled and invites sent.` });
+    };
+
+    const handleOpenChat = (threadId?: string | null) => {
+        if (!threadId) {
+            setBanner({ type: 'error', message: 'Chat will be ready once the session syncs. Try again shortly.' });
+            return;
+        }
+        navigate(`/chat?threadId=${threadId}`);
+    };
 
     const stats = useMemo(() => {
         const total = sessions.length;
@@ -37,13 +77,16 @@ const MentorSessionsManager: React.FC = () => {
                 if (statusFilter === 'upcoming' && session.attended) return false;
                 if (statusFilter === 'completed' && !session.attended) return false;
                 if (!lower) return true;
-                const haystack = `${session.subject} ${session.mentee?.name || ''}`.toLowerCase();
+                const participantNames = getParticipantList(session)
+                    .map((participant) => participant.name)
+                    .join(' ');
+                const haystack = `${session.subject} ${session.mentee?.name || ''} ${participantNames}`.toLowerCase();
                 return haystack.includes(lower);
             })
             .sort((a, b) => {
                 switch (sortBy) {
                     case 'student':
-                        return (a.mentee?.name || '').localeCompare(b.mentee?.name || '');
+                        return getPrimaryParticipantName(a).localeCompare(getPrimaryParticipantName(b));
                     case 'subject':
                         return a.subject.localeCompare(b.subject);
                     case 'date':
@@ -90,12 +133,34 @@ const MentorSessionsManager: React.FC = () => {
     const showEmpty = !isLoading && filteredSessions.length === 0;
 
     return (
+        <>
         <section className="tw-bg-white tw-rounded-2xl tw-shadow-sm tw-border tw-border-gray-100 tw-p-6">
             <div className="tw-flex tw-flex-col lg:tw-flex-row lg:tw-justify-between lg:tw-items-start tw-gap-6 tw-mb-6">
-                <div>
-                    <p className="tw-text-sm tw-font-semibold tw-text-primary">Mentor tools</p>
-                    <h2 className="tw-text-2xl tw-font-bold tw-text-gray-900">Manage student sessions</h2>
-                    <p className="tw-text-sm tw-text-gray-500">Log attendance, capture notes, and unlock mentee feedback as soon as your session wraps.</p>
+                <div className="tw-space-y-3">
+                    <div>
+                        <p className="tw-text-sm tw-font-semibold tw-text-primary">Mentor tools</p>
+                        <h2 className="tw-text-2xl tw-font-bold tw-text-gray-900">Manage student sessions</h2>
+                        <p className="tw-text-sm tw-text-gray-500">
+                            Log attendance, capture notes, and unlock mentee feedback as soon as your session wraps.
+                        </p>
+                        <p className="tw-text-xs tw-text-gray-400">Scheduling a session automatically invites mentees to a shared chat.</p>
+                    </div>
+                    <div className="tw-flex tw-flex-wrap tw-gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setComposerOpen(true)}
+                            className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-bg-primary tw-text-white tw-text-sm tw-font-semibold tw-px-4 tw-py-2 hover:tw-bg-primary/90 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-primary"
+                        >
+                            Schedule session
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => refetch()}
+                            className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-4 tw-py-2 hover:tw-bg-gray-50 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-200"
+                        >
+                            Refresh list
+                        </button>
+                    </div>
                 </div>
                 <div className="tw-grid tw-grid-cols-2 tw-gap-3 sm:tw-gap-4">
                     <div className="tw-bg-gray-50 tw-rounded-xl tw-p-3 tw-text-center">
@@ -195,56 +260,104 @@ const MentorSessionsManager: React.FC = () => {
                 <table className="tw-min-w-full tw-divide-y tw-divide-gray-200">
                     <thead className="tw-bg-gray-50">
                         <tr>
-                            <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Student</th>
-                            <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Subject</th>
-                            <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Scheduled</th>
-                            <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Duration</th>
+                            <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Session</th>
+                            <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Schedule</th>
+                            <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Location & capacity</th>
                             <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Status</th>
-                            <th className="tw-px-6 tw-py-3 tw-text-right tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Action</th>
+                            <th className="tw-px-6 tw-py-3 tw-text-right tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="tw-bg-white tw-divide-y tw-divide-gray-200">
                         {isLoading || isFetching ? (
                             [...Array(3)].map((_, index) => (
                                 <tr key={`loading-${index}`}>
-                                    <td className="tw-px-6 tw-py-4" colSpan={6}>
+                                    <td className="tw-px-6 tw-py-4" colSpan={5}>
                                         <div className="tw-h-4 tw-bg-gray-100 tw-rounded tw-animate-pulse" />
                                     </td>
                                 </tr>
                             ))
                         ) : (
-                            filteredSessions.map((session) => (
-                                <tr key={session.id} className="hover:tw-bg-gray-50">
-                                    <td className="tw-px-6 tw-py-4 tw-text-sm tw-font-medium tw-text-gray-900">{session.mentee?.name || '—'}</td>
-                                    <td className="tw-px-6 tw-py-4 tw-text-sm tw-text-gray-600">{session.subject}</td>
-                                    <td className="tw-px-6 tw-py-4 tw-text-sm tw-text-gray-600">{formatDate(session.date)}</td>
-                                    <td className="tw-px-6 tw-py-4 tw-text-sm tw-text-gray-600">{session.durationMinutes || 60} min</td>
-                                    <td className="tw-px-6 tw-py-4">
-                                        {session.attended ? (
-                                            <span className="tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-text-green-700 tw-bg-green-50 tw-rounded-full tw-px-3 tw-py-1">
-                                                <span aria-hidden="true">●</span> Completed
+                            filteredSessions.map((session) => {
+                                const participants = getParticipantList(session);
+                                const visibleParticipants = participants.slice(0, 3);
+                                const overflow = participants.length - visibleParticipants.length;
+
+                                return (
+                                    <tr key={session.id} className="hover:tw-bg-gray-50">
+                                        <td className="tw-px-6 tw-py-4 tw-align-top">
+                                            <div className="tw-text-sm tw-font-semibold tw-text-gray-900">{session.subject}</div>
+                                            <div className="tw-mt-2 tw-flex tw-flex-wrap tw-gap-1">
+                                                {visibleParticipants.length ? (
+                                                    visibleParticipants.map((participant) => (
+                                                        <span
+                                                            key={`${session.id}-${participant.id}`}
+                                                            className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-gray-100 tw-text-gray-700 tw-text-xs tw-font-medium tw-px-3 tw-py-1"
+                                                        >
+                                                            {participant.name}
+                                                        </span>
+                                                    ))
+                                                ) : (
+                                                    <span className="tw-text-xs tw-text-gray-500">No participants yet</span>
+                                                )}
+                                                {overflow > 0 ? (
+                                                    <span className="tw-inline-flex tw-items-center tw-rounded-full tw-bg-gray-100 tw-text-gray-600 tw-text-xs tw-font-medium tw-px-3 tw-py-1">+{overflow} more</span>
+                                                ) : null}
+                                            </div>
+                                        </td>
+                                        <td className="tw-px-6 tw-py-4 tw-align-top">
+                                            <div className="tw-text-sm tw-text-gray-900">{formatDate(session.date)}</div>
+                                            <p className="tw-text-xs tw-text-gray-500">{session.durationMinutes || 60} min</p>
+                                        </td>
+                                        <td className="tw-px-6 tw-py-4 tw-align-top">
+                                            <div className="tw-text-sm tw-text-gray-900">{session.room || 'Room TBA'}</div>
+                                            <p className="tw-text-xs tw-text-gray-500">
+                                                {`${session.participantCount ?? 0}/${session.capacity ?? session.participantCount ?? 0} seats`}
+                                            </p>
+                                            <span
+                                                className={`tw-inline-flex tw-items-center tw-gap-1 tw-text-[11px] tw-font-semibold tw-rounded-full tw-px-2 tw-py-0.5 tw-mt-2 ${
+                                                    session.isGroup ? 'tw-bg-blue-50 tw-text-blue-700' : 'tw-bg-purple-50 tw-text-purple-700'
+                                                }`}
+                                            >
+                                                {session.isGroup ? 'Group session' : '1:1 session'}
                                             </span>
-                                        ) : (
-                                            <span className="tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-text-amber-700 tw-bg-amber-50 tw-rounded-full tw-px-3 tw-py-1">
-                                                <span aria-hidden="true">●</span> Upcoming
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className="tw-px-6 tw-py-4 tw-text-right">
-                                        <button
-                                            type="button"
-                                            onClick={() => openCompletionModal(session)}
-                                            className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-bg-primary tw-text-white tw-text-sm tw-font-semibold tw-px-4 tw-py-2 hover:tw-bg-primary/90 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-primary"
-                                        >
-                                            {session.attended ? 'Update' : 'Mark complete'}
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
+                                        </td>
+                                        <td className="tw-px-6 tw-py-4 tw-align-top">
+                                            {session.attended ? (
+                                                <span className="tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-text-green-700 tw-bg-green-50 tw-rounded-full tw-px-3 tw-py-1">
+                                                    <span aria-hidden="true">●</span> Completed
+                                                </span>
+                                            ) : (
+                                                <span className="tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-text-amber-700 tw-bg-amber-50 tw-rounded-full tw-px-3 tw-py-1">
+                                                    <span aria-hidden="true">●</span> Upcoming
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="tw-px-6 tw-py-4 tw-align-top tw-text-right">
+                                            <div className="tw-flex tw-flex-wrap tw-gap-2 tw-justify-end">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleOpenChat(session.chatThreadId)}
+                                                    disabled={!session.chatThreadId}
+                                                    className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-200 disabled:tw-opacity-50"
+                                                >
+                                                    Open chat
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openCompletionModal(session)}
+                                                    className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-bg-primary tw-text-white tw-text-sm tw-font-semibold tw-px-4 tw-py-2 hover:tw-bg-primary/90 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-primary"
+                                                >
+                                                    {session.attended ? 'Update' : 'Mark complete'}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                         {showEmpty && (
                             <tr>
-                                <td className="tw-px-6 tw-py-6 tw-text-sm tw-text-gray-500" colSpan={6}>
+                                <td className="tw-px-6 tw-py-6 tw-text-sm tw-text-gray-500" colSpan={5}>
                                     No sessions match your filters. Try another search.
                                 </td>
                             </tr>
@@ -342,6 +455,13 @@ const MentorSessionsManager: React.FC = () => {
                 </div>
             )}
         </section>
+
+        <MentorSessionComposer
+            isOpen={isComposerOpen}
+            onClose={() => setComposerOpen(false)}
+            onCreated={handleSessionScheduled}
+        />
+        </>
     );
 };
 

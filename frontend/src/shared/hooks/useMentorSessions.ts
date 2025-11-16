@@ -1,5 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { completeSession, CompleteSessionPayload, fetchMentorSessions, MentorSession, MenteeSession } from '../services/sessionsService';
+import {
+    completeSession,
+    CompleteSessionPayload,
+    createMentorSession,
+    CreateMentorSessionPayload,
+    CreateMentorSessionResult,
+    fetchMentorSessions,
+    MentorSession,
+    MenteeSession,
+} from '../services/sessionsService';
 import { menteeSessionsKey } from './useMenteeSessions';
 
 export const mentorSessionsKey = ['sessions', 'mentor'];
@@ -29,4 +38,23 @@ export const useCompleteMentorSession = () => {
             },
         }
     );
+};
+
+export const useCreateMentorSession = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation<
+        CreateMentorSessionResult,
+        unknown,
+        CreateMentorSessionPayload
+    >((payload: CreateMentorSessionPayload) => createMentorSession(payload), {
+        onSuccess: ({ session: newSession }) => {
+            queryClient.setQueryData<MentorSession[] | undefined>(mentorSessionsKey, (prev) => {
+                if (!prev || prev.length === 0) {
+                    return [newSession];
+                }
+                return [newSession, ...prev.filter((session) => session.id !== newSession.id)];
+            });
+        },
+    });
 };

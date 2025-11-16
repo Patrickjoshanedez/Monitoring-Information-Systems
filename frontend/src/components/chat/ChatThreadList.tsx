@@ -98,6 +98,16 @@ export const ChatThreadList: React.FC<ChatThreadListProps> = ({
             {sortedThreads.map((thread) => {
               const isActive = thread.id === activeThreadId;
               const counterpart = thread.counterpart ?? thread.mentor ?? thread.mentee;
+              const threadTitle = thread.title || counterpart?.name || 'Conversation';
+              const timestamp = thread.type === 'session' && thread.session?.date
+                ? formatTimestamp(thread.session.date)
+                : formatTimestamp(thread.lastMessageAt);
+              const previewText = thread.type === 'session'
+                ? `${thread.participants.length} participant${thread.participants.length === 1 ? '' : 's'}`
+                : thread.lastMessage || 'Start chatting…';
+              const participantNames = thread.type === 'session'
+                ? thread.participants.map((participant) => participant.name).join(', ')
+                : '';
               return (
                 <li key={thread.id}>
                   <button
@@ -110,15 +120,22 @@ export const ChatThreadList: React.FC<ChatThreadListProps> = ({
                     <div className="tw-flex-1">
                       <div className="tw-flex tw-justify-between tw-items-center">
                         <span className="tw-font-medium tw-text-gray-900">
-                          {counterpart?.name || 'Conversation'}
+                          {threadTitle}
+                          {thread.type === 'session' ? (
+                            <span className="tw-ml-2 tw-inline-flex tw-items-center tw-rounded-full tw-bg-blue-50 tw-text-blue-700 tw-text-[11px] tw-font-semibold tw-px-2 tw-py-0.5">
+                              Session
+                            </span>
+                          ) : null}
                         </span>
-                        <span className="tw-text-xs tw-text-gray-500">
-                          {formatTimestamp(thread.lastMessageAt)}
-                        </span>
+                        <span className="tw-text-xs tw-text-gray-500">{timestamp}</span>
                       </div>
-                      <p className="tw-text-sm tw-text-gray-600 tw-truncate">
-                        {thread.lastMessage || 'Start chatting…'}
-                      </p>
+                      <p className="tw-text-sm tw-text-gray-600 tw-truncate">{previewText}</p>
+                      {thread.type === 'session' && participantNames ? (
+                        <p className="tw-text-xs tw-text-gray-500 tw-mt-1 tw-truncate">
+                          {thread.session?.room ? `${thread.session.room} · ` : ''}
+                          {participantNames}
+                        </p>
+                      ) : null}
                     </div>
                     {thread.unreadCount > 0 ? (
                       <span className="tw-ml-2 tw-inline-flex tw-items-center tw-justify-center tw-rounded-full tw-bg-blue-600 tw-text-white tw-text-xs tw-font-semibold tw-h-5 tw-min-w-[1.5rem]">
