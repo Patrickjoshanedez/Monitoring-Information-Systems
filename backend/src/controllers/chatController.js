@@ -488,6 +488,23 @@ exports.authorizeChannel = async (req, res) => {
       return fail(res, 400, 'CHAT_AUTH_INVALID_REQUEST', 'Missing channel or socket identifier.');
     }
 
+    if (channelName.startsWith('private-user-')) {
+      const channelUserId = channelName.slice('private-user-'.length);
+      if (!channelUserId || channelUserId !== req.user.id) {
+        return fail(res, 403, 'CHAT_AUTH_INVALID_CHANNEL', 'Access denied for this channel.');
+      }
+
+      const pusher = ensureClient();
+      const authResponse = pusher.authorizeChannel(socketId, channelName, {
+        user_id: req.user.id,
+        user_info: {
+          role: req.user.role,
+        },
+      });
+
+      return res.send(authResponse);
+    }
+
     if (!channelName.startsWith(THREAD_CHANNEL_PREFIX)) {
       return fail(res, 400, 'CHAT_AUTH_INVALID_CHANNEL', 'Unsupported channel.');
     }

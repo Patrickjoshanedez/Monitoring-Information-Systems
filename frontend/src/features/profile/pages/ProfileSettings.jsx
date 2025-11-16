@@ -5,7 +5,9 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   getNotificationPreferences,
   updateNotificationPreferences,
-} from '../../../shared/services/mentorMatching';
+} from '../../../shared/services/notificationService';
+
+/** @typedef {import('../../../shared/services/notificationService').NotificationPreferences} NotificationPreferences */
 import logger from '../../../shared/utils/logger';
 
 const PRIVACY_OPTIONS = [
@@ -327,13 +329,13 @@ export default function ProfileSettings() {
       }));
       mergeStoredUser(updatedAccount);
       const offsets = sanitizeReminderOffsets(notificationPrefs.sessionReminders.offsets);
-      const preferencesPayload = {
-        channels: notificationPrefs.channels,
+      const preferencesPayload = /** @type {NotificationPreferences} */ ({
+        ...notificationPrefs,
         sessionReminders: {
-          enabled: notificationPrefs.sessionReminders.enabled,
+          ...notificationPrefs.sessionReminders,
           offsets,
         },
-      };
+      });
       const updatedPreferences = await updateNotificationPreferences(preferencesPayload);
       setNotificationPrefs(updatedPreferences);
       setSuccess('Profile saved');

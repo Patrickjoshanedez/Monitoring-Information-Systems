@@ -1,8 +1,21 @@
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const { sendNotificationEmail } = require('./emailService');
+const { isConfigured, triggerEvent } = require('./pusher');
 
 const DEFAULT_OFFSETS = [2880, 1440, 60]; // minutes (48h, 24h, 1h)
+
+const REMINDER_HOUR_TO_MINUTES = new Map([
+    [48, 2880],
+    [24, 1440],
+    [1, 60],
+]);
+
+const REMINDER_MINUTES_TO_HOUR = new Map(
+    Array.from(REMINDER_HOUR_TO_MINUTES.entries()).map(([hours, minutes]) => [minutes, hours])
+);
+
+const DEFAULT_REMINDER_HOURS = Array.from(REMINDER_HOUR_TO_MINUTES.keys());
 
 const DEFAULT_NOTIFICATION_SETTINGS = {
     channels: {
@@ -126,6 +139,61 @@ const getSessionReminderOffsets = (user) => {
         : [...DEFAULT_OFFSETS];
 };
 
+const sanitizeReminderHours = (hours) => {
+    const cleaned = Array.isArray(hours)
+        ? hours
+              .map((value) => Number(value))
+              .filter((value) => REMINDER_HOUR_TO_MINUTES.has(value))
+        : [];
+
+    if (!cleaned.length) {
+        return [...DEFAULT_REMINDER_HOURS];
+    }
+
+    const unique = Array.from(new Set(cleaned));
+    unique.sort((a, b) => b - a);
+    return unique;
+};
+
+const reminderHoursToMinutes = (hoursList) => sanitizeReminderHours(hoursList).map((hour) => REMINDER_HOUR_TO_MINUTES.get(hour));
+
+const reminderMinutesToHours = (minutesList) => {
+    const sanitized = Array.isArray(minutesList)
+        ? minutesList
+              .map((value) => REMINDER_MINUTES_TO_HOUR.get(Number(value)))
+              .filter((value) => value !== undefined)
+        : [];
+
+    if (!sanitized.length) {
+        return [...DEFAULT_REMINDER_HOURS];
+    }
+
+    const unique = Array.from(new Set(sanitized));
+    unique.sort((a, b) => b - a);
+    return unique;
+};
+
+const emitRealtimeNotification = async (userId, notificationDoc) => {
+    if (!notificationDoc || !isConfigured()) {
+        return;
+    }
+
+    try {
+        await triggerEvent(`private-user-${userId}`, 'notification:new', {
+            id: notificationDoc._id.toString(),
+            type: notificationDoc.type,
+            title: notificationDoc.title,
+            message: notificationDoc.message,
+            data: notificationDoc.data || {},
+            createdAt: notificationDoc.createdAt,
+        });
+    } catch (error) {
+        if (error.code !== 'PUSHER_NOT_CONFIGURED') {
+            console.error('notification realtime error:', error);
+        }
+    }
+};
+
 const sendNotification = async ({
     userId,
     type,
@@ -156,8 +224,10 @@ const sendNotification = async ({
         let inAppDelivered = false;
         let emailDelivered = false;
 
+        let notificationDoc = null;
+
         if (effectiveChannels.inApp) {
-            await Notification.create({
+            notificationDoc = await Notification.create({
                 user: userId,
                 type,
                 title,
@@ -171,6 +241,10 @@ const sendNotification = async ({
             const payload = buildEmailPayload(user, title, message);
             const sent = await sendNotificationEmail(payload);
             emailDelivered = !!sent;
+        }
+
+        if (notificationDoc) {
+            emitRealtimeNotification(userId, notificationDoc);
         }
 
         return {
@@ -189,4 +263,6 @@ module.exports = {
     getSessionReminderOffsets,
     sanitizeOffsets,
     sendNotification,
+    reminderMinutesToHours,
+    reminderHoursToMinutes,
 };

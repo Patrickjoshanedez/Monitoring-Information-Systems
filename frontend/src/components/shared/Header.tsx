@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import logger from '../../shared/utils/logger';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import useNotifications from '../../shared/hooks/useNotifications';
 
 type UserSummary = {
   firstname?: string;
@@ -77,14 +78,16 @@ const Header: React.FC = () => {
   const [user, setUser] = useState<UserSummary | null>(() => getStoredUser());
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Array<{
-    id: string;
-    title: string;
-    message: string;
-    createdAt: string;
-    readAt?: string | null;
-  }>>([]);
-  const [loadingNotif, setLoadingNotif] = useState(false);
+  const {
+    notifications,
+    unreadCount,
+    isLoading: notificationsLoading,
+    isFetching: notificationsFetching,
+    markRead: markNotificationRead,
+    markAllRead: markAllNotificationsRead,
+    isMarkingRead,
+    isMarkingAll,
+  } = useNotifications({ enabled: !!user, subscribe: !!user, limit: 25 });
 
   useEffect(() => {
     const handleStorage = () => setUser(getStoredUser());
@@ -113,75 +116,26 @@ const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [dropdownOpen, notifOpen]);
 
-  // Notifications API helpers
-  const API_BASE = useMemo(() => {
+  const notifLoading = notificationsLoading || notificationsFetching;
+
+  const handleMarkAllRead = useCallback(async () => {
     try {
-      // VITE_API_URL should be configured; fallback provided
-      const base = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000/api';
-      return String(base).replace(/\/+$/, '');
-    } catch {
-      return 'http://localhost:4000/api';
+      await markAllNotificationsRead();
+    } catch (error) {
+      logger.error('Mark all notifications read failed:', error);
     }
-  }, []);
+  }, [markAllNotificationsRead]);
 
-  const buildApiUrl = (path: string) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
-
-  const fetchNotifications = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    setLoadingNotif(true);
-    try {
-      const res = await fetch(buildApiUrl('/notifications'), {
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to load notifications');
-      const data = await res.json();
-      setNotifications(Array.isArray(data.notifications) ? data.notifications : []);
-    } catch (err) {
-      logger.error('Notification fetch failed:', err);
-    } finally {
-      setLoadingNotif(false);
-    }
-  };
-
-  const markAllRead = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    try {
-      const res = await fetch(buildApiUrl('/notifications/read-all'), {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to mark all read');
-      setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
-    } catch (err) {
-      logger.error('Mark all notifications read failed:', err);
-    }
-  };
-
-  const markOneRead = async (id: string) => {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    try {
-      const res = await fetch(buildApiUrl(`/notifications/${id}/read`), {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` },
-        credentials: 'include',
-      });
-      if (!res.ok) throw new Error('Failed to mark read');
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: n.readAt || new Date().toISOString() } : n)));
-    } catch (err) {
-      logger.error('Mark notification read failed:', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchNotifications();
-    const i = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(i);
-  }, []);
+  const handleMarkOneRead = useCallback(
+    async (id: string) => {
+      try {
+        await markNotificationRead(id);
+      } catch (error) {
+        logger.error('Mark notification read failed:', error);
+      }
+    },
+    [markNotificationRead]
+  );
 
   const navItems = useMemo(() => {
     if (!user?.role) {
@@ -240,8 +194,6 @@ const Header: React.FC = () => {
     const profilePhoto = typeof user?.profile === 'object' ? user?.profile?.photoUrl : undefined;
     return profilePhoto || user?.photoUrl || null;
   }, [user?.profile, user?.photoUrl]);
-
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
 
   const handleShowProfile = () => {
     setDropdownOpen(false);
@@ -315,28 +267,31 @@ const Header: React.FC = () => {
                       <span className="tw-text-sm tw-font-semibold">Notifications</span>
                       <button
                         type="button"
-                        onClick={markAllRead}
+                        onClick={handleMarkAllRead}
                         className="tw-text-xs tw-text-purple-600 hover:tw-text-purple-800 disabled:tw-opacity-50"
-                        disabled={loadingNotif || unreadCount === 0}
+                        disabled={notifLoading || unreadCount === 0 || isMarkingAll}
                       >
                         Mark all read
                       </button>
                     </div>
                     <div className="tw-max-h-80 tw-overflow-y-auto">
-                      {loadingNotif && (
+                      {notifLoading && (
                         <div className="tw-flex tw-justify-center tw-items-center tw-p-4">
                           <div className="tw-animate-spin tw-rounded-full tw-h-5 tw-w-5 tw-border-b-2 tw-border-purple-500" />
                         </div>
                       )}
-                      {!loadingNotif && notifications.length === 0 && (
+                      {!notifLoading && notifications.length === 0 && (
                         <div className="tw-p-4 tw-text-sm tw-text-gray-500">No notifications yet.</div>
                       )}
-                      {!loadingNotif && notifications.map((n) => (
+                      {!notifLoading && notifications.map((n) => (
                         <button
                           key={n.id}
                           type="button"
-                          onClick={() => markOneRead(n.id)}
-                          className={`tw-w-full tw-text-left tw-px-4 tw-py-3 tw-text-sm hover:tw-bg-gray-50 ${!n.readAt ? 'tw-bg-purple-50' : ''}`}
+                          onClick={() => handleMarkOneRead(n.id)}
+                          disabled={isMarkingRead}
+                          className={`tw-w-full tw-text-left tw-px-4 tw-py-3 tw-text-sm hover:tw-bg-gray-50 ${!n.readAt ? 'tw-bg-purple-50' : ''} ${
+                            isMarkingRead ? 'tw-opacity-70 tw-cursor-not-allowed' : ''
+                          }`}
                         >
                           <p className="tw-font-medium tw-text-gray-900 tw-truncate">{n.title}</p>
                           <p className="tw-text-gray-600 tw-text-xs tw-mt-0.5 tw-line-clamp-2">{n.message}</p>

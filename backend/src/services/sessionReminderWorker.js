@@ -1,8 +1,14 @@
 const Session = require('../models/Session');
 const { getSessionReminderOffsets, sendNotification } = require('../utils/notificationService');
+const { getFullName } = require('../utils/person');
+const logger = require('../utils/logger');
 
-const INTERVAL_MS = parseInt(process.env.SESSION_REMINDER_WORKER_INTERVAL_MS || '', 10) || 15 * 60 * 1000;
+const INTERVAL_MS = parseInt(process.env.SESSION_REMINDER_WORKER_INTERVAL_MS || '', 10) || 5 * 60 * 1000;
 const LOOKAHEAD_MINUTES = parseInt(process.env.SESSION_REMINDER_MAX_LOOKAHEAD_MINUTES || '', 10) || 2880;
+const REMINDER_MIN_RATIO = Math.min(
+    Math.max(Number(process.env.SESSION_REMINDER_MIN_RATIO) || 0.75, 0.25),
+    0.95
+);
 
 let timer = null;
 let running = false;
@@ -37,6 +43,12 @@ const formatSessionDate = (sessionDate, timezone) => {
 const processSessions = async () => {
     const now = new Date();
     const horizon = new Date(now.getTime() + LOOKAHEAD_MINUTES * 60000);
+    const stats = {
+        inspectedSessions: 0,
+        potentialRecipients: 0,
+        remindersEvaluated: 0,
+        remindersQueued: 0,
+    };
 
     // Only select necessary fields for performance
     const sessions = await Session.find({
@@ -49,6 +61,7 @@ const processSessions = async () => {
         .lean();
 
     for (const session of sessions) {
+        stats.inspectedSessions += 1;
         const activeParticipants = Array.isArray(session.participants)
             ? session.participants.filter((entry) => !['declined', 'removed'].includes(entry.status))
             : [];
@@ -63,10 +76,11 @@ const processSessions = async () => {
             continue;
         }
 
+        stats.potentialRecipients += recipients.length;
         const timeUntilSessionMs = new Date(session.date).getTime() - now.getTime();
         if (timeUntilSessionMs <= 0) continue;
+        const timeUntilMinutes = timeUntilSessionMs / 60000;
 
-        const { getFullName } = require('../utils/person');
         const mentorName = session.mentor ? (getFullName(session.mentor) || session.mentor.email) : 'your mentor';
 
         for (const recipient of recipients) {
@@ -79,7 +93,14 @@ const processSessions = async () => {
             const formattedDate = formatSessionDate(new Date(session.date), timezone);
 
             for (const offsetMinutes of offsets) {
-                if (timeUntilSessionMs > offsetMinutes * 60000) continue;
+                stats.remindersEvaluated += 1;
+                if (timeUntilMinutes > offsetMinutes) {
+                    continue;
+                }
+
+                if (timeUntilMinutes < offsetMinutes * REMINDER_MIN_RATIO) {
+                    continue;
+                }
 
                 const insertion = await Session.updateOne(
                     {
@@ -133,9 +154,13 @@ const processSessions = async () => {
                         }
                     );
                 }
+
+                stats.remindersQueued += 1;
             }
         }
     }
+
+    logger.info('sessionReminderWorker tick', stats);
 };
 
 const run = async () => {

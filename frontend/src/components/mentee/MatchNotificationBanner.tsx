@@ -1,41 +1,32 @@
 import React, { useCallback, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchNotifications, markNotificationRead, MatchNotification } from '../../shared/services/mentorMatching';
-
-const QUERY_KEY = ['notifications'];
+import useNotifications from '../../shared/hooks/useNotifications';
+import { NotificationItem } from '../../shared/services/notificationService';
 
 const MatchNotificationBanner: React.FC = () => {
-  const queryClient = useQueryClient();
-
-  const { data, isLoading, isError } = useQuery({
-    queryKey: QUERY_KEY,
-    queryFn: fetchNotifications,
-    refetchInterval: 30000,
-    staleTime: 15_000,
-  });
+  const {
+    notifications,
+    isLoading,
+    error,
+    markRead,
+    isMarkingRead,
+  } = useNotifications({ type: 'session', subscribe: true, limit: 25 });
 
   const latestMatch = useMemo(() => {
-    const list = Array.isArray(data) ? data : [];
-    const unreadMatches = list
-      .filter((n: MatchNotification) => n.type === 'MENTORSHIP_MATCHED' && !n.readAt)
+    const matches = notifications
+      .filter((notification: NotificationItem) => notification.type === 'MENTORSHIP_MATCHED' && !notification.readAt)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return unreadMatches[0] || null;
-  }, [data]);
-
-  const markRead = useMutation({
-    mutationFn: (id: string) => markNotificationRead(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-    },
-  });
+    return matches[0] || null;
+  }, [notifications]);
 
   const onDismiss = useCallback(() => {
-    if (latestMatch?.id && !markRead.isLoading) {
-      markRead.mutate(latestMatch.id);
+    if (latestMatch?.id && !isMarkingRead) {
+      markRead(latestMatch.id);
     }
-  }, [latestMatch, markRead]);
+  }, [latestMatch, isMarkingRead, markRead]);
 
-  if (isLoading || isError || !latestMatch) return null;
+  if (isLoading || error || !latestMatch) {
+    return null;
+  }
 
   return (
     <div className="tw-mb-4 tw-rounded-lg tw-border tw-border-green-200 tw-bg-green-50 tw-p-4" role="status" aria-live="polite">

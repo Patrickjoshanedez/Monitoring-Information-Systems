@@ -4,12 +4,82 @@ const { parseDateCursor } = require('../utils/cursor');
 const {
     DEFAULT_NOTIFICATION_SETTINGS,
     getNotificationSettingsForUser,
-    sanitizeOffsets,
+    reminderMinutesToHours,
+    reminderHoursToMinutes,
 } = require('../utils/notificationService');
 
-const CHANNEL_KEYS = ['sessionReminders', 'matches', 'announcements', 'messages'];
+const REMINDER_TIME_OPTIONS = new Set([48, 24, 1]);
+const TYPE_FILTER_PREFIXES = {
+    session: ['SESSION_', 'SCHEDULE_', 'REMINDER_', 'MENTORSHIP_'],
+    message: ['MESSAGE_', 'CHAT_'],
+    announcement: ['ANNOUNCEMENT_', 'ADMIN_', 'BULLETIN_'],
+    system: ['SYSTEM_', 'APP_', 'PROFILE_', 'APPLICATION_', 'GOAL_', 'CERT_', 'PROGRESS_'],
+};
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
+
+const deriveCategory = (type = '') => {
+    const upperType = String(type).toUpperCase();
+    return (
+        Object.entries(TYPE_FILTER_PREFIXES).find(([, prefixes]) =>
+            prefixes.some((prefix) => upperType.startsWith(prefix))
+        )?.[0] || 'system'
+    );
+};
+
+const serializeNotification = (doc) => ({
+    id: doc._id.toString(),
+    type: doc.type,
+    category: deriveCategory(doc.type),
+    title: doc.title,
+    message: doc.message,
+    data: doc.data || {},
+    readAt: doc.readAt || null,
+    createdAt: doc.createdAt,
+});
+
+const buildTypeFilter = (typeParam) => {
+    if (!typeParam) {
+        return null;
+    }
+
+    const normalized = String(typeParam).toLowerCase();
+    const prefixes = TYPE_FILTER_PREFIXES[normalized];
+    if (!prefixes) {
+        return { error: `Unsupported notification type filter: ${typeParam}` };
+    }
+
+    return {
+        $in: prefixes.map((prefix) => new RegExp(`^${prefix}`)),
+    };
+};
+
+const serializePreferences = (settings) => ({
+    emailSessionReminders: !!settings.channels.sessionReminders.email,
+    emailMatches: !!settings.channels.matches.email,
+    emailMessages: !!settings.channels.messages.email,
+    emailAnnouncements: !!settings.channels.announcements.email,
+    reminderTimes: reminderMinutesToHours(settings.sessionReminders.offsets),
+});
+
+const normalizeReminderTimes = (input) => {
+    if (!Array.isArray(input) || !input.length) {
+        throw new Error('Reminder times must include at least one option.');
+    }
+
+    const normalized = input.map((value) => Number(value));
+    const invalid = normalized.filter((value) => !REMINDER_TIME_OPTIONS.has(value));
+    if (invalid.length) {
+        throw new Error('Reminder times must be limited to 48, 24, or 1 hour before the session.');
+    }
+
+    const unique = Array.from(new Set(normalized));
+    unique.sort((a, b) => b - a);
+    return unique;
+};
+
+const countUnread = (userId) =>
+    Notification.countDocuments({ user: userId, readAt: { $exists: false } });
 
 exports.getPreferences = async (req, res) => {
     try {
@@ -22,7 +92,7 @@ exports.getPreferences = async (req, res) => {
             });
         }
 
-        const preferences = getNotificationSettingsForUser(user);
+        const preferences = serializePreferences(getNotificationSettingsForUser(user));
         return res.json({ success: true, preferences });
     } catch (error) {
         console.error('getPreferences error:', error);
@@ -45,34 +115,37 @@ exports.updatePreferences = async (req, res) => {
             });
         }
 
-        const incoming = req.body || {};
+        const { emailSessionReminders, emailMatches, emailMessages, emailAnnouncements, reminderTimes } = req.body || {};
+
         const current = getNotificationSettingsForUser(user);
         const next = clone(current);
 
-        if (incoming.channels && typeof incoming.channels === 'object') {
-            CHANNEL_KEYS.forEach((key) => {
-                if (incoming.channels[key]) {
-                    const channelInput = incoming.channels[key];
-                    if (channelInput.inApp !== undefined) {
-                        next.channels[key].inApp = !!channelInput.inApp;
-                    }
-                    if (channelInput.email !== undefined) {
-                        next.channels[key].email = !!channelInput.email;
-                    }
-                }
-            });
+        if (emailSessionReminders !== undefined) {
+            next.channels.sessionReminders.email = !!emailSessionReminders;
+        }
+        if (emailMatches !== undefined) {
+            next.channels.matches.email = !!emailMatches;
+        }
+        if (emailMessages !== undefined) {
+            next.channels.messages.email = !!emailMessages;
+        }
+        if (emailAnnouncements !== undefined) {
+            next.channels.announcements.email = !!emailAnnouncements;
         }
 
-        if (incoming.sessionReminders && typeof incoming.sessionReminders === 'object') {
-            if (incoming.sessionReminders.enabled !== undefined) {
-                next.sessionReminders.enabled = !!incoming.sessionReminders.enabled;
-            }
-            if (incoming.sessionReminders.offsets) {
-                next.sessionReminders.offsets = sanitizeOffsets(incoming.sessionReminders.offsets);
+        if (reminderTimes !== undefined) {
+            try {
+                const normalized = normalizeReminderTimes(reminderTimes);
+                next.sessionReminders.offsets = reminderHoursToMinutes(normalized);
+            } catch (validationError) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'INVALID_REMINDER_TIMES',
+                    message: validationError.message,
+                });
             }
         }
 
-        // Ensure offsets are still unique/sorted even if channel toggles disabled them previously
         if (!Array.isArray(next.sessionReminders.offsets) || !next.sessionReminders.offsets.length) {
             next.sessionReminders.offsets = clone(DEFAULT_NOTIFICATION_SETTINGS.sessionReminders.offsets);
         }
@@ -82,7 +155,7 @@ exports.updatePreferences = async (req, res) => {
             { $set: { notificationSettings: next } }
         );
 
-        return res.json({ success: true, preferences: next });
+        return res.json({ success: true, preferences: serializePreferences(next) });
     } catch (error) {
         console.error('updatePreferences error:', error);
         return res.status(500).json({
@@ -96,10 +169,25 @@ exports.updatePreferences = async (req, res) => {
 // Consolidated notifications handlers (moved from mentorController to reduce coupling)
 exports.listNotifications = async (req, res) => {
     try {
-        const { cursor, limit } = req.query || {};
+        const { cursor, limit, type } = req.query || {};
         const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
 
-        const findQuery = Notification.find({ user: req.user.id }).sort({ createdAt: -1 });
+        const filter = { user: req.user.id };
+        const typeFilter = buildTypeFilter(type);
+
+        if (type && typeFilter?.error) {
+            return res.status(400).json({
+                success: false,
+                error: 'INVALID_TYPE_FILTER',
+                message: typeFilter.error,
+            });
+        }
+
+        if (typeFilter && !typeFilter.error) {
+            filter.type = typeFilter;
+        }
+
+        const findQuery = Notification.find(filter).sort({ createdAt: -1 });
 
         const cursorDate = parseDateCursor(cursor);
         let usingCursor = false;
@@ -118,20 +206,15 @@ exports.listNotifications = async (req, res) => {
             nextCursor = notifications[notifications.length - 1].createdAt.toISOString();
         }
 
+        const unreadCount = await countUnread(req.user.id);
+
         return res.json({
             success: true,
-            notifications: notifications.map((n) => ({
-                id: n._id.toString(),
-                type: n.type,
-                title: n.title,
-                message: n.message,
-                data: n.data || {},
-                readAt: n.readAt || null,
-                createdAt: n.createdAt,
-            })),
+            notifications: notifications.map(serializeNotification),
             meta: usingCursor
                 ? { cursor: nextCursor, limit: pageLimit, count: notifications.length, usingCursor: true }
                 : { limit: pageLimit, count: notifications.length, usingCursor: false },
+            unreadCount,
         });
     } catch (error) {
         console.error('listNotifications error:', error);
@@ -161,12 +244,15 @@ exports.markNotificationRead = async (req, res) => {
             });
         }
 
+        const unreadCount = await countUnread(req.user.id);
+
         return res.json({
             success: true,
             notification: {
                 id: notification._id.toString(),
                 readAt: notification.readAt,
             },
+            unreadCount,
         });
     } catch (error) {
         console.error('markNotificationRead error:', error);
@@ -188,6 +274,7 @@ exports.markAllNotificationsRead = async (req, res) => {
         return res.json({
             success: true,
             message: 'Notifications marked as read.',
+            unreadCount: 0,
         });
     } catch (error) {
         console.error('markAllNotificationsRead error:', error);
