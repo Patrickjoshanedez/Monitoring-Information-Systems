@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import App from './App';
 import { queryClient } from './shared/config/queryClient';
+import { setFeatureFlag } from './shared/utils/featureFlags';
 import './styles.css';
 
 const rootElement = document.getElementById('root');
@@ -12,6 +13,8 @@ const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error('Root element not found');
 }
+
+setFeatureFlag('SESSION_FEEDBACK', import.meta.env.VITE_FEATURE_SESSION_FEEDBACK !== 'false');
 
 ReactDOM.createRoot(rootElement as HTMLElement).render(
   <React.StrictMode>

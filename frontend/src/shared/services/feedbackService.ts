@@ -1,48 +1,64 @@
 import { apiClient } from '../config/apiClient';
 
 export interface PendingFeedbackSession {
-  id: string;
-  subject: string;
-  mentor: {
-    id: string | null;
-    name: string;
-  };
-  date: string;
+    id: string;
+    subject: string;
+    mentor: {
+        id: string | null;
+        name: string;
+    };
+    date: string;
+    feedbackWindowClosesAt?: string | null;
 }
 
-export interface SubmitFeedbackPayload {
-  sessionId: string;
-  rating: number;
-  comment?: string;
-  flagReason?: string;
-  recaptchaToken?: string;
+export interface SessionFeedbackPayload {
+    sessionId: string;
+    rating: number;
+    text?: string;
+    flagReason?: string;
+    recaptchaToken?: string;
+}
+
+export interface SessionFeedbackRecord {
+    id: string;
+    sessionId: string;
+    mentorId: string;
+    rating: number;
+    text: string;
+    flagged: boolean;
+    flagReason: string | null;
+    anonymizedCode?: string | null;
+    windowClosesAt?: string | null;
+    submittedAt: string;
+    updatedAt?: string;
 }
 
 export interface MentorFeedbackSummary {
-  summary: {
-    averageRating: number;
-    totalReviews: number;
-    lastReviewAt: string | null;
-  };
-  recent: Array<{
-    code: string;
-    rating: number;
-    comment: string | null;
-    submittedAt: string;
-  }>;
+    ratingAvg: number;
+    ratingCount: number;
 }
 
 export const fetchPendingFeedbackSessions = async () => {
-  const { data } = await apiClient.get<{ pending: PendingFeedbackSession[] }>('/feedback/pending');
-  return data.pending;
+    const { data } = await apiClient.get<{ pending: PendingFeedbackSession[] }>('/feedback/pending');
+    return data.pending || [];
 };
 
-export const submitSessionFeedback = async ({ sessionId, ...payload }: SubmitFeedbackPayload) => {
-  const { data } = await apiClient.post(`/feedback/sessions/${sessionId}`, payload);
-  return data;
+export const fetchSessionFeedback = async (sessionId: string) => {
+    const { data } = await apiClient.get<{ feedback: SessionFeedbackRecord | null }>(`/sessions/${sessionId}/feedback`);
+    return data.feedback;
+};
+
+export const createSessionFeedback = async ({ sessionId, ...payload }: SessionFeedbackPayload) => {
+    const { data } = await apiClient.post<{ data: SessionFeedbackRecord }>(`/sessions/${sessionId}/feedback`, payload);
+    return data.data;
+};
+
+export const updateSessionFeedback = async ({ sessionId, ...payload }: SessionFeedbackPayload) => {
+    const { data } = await apiClient.put<{ data: SessionFeedbackRecord }>(`/sessions/${sessionId}/feedback`, payload);
+    return data.data;
 };
 
 export const fetchMentorFeedbackSummary = async (mentorId: string) => {
-  const { data } = await apiClient.get<MentorFeedbackSummary>(`/feedback/mentor/${mentorId}/summary`);
-  return data;
+    const { data } = await apiClient.get<{ summary: MentorFeedbackSummary }>(`/mentors/${mentorId}/feedback-summary`);
+    return data.summary;
 };

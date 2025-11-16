@@ -7,6 +7,7 @@ const logger = require('./utils/logger');
 const passport = require('./config/passport');
 const helmet = require('helmet');
 const { startSessionReminderWorker } = require('./services/sessionReminderWorker');
+const { startFeedbackRetentionWorker } = require('./services/feedbackRetentionWorker');
 const compression = require('compression');
 
 const app = express();
@@ -64,7 +65,7 @@ app.use('/api', require('./routes/materialRoutes'));
 app.use('/api', require('./routes/goalRoutes'));
 app.use('/api', require('./routes/progressRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
-app.use('/api/feedback', require('./routes/feedbackRoutes'));
+app.use('/api', require('./routes/feedbackRoutes'));
 app.use('/api', require('./routes/certificateRoutes'));
 
 // Serve uploaded files
@@ -106,6 +107,7 @@ const start = async () => {
   app.listen(port, () => {
     logger.info(`API running on :${port}`);
     startSessionReminderWorker();
+    startFeedbackRetentionWorker();
   });
 };
 

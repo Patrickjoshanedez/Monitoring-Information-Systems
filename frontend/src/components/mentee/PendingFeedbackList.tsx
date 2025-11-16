@@ -1,9 +1,11 @@
 import React, { useMemo, useRef, useState } from 'react';
 import type { AxiosError } from 'axios';
 import { usePendingFeedbackSessions, useSubmitSessionFeedback } from '../../shared/hooks/useSessionFeedback';
+import { useMenteeSessions } from '../../shared/hooks/useMenteeSessions';
 import type { PendingFeedbackSession } from '../../shared/services/feedbackService';
 import RecaptchaField from '../common/RecaptchaField.jsx';
 import logger from '../../shared/utils/logger';
+import { getFeatureFlag } from '../../shared/utils/featureFlags';
 
 const formatDate = (value: string) => {
   try {
@@ -17,12 +19,28 @@ const formatDate = (value: string) => {
 };
 
 const PendingFeedbackList: React.FC = () => {
-  const { data: sessions, isLoading, isError, refetch, error } = usePendingFeedbackSessions();
+  const feedbackFeatureEnabled = getFeatureFlag('SESSION_FEEDBACK');
+
+  if (!feedbackFeatureEnabled) {
+    return (
+      <section className="tw-bg-white tw-rounded-2xl tw-shadow tw-border tw-border-gray-100 tw-p-6 tw-mb-8">
+        <div className="tw-flex tw-flex-col tw-gap-2">
+          <p className="tw-text-sm tw-font-semibold tw-text-gray-900">Session feedback is currently unavailable</p>
+          <p className="tw-text-sm tw-text-gray-600">
+            Our team is rolling out new feedback tooling. Sit tight—this section will return shortly.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const { data: apiSessions, isLoading, isError, refetch, error } = usePendingFeedbackSessions();
+  const { data: menteeSessions = [] } = useMenteeSessions();
   const submitFeedback = useSubmitSessionFeedback();
 
   const [selectedSession, setSelectedSession] = useState<PendingFeedbackSession | null>(null);
   const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
+  const [feedbackText, setFeedbackText] = useState('');
   const [flagging, setFlagging] = useState(false);
   const [flagReason, setFlagReason] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -42,11 +60,36 @@ const PendingFeedbackList: React.FC = () => {
   const recaptchaRef = useRef<RecaptchaFieldHandle | null>(null);
 
   const apiError = error as AxiosError<{ message?: string }> | null;
-  const pendingCount = sessions?.length ?? 0;
+
+  const fallbackPendingSessions = useMemo(() => {
+    return menteeSessions
+      .filter((session) => session.feedbackDue)
+      .map((session) => ({
+        id: session.id,
+        subject: session.subject,
+        mentor: {
+          id: session.mentor?.id || null,
+          name: session.mentor?.name || 'Mentor',
+        },
+        date: session.completedAt || session.date,
+        feedbackWindowClosesAt: session.feedbackWindowClosesAt || null,
+      }));
+  }, [menteeSessions]);
+
+  const pendingSessions = useMemo(() => {
+    if (apiSessions && apiSessions.length > 0) {
+      return apiSessions;
+    }
+    return fallbackPendingSessions;
+  }, [apiSessions, fallbackPendingSessions]);
+
+  const pendingCount = pendingSessions.length;
   const hasPending = pendingCount > 0;
 
+  const getDueDate = (session: PendingFeedbackSession) => session.feedbackWindowClosesAt || session.date;
+
   const filteredSessions = useMemo(() => {
-    const list = sessions ?? [];
+    const list = pendingSessions;
     if (!list.length) {
       return [];
     }
@@ -59,7 +102,7 @@ const PendingFeedbackList: React.FC = () => {
         })
       : [...list];
 
-    const getTimeValue = (session: PendingFeedbackSession) => new Date(session.date).getTime();
+  const getTimeValue = (session: PendingFeedbackSession) => new Date(getDueDate(session)).getTime();
 
     return shortlist.sort((first, second) => {
       if (sortOrder === 'latest') {
@@ -72,25 +115,25 @@ const PendingFeedbackList: React.FC = () => {
 
       return getTimeValue(first) - getTimeValue(second);
     });
-  }, [sessions, searchTerm, sortOrder]);
+  }, [pendingSessions, searchTerm, sortOrder]);
 
   const uniqueMentorCount = useMemo(() => {
-    if (!sessions?.length) {
+    if (!pendingSessions.length) {
       return 0;
     }
-    const identifiers = sessions.map((session) => session.mentor?.id || session.mentor?.name);
+    const identifiers = pendingSessions.map((session) => session.mentor?.id || session.mentor?.name);
     return new Set(identifiers.filter(Boolean)).size;
-  }, [sessions]);
+  }, [pendingSessions]);
 
   const nextDueSession = useMemo(() => {
-    if (!sessions?.length) {
+    if (!pendingSessions.length) {
       return null;
     }
-    const sortedByDate = [...sessions].sort(
-      (first, second) => new Date(first.date).getTime() - new Date(second.date).getTime()
+    const sortedByDate = [...pendingSessions].sort(
+      (first, second) => new Date(getDueDate(first)).getTime() - new Date(getDueDate(second)).getTime()
     );
     return sortedByDate[0];
-  }, [sessions]);
+  }, [pendingSessions]);
 
   const relativeDueText = useMemo(() => {
     if (!nextDueSession) {
@@ -98,7 +141,7 @@ const PendingFeedbackList: React.FC = () => {
     }
 
     try {
-      const target = new Date(nextDueSession.date).getTime();
+  const target = new Date(getDueDate(nextDueSession)).getTime();
       if (Number.isNaN(target)) {
         return null;
       }
@@ -115,7 +158,7 @@ const PendingFeedbackList: React.FC = () => {
 
   const resetForm = () => {
     setRating(0);
-    setComment('');
+    setFeedbackText('');
     setFlagging(false);
     setFlagReason('');
     setFormError(null);
@@ -152,7 +195,7 @@ const PendingFeedbackList: React.FC = () => {
       return;
     }
 
-    const trimmedComment = comment.trim();
+    const trimmedComment = feedbackText.trim();
     const trimmedFlag = flagReason.trim();
     if (flagging && !trimmedFlag) {
       setFormError('Please describe the issue so admins can review it.');
@@ -165,7 +208,7 @@ const PendingFeedbackList: React.FC = () => {
       await submitFeedback.mutateAsync({
         sessionId: selectedSession.id,
         rating,
-        comment: trimmedComment || undefined,
+        text: trimmedComment || undefined,
         flagReason: flagging ? trimmedFlag : undefined,
         recaptchaToken,
       });
@@ -216,7 +259,7 @@ const PendingFeedbackList: React.FC = () => {
           {nextDueSession ? (
             <>
               <p className="tw-text-xs tw-font-semibold tw-uppercase">Next due</p>
-              <p className="tw-text-lg tw-font-semibold">{formatDate(nextDueSession.date)}</p>
+              <p className="tw-text-lg tw-font-semibold">{formatDate(getDueDate(nextDueSession))}</p>
               {relativeDueText ? <p className="tw-text-sm tw-opacity-90">{relativeDueText}</p> : null}
               <p className="tw-text-sm tw-mt-2 tw-font-medium tw-opacity-90">{nextDueSession.subject}</p>
             </>
@@ -323,7 +366,10 @@ const PendingFeedbackList: React.FC = () => {
               <div>
                 <p className="tw-text-base tw-font-semibold tw-text-gray-900">{session.subject}</p>
                 <p className="tw-text-sm tw-text-gray-600">
-                  {session.mentor.name} · {formatDate(session.date)}
+                  {session.mentor.name} · Session on {formatDate(session.date)}
+                </p>
+                <p className="tw-text-xs tw-text-gray-500">
+                  Feedback due {formatDate(getDueDate(session))}
                 </p>
               </div>
               <button
@@ -397,14 +443,14 @@ const PendingFeedbackList: React.FC = () => {
                 </label>
                 <textarea
                   id="feedback-comment"
-                  value={comment}
-                  onChange={(event) => setComment(event.target.value)}
+                  value={feedbackText}
+                  onChange={(event) => setFeedbackText(event.target.value)}
                   rows={4}
                   maxLength={2000}
                   className="tw-w-full tw-rounded-lg tw-border tw-border-gray-300 tw-px-3 tw-py-2 tw-text-sm focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-purple-500"
                   placeholder="What was helpful? Anything we should improve?"
                 />
-                <p className="tw-text-right tw-text-xs tw-text-gray-400">{comment.length}/2000</p>
+                <p className="tw-text-right tw-text-xs tw-text-gray-400">{feedbackText.length}/2000</p>
               </div>
 
               <div className="tw-space-y-2">

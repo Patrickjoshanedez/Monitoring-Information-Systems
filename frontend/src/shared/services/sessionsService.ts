@@ -25,6 +25,11 @@ export interface SessionRecord {
     attended: boolean;
     tasksCompleted: number;
     notes: string | null;
+    status?: 'upcoming' | 'completed' | 'overdue' | 'cancelled';
+    completedAt?: string | null;
+    feedbackDue?: boolean;
+    feedbackSubmitted?: boolean;
+    feedbackWindowClosesAt?: string | null;
 }
 
 export type MenteeSession = SessionRecord;

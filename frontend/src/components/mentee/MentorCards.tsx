@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useChatThreads } from '../../shared/hooks/useChatThreads';
 import { MentorProfile } from '../../shared/services/mentorMatching';
 
 interface MentorCardsProps {
@@ -9,6 +11,35 @@ interface MentorCardsProps {
 }
 
 const MentorCards: React.FC<MentorCardsProps> = ({ mentors, loading, onRequest, requestDisabledReason }) => {
+  const navigate = useNavigate();
+  const { startConversation } = useChatThreads();
+  const [chatLoadingId, setChatLoadingId] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<{ mentorId: string; message: string } | null>(null);
+
+  const handleChatStart = useCallback(
+    async (mentorId: string) => {
+      setChatError(null);
+      setChatLoadingId(mentorId);
+      try {
+        const thread = await startConversation.mutateAsync({ participantId: mentorId });
+        navigate(`/chat?threadId=${thread.id}`);
+      } catch (error) {
+        const fallbackMessage = 'Unable to open chat right now. Please try again in a moment.';
+        const apiMessage =
+          typeof (error as { response?: { data?: { message?: string } } })?.response?.data?.message === 'string'
+            ? (error as { response?: { data?: { message?: string } } }).response!.data!.message
+            : null;
+        setChatError({
+          mentorId,
+          message: apiMessage || (error instanceof Error && error.message ? error.message : fallbackMessage),
+        });
+      } finally {
+        setChatLoadingId((current) => (current === mentorId ? null : current));
+      }
+    },
+    [navigate, startConversation]
+  );
+
   if (loading) {
     return (
       <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 xl:tw-grid-cols-3 tw-gap-4">
@@ -96,28 +127,45 @@ const MentorCards: React.FC<MentorCardsProps> = ({ mentors, loading, onRequest, 
             </div>
           </dl>
 
-          <div className="tw-mt-6 tw-flex tw-items-center tw-justify-between">
-            <div className="tw-text-xs tw-text-gray-500">
-              {mentor.experienceYears ? `${mentor.experienceYears}+ yrs experience` : 'Experience info coming soon'}
+          <div className="tw-mt-6 tw-space-y-3">
+            <div className="tw-flex tw-items-start tw-justify-between tw-gap-3 tw-flex-wrap">
+              <div className="tw-text-xs tw-text-gray-500">
+                {mentor.experienceYears ? `${mentor.experienceYears}+ yrs experience` : 'Experience info coming soon'}
+              </div>
+              <div className="tw-flex tw-flex-wrap tw-gap-2 tw-justify-end">
+                {onRequest ? (
+                  <button
+                    type="button"
+                    onClick={() => onRequest(mentor)}
+                    className={`tw-rounded-lg tw-px-4 tw-py-2 tw-text-sm tw-font-semibold tw-text-white tw-transition-colors focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-offset-2 tw-bg-purple-600 hover:tw-bg-purple-700 focus:tw-ring-purple-500 ${requestDisabledReason ? 'tw-opacity-80' : ''}`}
+                    title={requestDisabledReason}
+                    aria-describedby={requestDisabledReason ? `mentor-card-warning-${mentor.id}` : undefined}
+                  >
+                    Request mentorship
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => handleChatStart(mentor.id)}
+                  className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-4 tw-py-2 hover:tw-bg-gray-50 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-200 disabled:tw-opacity-60"
+                  disabled={chatLoadingId === mentor.id || startConversation.isPending}
+                >
+                  {chatLoadingId === mentor.id ? 'Opening chat…' : 'Open chat'}
+                </button>
+              </div>
             </div>
-            {onRequest ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (requestDisabledReason) {
-                    return;
-                  }
-                  onRequest(mentor);
-                }}
-                className={`tw-rounded-lg tw-px-4 tw-py-2 tw-text-sm tw-font-semibold tw-transition-colors focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-offset-2 ${requestDisabledReason
-                  ? 'tw-bg-gray-200 tw-text-gray-500 tw-cursor-not-allowed focus:tw-ring-gray-200'
-                  : 'tw-bg-purple-600 tw-text-white hover:tw-bg-purple-700 focus:tw-ring-purple-500'}`}
-                disabled={Boolean(requestDisabledReason)}
-                aria-disabled={requestDisabledReason ? 'true' : undefined}
-                title={requestDisabledReason}
+            {requestDisabledReason ? (
+              <p
+                id={`mentor-card-warning-${mentor.id}`}
+                className="tw-text-xs tw-text-amber-700"
               >
-                Request mentorship
-              </button>
+                {requestDisabledReason}
+              </p>
+            ) : null}
+            {chatError?.mentorId === mentor.id ? (
+              <p className="tw-text-xs tw-text-red-600" role="alert">
+                {chatError.message}
+              </p>
             ) : null}
           </div>
         </article>

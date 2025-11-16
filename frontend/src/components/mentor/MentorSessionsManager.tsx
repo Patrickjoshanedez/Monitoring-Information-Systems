@@ -64,9 +64,9 @@ const MentorSessionsManager: React.FC = () => {
 
     const stats = useMemo(() => {
         const total = sessions.length;
-        const upcoming = sessions.filter((session) => !session.attended).length;
-        const completed = total - upcoming;
-        const awaitingFeedback = sessions.filter((session) => session.attended && new Date(session.date) <= new Date()).length;
+        const completed = sessions.filter((session) => (session.status ? session.status === 'completed' : session.attended)).length;
+        const upcoming = sessions.filter((session) => (session.status ? session.status === 'upcoming' : !session.attended)).length;
+        const awaitingFeedback = sessions.filter((session) => session.feedbackDue).length;
         return { total, upcoming, completed, awaitingFeedback };
     }, [sessions]);
 
@@ -322,15 +322,35 @@ const MentorSessionsManager: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="tw-px-6 tw-py-4 tw-align-top">
-                                            {session.attended ? (
-                                                <span className="tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-text-green-700 tw-bg-green-50 tw-rounded-full tw-px-3 tw-py-1">
-                                                    <span aria-hidden="true">●</span> Completed
-                                                </span>
-                                            ) : (
-                                                <span className="tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-text-amber-700 tw-bg-amber-50 tw-rounded-full tw-px-3 tw-py-1">
-                                                    <span aria-hidden="true">●</span> Upcoming
-                                                </span>
-                                            )}
+                                            {(() => {
+                                                const status = session.status || (session.attended ? 'completed' : 'upcoming');
+                                                if (status === 'completed') {
+                                                    return (
+                                                        <span className="tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-text-green-700 tw-bg-green-50 tw-rounded-full tw-px-3 tw-py-1">
+                                                            <span aria-hidden="true">●</span> Completed
+                                                        </span>
+                                                    );
+                                                }
+                                                if (status === 'overdue') {
+                                                    return (
+                                                        <span className="tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-text-red-700 tw-bg-red-50 tw-rounded-full tw-px-3 tw-py-1">
+                                                            <span aria-hidden="true">●</span> Needs update
+                                                        </span>
+                                                    );
+                                                }
+                                                return (
+                                                    <span className="tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-text-amber-700 tw-bg-amber-50 tw-rounded-full tw-px-3 tw-py-1">
+                                                        <span aria-hidden="true">●</span> Upcoming
+                                                    </span>
+                                                );
+                                            })()}
+                                            {session.feedbackDue ? (
+                                                <div className="tw-mt-2">
+                                                    <span className="tw-inline-flex tw-items-center tw-gap-1 tw-text-[11px] tw-font-semibold tw-rounded-full tw-bg-blue-50 tw-text-blue-700 tw-px-2 tw-py-0.5">
+                                                        Awaiting mentee feedback
+                                                    </span>
+                                                </div>
+                                            ) : null}
                                         </td>
                                         <td className="tw-px-6 tw-py-4 tw-align-top tw-text-right">
                                             <div className="tw-flex tw-flex-wrap tw-gap-2 tw-justify-end">

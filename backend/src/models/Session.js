@@ -27,6 +27,7 @@ const sessionSchema = new mongoose.Schema(
     participants: { type: [participantSchema], default: [] },
     chatThread: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatThread' },
     attended: { type: Boolean, default: false },
+  completedAt: { type: Date },
     tasksCompleted: { type: Number, default: 0, min: 0 },
     notes: { type: String, trim: true },
     remindersSent: [

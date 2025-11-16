@@ -8,7 +8,10 @@ const SessionHistoryTable: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortKey>('date');
   const { data: sessions = [], isLoading, isError, refetch } = useMenteeSessions();
 
-  const completedSessions = useMemo(() => sessions.filter((session) => session.attended), [sessions]);
+  const completedSessions = useMemo(
+    () => sessions.filter((session) => (session.status ? session.status === 'completed' : session.attended)),
+    [sessions]
+  );
 
   const sortedSessions = useMemo(() => {
     return [...completedSessions].sort((a, b) => {
@@ -19,7 +22,7 @@ const SessionHistoryTable: React.FC = () => {
           return (a.mentor?.name || '').localeCompare(b.mentor?.name || '');
         case 'date':
         default:
-          return new Date(b.date).getTime() - new Date(a.date).getTime();
+          return new Date(b.completedAt || b.date).getTime() - new Date(a.completedAt || a.date).getTime();
       }
     });
   }, [completedSessions, sortBy]);
@@ -91,19 +94,45 @@ const SessionHistoryTable: React.FC = () => {
                     {session.mentor?.name || '—'}
                   </td>
                   <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-600">
-                    {new Date(session.date).toLocaleString()}
+                    {new Date(session.completedAt || session.date).toLocaleString()}
                   </td>
                   <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap">
                     <span
                       className={`tw-inline-flex tw-px-2 tw-py-1 tw-text-xs tw-font-semibold tw-rounded-full ${
-                        session.attended ? 'tw-bg-green-50 tw-text-green-700' : 'tw-bg-yellow-50 tw-text-yellow-800'
+                        session.status === 'completed'
+                          ? 'tw-bg-green-50 tw-text-green-700'
+                          : session.status === 'overdue'
+                            ? 'tw-bg-red-50 tw-text-red-700'
+                            : 'tw-bg-amber-50 tw-text-amber-700'
                       }`}
                     >
-                      {session.attended ? 'Attended' : 'Cancelled'}
+                      {session.status === 'completed' ? 'Completed' : session.status === 'overdue' ? 'Needs update' : 'Scheduled'}
                     </span>
                   </td>
                   <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-primary">
-                    {session.notes ? session.notes : 'Feedback left in Pending section'}
+                    <div className="tw-flex tw-flex-col tw-gap-1">
+                      <span
+                        className={`tw-inline-flex tw-px-2 tw-py-0.5 tw-text-xs tw-font-semibold tw-rounded-full ${
+                          session.feedbackSubmitted
+                            ? 'tw-bg-green-50 tw-text-green-700'
+                            : session.feedbackDue
+                              ? 'tw-bg-blue-50 tw-text-blue-700'
+                              : 'tw-bg-gray-100 tw-text-gray-600'
+                        }`}
+                      >
+                        {session.feedbackSubmitted
+                          ? 'Feedback submitted'
+                          : session.feedbackDue
+                            ? 'Awaiting your feedback'
+                            : 'Feedback window closed'}
+                      </span>
+                      <span className="tw-text-xs tw-text-gray-600">
+                        {session.tasksCompleted ? `${session.tasksCompleted} task${session.tasksCompleted === 1 ? '' : 's'} logged` : 'No tasks recorded'}
+                      </span>
+                      {session.notes ? (
+                        <span className="tw-text-xs tw-text-gray-500">Notes: {session.notes}</span>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}

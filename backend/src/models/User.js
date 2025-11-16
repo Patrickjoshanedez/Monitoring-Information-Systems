@@ -137,6 +137,8 @@ const userSchema = new mongoose.Schema(
       averageRating: { type: Number, default: 0 },
       lastReviewAt: { type: Date },
     },
+    ratingAvg: { type: Number, default: 0 },
+    ratingCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
@@ -145,6 +147,7 @@ const userSchema = new mongoose.Schema(
 // Optimize mentor directory lookups and general auth by role/status and email
 userSchema.index({ role: 1, applicationStatus: 1 });
 userSchema.index({ role: 1, 'feedbackStats.averageRating': -1 });
+userSchema.index({ ratingAvg: -1 });
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password') || !this.password) return next();

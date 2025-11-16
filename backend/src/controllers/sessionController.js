@@ -2,8 +2,10 @@ const mongoose = require('mongoose');
 const Session = require('../models/Session');
 const User = require('../models/User');
 const ChatThread = require('../models/ChatThread');
-const { getFullName } = require('../utils/person');
 const { sendNotification } = require('../utils/notificationService');
+const { annotateSessionsWithMeta, formatSessionRow, summarizePerson } = require('../utils/sessionFormatter');
+
+const NOTIFICATION_DISPATCH_TIMEOUT_MS = 2500;
 
 const toObjectId = (id) => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null);
 
@@ -80,48 +82,6 @@ const parseFilters = (req, scope = 'mentee') => {
   return { filters, page: pageNum, limit: limitNum };
 };
 
-const summarizePerson = (doc) => {
-  if (!doc || typeof doc !== 'object') {
-    return null;
-  }
-
-  const identifier = doc._id || doc.id || null;
-  if (!identifier && !doc.firstname && !doc.lastname && !doc.email) {
-    return null;
-  }
-
-  return {
-    id: identifier ? identifier.toString() : null,
-    name: getFullName(doc) || doc.email,
-    email: doc.email,
-  };
-};
-
-const summarizeParticipantEntry = (entry) => {
-  if (!entry || !entry.user) {
-    return null;
-  }
-
-  const person = summarizePerson(entry.user);
-  if (!person) {
-    return null;
-  }
-
-  return {
-    ...person,
-    status: entry.status || 'invited',
-  };
-};
-
-const getChatThreadId = (sessionDoc) => {
-  if (!sessionDoc.chatThread) return null;
-  if (typeof sessionDoc.chatThread === 'string') return sessionDoc.chatThread;
-  if (sessionDoc.chatThread && sessionDoc.chatThread._id) {
-    return sessionDoc.chatThread._id.toString();
-  }
-  return null;
-};
-
 const formatInviteDate = (date) => {
   try {
     return new Intl.DateTimeFormat('en-US', {
@@ -137,33 +97,6 @@ const formatInviteDate = (date) => {
   }
 };
 
-const formatSessionRow = (sessionDoc) => {
-  if (!sessionDoc) {
-    return null;
-  }
-
-  const participants = Array.isArray(sessionDoc.participants)
-    ? sessionDoc.participants.map(summarizeParticipantEntry).filter(Boolean)
-    : [];
-
-  return {
-    id: sessionDoc._id.toString(),
-    subject: sessionDoc.subject,
-    mentor: summarizePerson(sessionDoc.mentor),
-    mentee: summarizePerson(sessionDoc.mentee),
-    date: sessionDoc.date,
-    durationMinutes: sessionDoc.durationMinutes,
-    attended: !!sessionDoc.attended,
-    tasksCompleted: sessionDoc.tasksCompleted || 0,
-    notes: sessionDoc.notes || null,
-    room: sessionDoc.room || null,
-    capacity: sessionDoc.capacity || (participants?.length || 1),
-    isGroup: !!sessionDoc.isGroup,
-    participants,
-    participantCount: participants.length || (sessionDoc.mentee ? 1 : 0),
-    chatThreadId: getChatThreadId(sessionDoc),
-  };
-};
 
 exports.getMenteeSessions = async (req, res) => {
   try {
@@ -187,13 +120,13 @@ exports.getMenteeSessions = async (req, res) => {
 
     query
       .limit(limit)
-      .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes')
+      .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes createdAt updatedAt')
       .populate('mentor', 'firstname lastname email')
       .populate('mentee', 'firstname lastname email')
       .populate('participants.user', 'firstname lastname email')
       .lean();
 
-    const sessions = await query.exec();
+  const sessions = await query.exec();
 
     // Only compute total count when not using cursor (costly on large collections)
     let total; let totalPages; let nextCursor = null;
@@ -207,7 +140,7 @@ exports.getMenteeSessions = async (req, res) => {
       nextCursor = sessions[sessions.length - 1].date.toISOString();
     }
 
-    const rows = sessions.map(formatSessionRow);
+  const rows = await annotateSessionsWithMeta(sessions);
 
     return res.json({
       success: true,
@@ -247,13 +180,13 @@ exports.getMentorSessions = async (req, res) => {
 
     query
       .limit(limit)
-      .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes')
+      .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes createdAt updatedAt')
       .populate('mentee', 'firstname lastname email')
       .populate('mentor', 'firstname lastname email')
       .populate('participants.user', 'firstname lastname email')
       .lean();
 
-    const sessions = await query.exec();
+  const sessions = await query.exec();
 
     let total; let totalPages; let nextCursor = null;
     if (!usingCursor) {
@@ -265,7 +198,7 @@ exports.getMentorSessions = async (req, res) => {
       nextCursor = sessions[sessions.length - 1].date.toISOString();
     }
 
-    const rows = sessions.map(formatSessionRow);
+  const rows = await annotateSessionsWithMeta(sessions);
 
     return res.json({
       success: true,
@@ -381,7 +314,7 @@ exports.createMentorSession = async (req, res) => {
     }
 
     const inviteMessage = `Your mentor scheduled "${trimmedSubject}" on ${formatInviteDate(scheduledDate)} at ${trimmedRoom}.`;
-    await Promise.allSettled(
+    const notificationJob = Promise.allSettled(
       participantDocs.map((participant) =>
         sendNotification({
           userId: participant.user,
@@ -397,10 +330,59 @@ exports.createMentorSession = async (req, res) => {
       )
     );
 
+    let notifyOutcome;
+    let notificationTimeoutId;
+    try {
+      notifyOutcome = await Promise.race([
+        notificationJob,
+        new Promise((resolve) => {
+          notificationTimeoutId = setTimeout(() => resolve('timeout'), NOTIFICATION_DISPATCH_TIMEOUT_MS);
+        }),
+      ]);
+    } finally {
+      if (notificationTimeoutId) {
+        clearTimeout(notificationTimeoutId);
+      }
+    }
+
+    if (notifyOutcome === 'timeout') {
+      warnings.push({
+        code: 'INVITES_IN_PROGRESS',
+        message: 'Invitations are still sending. Participants should receive them shortly.',
+      });
+
+      notificationJob
+        .then((results) => {
+          const delayedFailures = results.filter(
+            (entry) => entry.status === 'rejected' || entry.value?.delivered === false
+          );
+          if (delayedFailures.length) {
+            console.warn('mentor session invites background failures', {
+              sessionId: session._id.toString(),
+              failureCount: delayedFailures.length,
+            });
+          }
+        })
+        .catch((notifyError) => {
+          console.error('mentor session invites background error:', notifyError);
+        });
+    } else {
+      const failedNotifications = notifyOutcome.filter(
+        (entry) => entry.status === 'rejected' || entry.value?.delivered === false
+      );
+
+      if (failedNotifications.length) {
+        warnings.push({
+          code: 'INVITES_PARTIAL_DELIVERY',
+          message: `${failedNotifications.length} invite${failedNotifications.length > 1 ? 's' : ''} may take longer to deliver. Participants can still join from their Sessions page.`,
+        });
+      }
+    }
+
     let hydrated;
     try {
       hydrated = await Session.findById(session._id)
-        .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes')
+        .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes createdAt updatedAt')
         .populate('mentor', 'firstname lastname email')
         .populate('mentee', 'firstname lastname email')
         .populate('participants.user', 'firstname lastname email')
@@ -414,6 +396,7 @@ exports.createMentorSession = async (req, res) => {
     }
 
     let responseRow = hydrated ? formatSessionRow(hydrated) : null;
+    let annotationSource = hydrated;
     if (!responseRow) {
       // Fallback to a minimal payload using already-loaded mentee docs
       const menteeLookup = new Map(mentees.map((mentee) => [mentee._id.toString(), mentee]));
@@ -444,8 +427,11 @@ exports.createMentorSession = async (req, res) => {
         attended: session.attended,
         tasksCompleted: session.tasksCompleted,
         notes: session.notes,
+        createdAt: session.createdAt || session.date,
+        updatedAt: session.updatedAt || session.date,
       };
 
+      annotationSource = fallbackDoc;
       responseRow = formatSessionRow(fallbackDoc) || {
         id: session._id.toString(),
         subject: session.subject,
@@ -463,6 +449,13 @@ exports.createMentorSession = async (req, res) => {
         tasksCompleted: session.tasksCompleted || 0,
         notes: session.notes || null,
       };
+    }
+
+    if (annotationSource) {
+      const [annotated] = await annotateSessionsWithMeta([annotationSource]);
+      if (annotated) {
+        responseRow = annotated;
+      }
     }
 
     const meta = warnings.length ? { warnings } : undefined;
@@ -519,11 +512,23 @@ exports.completeSession = async (req, res) => {
       session.notes = notes ? notes.toString().trim() : null;
     }
 
-    session.attended = typeof attended === 'boolean' ? attended : true;
+    const nextAttended = typeof attended === 'boolean' ? attended : true;
+    const wasAttended = session.attended;
+    session.attended = nextAttended;
+
+    if (nextAttended) {
+      if (!wasAttended || !session.completedAt) {
+        session.completedAt = new Date();
+      }
+    } else {
+      session.completedAt = null;
+    }
 
     await session.save();
 
-    return res.json({ success: true, session: formatSessionRow(session) });
+    const [annotated] = await annotateSessionsWithMeta([session]);
+
+    return res.json({ success: true, session: annotated || formatSessionRow(session) });
   } catch (error) {
     console.error('completeSession error:', error);
     return res.status(500).json({ success: false, error: 'COMPLETE_SESSION_FAILED', message: 'Unable to update session.' });

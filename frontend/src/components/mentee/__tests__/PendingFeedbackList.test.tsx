@@ -5,10 +5,15 @@ import {
     usePendingFeedbackSessions,
     useSubmitSessionFeedback,
 } from '../../../shared/hooks/useSessionFeedback';
+import { useMenteeSessions } from '../../../shared/hooks/useMenteeSessions';
 
 jest.mock('../../../shared/hooks/useSessionFeedback', () => ({
     usePendingFeedbackSessions: jest.fn(),
     useSubmitSessionFeedback: jest.fn(),
+}));
+
+jest.mock('../../../shared/hooks/useMenteeSessions', () => ({
+    useMenteeSessions: jest.fn(() => ({ data: [] })),
 }));
 
 jest.mock('../../common/RecaptchaField.jsx', () => {
@@ -32,6 +37,7 @@ jest.mock('../../../shared/utils/logger', () => ({
 
 const mockUsePendingFeedbackSessions = usePendingFeedbackSessions as jest.Mock;
 const mockUseSubmitSessionFeedback = useSubmitSessionFeedback as jest.Mock;
+const mockUseMenteeSessions = useMenteeSessions as jest.Mock;
 
 const buildSession = (overrides: Partial<ReturnType<typeof createBaseSession>> = {}) => ({
     ...createBaseSession(),
@@ -59,6 +65,7 @@ const baseHookState = {
 
 beforeEach(() => {
     jest.clearAllMocks();
+    mockUseMenteeSessions.mockReturnValue({ data: [] });
 });
 
 describe('PendingFeedbackList', () => {
