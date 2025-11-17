@@ -30,6 +30,21 @@ const sessionSchema = new mongoose.Schema(
   completedAt: { type: Date },
     tasksCompleted: { type: Number, default: 0, min: 0 },
     notes: { type: String, trim: true },
+    calendarEvent: {
+      provider: { type: String, enum: ['google'], default: null },
+      externalId: { type: String, trim: true },
+      calendarId: { type: String, trim: true },
+      htmlLink: { type: String },
+      hangoutLink: { type: String },
+      status: { type: String, trim: true },
+      updatedAt: { type: Date },
+      lastSyncedAt: { type: Date },
+      lastSyncError: {
+        code: { type: String },
+        message: { type: String },
+        occurredAt: { type: Date },
+      },
+    },
     remindersSent: [
       {
         offsetMinutes: { type: Number, required: true, min: 1 },

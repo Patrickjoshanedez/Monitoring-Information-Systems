@@ -142,6 +142,19 @@ If you see the widget error "ERROR for site owner: Invalid domain for site key":
 4) Local development fallback
    - The component `src/components/common/RecaptchaField.jsx` automatically uses Google’s public test key in non-production when `VITE_RECAPTCHA_SITE_KEY` is missing. This lets you continue developing locally without domain allowlisting; production still requires a real site key.
 
+### 3.6 Google Calendar integration (optional)
+
+To enable automatic event creation when mentors schedule sessions:
+
+1. In Google Cloud Console, use the same OAuth client (or create a dedicated one) and add an extra redirect URI:
+   - `https://your-backend.onrender.com/api/integrations/google-calendar/callback`
+   - `http://localhost:4000/api/integrations/google-calendar/callback` (for local dev)
+2. In Render, add the following env vars:
+   - `CALENDAR_TOKEN_SECRET` — a random 32+ character string used to encrypt Google refresh tokens.
+   - `GOOGLE_CALENDAR_STATE_SECRET` — optional; falls back to `JWT_SECRET`, but using a separate secret is recommended.
+   - Reuse `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` or provide calendar-specific overrides via `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET` (only needed if you created a second OAuth client).
+3. Redeploy the backend after setting these values. Once live, mentors can visit **Profile → Calendar integration** to connect/disconnect Google Calendar, and new sessions will create Google Calendar events automatically.
+
 ### 3.3 Connect frontend → backend
 
 1. After the backend deploy, copy its public HTTPS URL.

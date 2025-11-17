@@ -6,6 +6,7 @@ import {
   getNotificationPreferences,
   updateNotificationPreferences,
 } from '../../../shared/services/notificationService';
+import { getGoogleCalendarStatus, getGoogleCalendarAuthUrl, disconnectGoogleCalendar } from '../../../shared/services/calendarIntegrationService';
 
 /** @typedef {import('../../../shared/services/notificationService').NotificationPreferences} NotificationPreferences */
 import logger from '../../../shared/utils/logger';
@@ -80,6 +81,23 @@ const formatOffsetLabel = (minutes) => {
   return `${minutes} minute${minutes > 1 ? 's' : ''}`;
 };
 
+const formatDateTime = (value) => {
+  if (!value) {
+    return 'Not synced yet';
+  }
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date(value));
+  } catch {
+    return new Date(value).toLocaleString();
+  }
+};
+
 const PrivacySelect = ({ label, value, onChange }) => (
   <div className="tw-flex tw-items-center tw-gap-3">
     <span className="tw-text-sm tw-text-gray-600">{label}</span>
@@ -150,6 +168,15 @@ export default function ProfileSettings() {
   const customReminderOffsets = notificationPrefs.sessionReminders.offsets
     .filter((value) => !REMINDER_OPTIONS.some((option) => option.minutes === value))
     .sort((a, b) => b - a);
+  const [calendarStatus, setCalendarStatus] = useState({
+    loading: true,
+    connected: false,
+    accountEmail: '',
+    lastSyncedAt: null,
+    lastError: null,
+    featureDisabled: false,
+    message: '',
+  });
 
   const emitUserUpdated = useCallback(() => {
     try {
@@ -193,6 +220,38 @@ export default function ProfileSettings() {
     }
   }, [emitUserUpdated]);
 
+  const loadCalendarStatus = useCallback(async () => {
+    try {
+      setCalendarStatus((prev) => ({ ...prev, loading: true }));
+      const integration = await getGoogleCalendarStatus();
+      setCalendarStatus({
+        loading: false,
+        connected: !!integration?.connected,
+        accountEmail: integration?.accountEmail || '',
+        lastSyncedAt: integration?.lastSyncedAt || null,
+        lastError: integration?.lastError || null,
+        featureDisabled: !!integration?.featureDisabled,
+        message: integration?.message || '',
+      });
+    } catch (calendarError) {
+      const code = calendarError?.response?.data?.error;
+      if (code === 'GOOGLE_CALENDAR_NOT_CONFIGURED') {
+        setCalendarStatus({
+          loading: false,
+          connected: false,
+          accountEmail: '',
+          lastSyncedAt: null,
+          lastError: null,
+          featureDisabled: true,
+          message: calendarError?.response?.data?.message || 'Google Calendar integration is not available yet.',
+        });
+        return;
+      }
+      setCalendarStatus((prev) => ({ ...prev, loading: false }));
+      setError(calendarError?.response?.data?.message || 'Failed to load Google Calendar status.');
+    }
+  }, [setError]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -221,6 +280,10 @@ export default function ProfileSettings() {
       }
     })();
   }, [mergeStoredUser]);
+
+    useEffect(() => {
+      loadCalendarStatus();
+    }, [loadCalendarStatus]);
 
   const toggleReminderOffset = (minutes) => {
     setNotificationPrefs((prev) => {
@@ -270,6 +333,41 @@ export default function ProfileSettings() {
         ),
       },
     }));
+  };
+
+  const handleConnectCalendar = async () => {
+    setError('');
+    setSuccess('');
+    try {
+      setCalendarStatus((prev) => ({ ...prev, loading: true }));
+      const url = await getGoogleCalendarAuthUrl();
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('Missing authorization URL.');
+      }
+    } catch (calendarError) {
+      setCalendarStatus((prev) => ({ ...prev, loading: false }));
+      setError(calendarError?.response?.data?.message || calendarError?.message || 'Failed to start Google Calendar connection.');
+    }
+  };
+
+  const handleDisconnectCalendar = async () => {
+    setError('');
+    try {
+      setCalendarStatus((prev) => ({ ...prev, loading: true }));
+      await disconnectGoogleCalendar();
+      setSuccess('Google Calendar disconnected.');
+      setTimeout(() => setSuccess(''), 2500);
+      await loadCalendarStatus();
+    } catch (calendarError) {
+      setCalendarStatus((prev) => ({ ...prev, loading: false }));
+      setError(calendarError?.response?.data?.message || 'Failed to disconnect Google Calendar.');
+    }
+  };
+
+  const handleRefreshCalendarStatus = () => {
+    loadCalendarStatus();
   };
 
   const updateChannelPreference = (key, channel, value) => {
@@ -454,6 +552,87 @@ export default function ProfileSettings() {
               </div>
             </div>
           </div>
+
+            {/* Calendar Integration */}
+            <div className="tw-bg-white tw-rounded-lg tw-border tw-border-gray-200 tw-p-4 tw-space-y-4">
+              <div className="tw-flex tw-flex-col sm:tw-flex-row sm:tw-items-center sm:tw-justify-between tw-gap-2">
+                <div>
+                  <h2 className="tw-text-base tw-font-semibold tw-text-gray-900">Calendar integration</h2>
+                  <p className="tw-text-sm tw-text-gray-500">Automatically add mentor sessions to your Google Calendar.</p>
+                </div>
+                <span
+                  className={`tw-inline-flex tw-items-center tw-rounded-full tw-px-3 tw-py-1 tw-text-xs tw-font-semibold ${calendarStatus.connected ? 'tw-bg-green-50 tw-text-green-700' : 'tw-bg-gray-100 tw-text-gray-600'}`}
+                >
+                  {calendarStatus.connected ? 'Connected' : 'Not connected'}
+                </span>
+              </div>
+
+              {calendarStatus.featureDisabled ? (
+                <div className="tw-bg-yellow-50 tw-border tw-border-yellow-200 tw-rounded-lg tw-p-3" role="status" aria-live="polite">
+                  <p className="tw-text-sm tw-text-yellow-800">
+                    {calendarStatus.message || 'Google Calendar sync is not available yet. Please contact your administrator.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="tw-space-y-3">
+                  {calendarStatus.loading ? (
+                    <div className="tw-flex tw-items-center tw-gap-2 tw-text-sm tw-text-gray-600">
+                      <div className="tw-h-4 tw-w-4 tw-border-2 tw-border-purple-200 tw-border-t-purple-600 tw-rounded-full tw-animate-spin" aria-hidden="true" />
+                      <span>Checking your Google Calendar connection…</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="tw-flex tw-flex-col lg:tw-flex-row tw-gap-4 tw-items-start lg:tw-items-center">
+                        <div className="tw-text-sm tw-space-y-1">
+                          <p className="tw-text-gray-700">
+                            <span className="tw-text-gray-500">Account:&nbsp;</span>
+                            {calendarStatus.accountEmail || 'Not connected'}
+                          </p>
+                          <p className="tw-text-gray-700">
+                            <span className="tw-text-gray-500">Last sync:&nbsp;</span>
+                            {formatDateTime(calendarStatus.lastSyncedAt)}
+                          </p>
+                        </div>
+                        <div className="tw-flex tw-flex-wrap tw-gap-2">
+                          <button
+                            type="button"
+                            onClick={handleRefreshCalendarStatus}
+                            className="tw-inline-flex tw-items-center tw-rounded-lg tw-border tw-border-gray-300 tw-px-3 tw-py-2 tw-text-sm tw-font-medium tw-text-gray-700 hover:tw-bg-gray-50"
+                            disabled={calendarStatus.loading}
+                          >
+                            Refresh status
+                          </button>
+                          {calendarStatus.connected ? (
+                            <button
+                              type="button"
+                              onClick={handleDisconnectCalendar}
+                              className="tw-inline-flex tw-items-center tw-rounded-lg tw-border tw-border-red-200 tw-bg-red-50 tw-px-3 tw-py-2 tw-text-sm tw-font-medium tw-text-red-700 hover:tw-bg-red-100 disabled:tw-opacity-70"
+                              disabled={calendarStatus.loading}
+                            >
+                              Disconnect
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleConnectCalendar}
+                              className="tw-inline-flex tw-items-center tw-rounded-lg tw-bg-purple-600 tw-px-3 tw-py-2 tw-text-sm tw-font-medium tw-text-white hover:tw-bg-purple-700 disabled:tw-bg-purple-300 disabled:tw-cursor-not-allowed"
+                              disabled={calendarStatus.loading}
+                            >
+                              Connect Google Calendar
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {calendarStatus.lastError?.message && (
+                        <div className="tw-bg-red-50 tw-border tw-border-red-200 tw-rounded-lg tw-p-3" role="alert">
+                          <p className="tw-text-sm tw-text-red-700">{calendarStatus.lastError.message}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Notification Preferences */}
             <div className="tw-bg-white tw-rounded-lg tw-border tw-border-gray-200 tw-p-4 tw-space-y-6">

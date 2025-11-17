@@ -1,138 +1,161 @@
-const User = require('../models/User');
-const Certificate = require('../models/Certificate');
+const CertificateModel = require('../models/Certificate');
 const Achievement = require('../models/Achievement');
+const { ok, fail } = require('../utils/responses');
 const { generateCertificatePDF } = require('../utils/certificatePdf');
+const { generateQrDataUri } = require('../utils/qr');
+const {
+    issueCertificate,
+    getCertificateForDownload,
+    reissueCertificate,
+    verifyCertificate,
+} = require('../services/certificateService');
+const { incrementAchievement } = require('../services/achievementService');
 
-// Simple policy stub: completion if user has >= 3 accepted sessions & >= 1 goal completed.
-// TODO: Replace with real aggregation logic using Session & Goal models.
-async function checkCompletionCriteria(userId) {
-  // Placeholder logic; assume criteria met for demonstration.
-  return { eligible: true, reason: 'stub_criteria_met' };
-}
+const CERTIFICATE_TYPES = CertificateModel.CERTIFICATE_TYPES || ['participation', 'completion', 'excellence'];
+
+const formatFullName = (user) => `${user.firstname || ''} ${user.lastname || ''}`.trim();
 
 exports.issueCertificate = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { type = 'completion', programName = 'Mentorship Program' } = req.body || {};
+    try {
+        const { certificateType = 'completion', programName, mentorId, statement, cohort, menteeId: menteeOverride } =
+            req.body || {};
 
-    if (!['completion', 'participation'].includes(type)) {
-      return res.status(400).json({ success: false, error: 'INVALID_TYPE', message: 'Invalid certificate type.' });
+        if (!programName) {
+            return fail(res, 400, 'PROGRAM_REQUIRED', 'Program name is required.');
+        }
+        if (!CERTIFICATE_TYPES.includes(certificateType)) {
+            return fail(res, 400, 'INVALID_CERTIFICATE_TYPE', 'Unsupported certificate type.');
+        }
+
+        const targetMenteeId = req.user.role === 'admin' && menteeOverride ? menteeOverride : req.user.id;
+
+        const certificate = await issueCertificate({
+            menteeId: targetMenteeId,
+            mentorId,
+            requestedBy: req.user.role === 'admin' ? req.user.id : undefined,
+            programName,
+            certificateType,
+            statement,
+            cohort,
+        });
+
+        return ok(res, {
+            certificate: {
+                id: certificate._id,
+                serialNumber: certificate.serialNumber,
+                verificationCode: certificate.verificationCode,
+                programName: certificate.programName,
+                type: certificate.certificateType,
+                pdfUrl: certificate.pdfAsset?.url,
+            },
+        });
+    } catch (error) {
+        const status = error.status || 500;
+        const code = error.message || 'ISSUE_FAILED';
+        return fail(res, status, code, 'Unable to issue certificate at this time.');
     }
-
-    const user = await User.findById(userId).select('firstname lastname role');
-    if (!user || user.role !== 'mentee') {
-      return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Only mentees can request certificates.' });
-    }
-
-    // Basic eligibility check for completion certificates
-    if (type === 'completion') {
-      const criteria = await checkCompletionCriteria(userId);
-      if (!criteria.eligible) {
-        return res.status(400).json({ success: false, error: 'CRITERIA_NOT_MET', message: 'Completion criteria not met.' });
-      }
-    }
-
-    // For demo: choose first approved mentor as mentor reference (TODO: refine)
-    const mentor = await User.findOne({ role: 'mentor', applicationStatus: 'approved' }).select('firstname lastname');
-    const mentorName = mentor ? `${mentor.firstname} ${mentor.lastname}` : 'Mentor';
-
-    const certificate = await Certificate.create({
-      user: user._id,
-      mentor: mentor ? mentor._id : user._id, // fallback
-      programName,
-      certificateType: type,
-      issuanceLog: [{ issuedBy: req.user.id, reason: 'initial' }],
-    });
-
-    return res.json({
-      success: true,
-      message: 'Certificate issued',
-      certificate: {
-        id: certificate._id,
-        type: certificate.certificateType,
-        programName: certificate.programName,
-        issuedAt: certificate.issuedAt,
-      },
-    });
-  } catch (err) {
-    console.error('issueCertificate error:', err);
-    return res.status(500).json({ success: false, error: 'ISSUE_FAILED', message: 'Failed to issue certificate.' });
-  }
 };
 
 exports.downloadCertificate = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const cert = await Certificate.findById(id).populate('user', 'firstname lastname').populate('mentor', 'firstname lastname');
-    if (!cert) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Certificate not found.' });
-    }
-    if (cert.user._id.toString() !== req.user.id && req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Access denied.' });
-    }
+    try {
+        const certificate = await getCertificateForDownload({
+            certificateId: req.params.id,
+            requester: req.user,
+        });
 
-    const buffer = await generateCertificatePDF({
-      fullName: `${cert.user.firstname} ${cert.user.lastname}`,
-      mentorName: `${cert.mentor.firstname} ${cert.mentor.lastname}`,
-      programName: cert.programName,
-      certificateType: cert.certificateType,
-      dateIssued: cert.issuedAt,
-    });
+        const qrDataUri = certificate.qrCode?.dataUri || (await generateQrDataUri(certificate.verificationUrl));
+        const buffer = await generateCertificatePDF({
+            certificate,
+            mentee: { fullName: formatFullName(certificate.user) },
+            mentor: {
+                fullName: certificate.metadata?.signedBy || formatFullName(certificate.mentor),
+                title: certificate.metadata?.signerTitle || 'Mentor',
+            },
+            metrics: certificate.metrics || {},
+            qrDataUri,
+            brand: {
+                primary: process.env.CERTIFICATE_COLOR_PRIMARY,
+                accent: process.env.CERTIFICATE_COLOR_ACCENT,
+            },
+        });
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=certificate_${cert._id}.pdf`);
-    return res.send(buffer);
-  } catch (err) {
-    console.error('downloadCertificate error:', err);
-    return res.status(500).json({ success: false, error: 'DOWNLOAD_FAILED', message: 'Failed to generate certificate PDF.' });
-  }
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=certificate_${certificate.serialNumber}.pdf`);
+        return res.send(buffer);
+    } catch (error) {
+        const status = error.status || 500;
+        return fail(res, status, error.message || 'DOWNLOAD_FAILED', 'Unable to download certificate.');
+    }
 };
 
 exports.reissueCertificate = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const cert = await Certificate.findById(id);
-    if (!cert) {
-      return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'Certificate not found.' });
+    try {
+        if (req.user.role !== 'admin') {
+            return fail(res, 403, 'FORBIDDEN', 'Only administrators may reissue certificates.');
+        }
+        const certificate = await reissueCertificate({
+            certificateId: req.params.id,
+            adminId: req.user.id,
+            reason: req.body?.reason || 'reissue',
+        });
+        return ok(res, {
+            certificate: {
+                id: certificate._id,
+                reissueCount: certificate.reissueCount,
+                pdfUrl: certificate.pdfAsset?.url,
+            },
+        });
+    } catch (error) {
+        const status = error.status || 500;
+        return fail(res, status, error.message || 'REISSUE_FAILED', 'Unable to reissue certificate.');
     }
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Admin required to reissue.' });
+};
+
+exports.verifyCertificate = async (req, res) => {
+    try {
+        const payload = await verifyCertificate(req.params.code);
+        return ok(res, { certificate: payload });
+    } catch (error) {
+        const status = error.status || 500;
+        return fail(res, status, error.message || 'VERIFY_FAILED', 'Certificate could not be verified.');
     }
-    cert.reissueCount += 1;
-    cert.issuanceLog.push({ issuedBy: req.user.id, reason: 'reissue' });
-    await cert.save();
-    return res.json({ success: true, message: 'Certificate reissued', reissueCount: cert.reissueCount });
-  } catch (err) {
-    console.error('reissueCertificate error:', err);
-    return res.status(500).json({ success: false, error: 'REISSUE_FAILED', message: 'Failed to reissue certificate.' });
-  }
 };
 
 exports.listAchievements = async (req, res) => {
-  try {
-    const items = await Achievement.find({ user: req.user.id }).sort({ earnedAt: -1 }).lean();
-    return res.json({ success: true, achievements: items });
-  } catch (err) {
-    console.error('listAchievements error:', err);
-    return res.status(500).json({ success: false, error: 'ACHIEVEMENTS_FAILED', message: 'Failed to load achievements.' });
-  }
+    try {
+        const items = await Achievement.find({ user: req.user.id }).sort({ earnedAt: -1, createdAt: -1 }).lean();
+        return ok(res, { achievements: items });
+    } catch (error) {
+        return fail(res, 500, 'ACHIEVEMENTS_FAILED', 'Failed to load achievements.');
+    }
 };
 
-exports.awardAchievement = async (req, res) => {
-  try {
-    const { code, title, description, icon } = req.body || {};
-    if (!code || !title) {
-      return res.status(400).json({ success: false, error: 'MISSING_FIELDS', message: 'code and title required.' });
+exports.triggerAchievement = async (req, res) => {
+    try {
+        const { code, delta = 1, title, description, icon, target = 1 } = req.body || {};
+        if (!code) {
+            return fail(res, 400, 'CODE_REQUIRED', 'Achievement code is required.');
+        }
+        const definition = title
+            ? {
+                  title,
+                  description: description || '',
+                  icon: icon || '🏅',
+                  target,
+                  category: 'custom',
+                  color: '#10b981',
+                  rewardPoints: 0,
+              }
+            : undefined;
+        const achievement = await incrementAchievement({
+            code,
+            userId: req.user.id,
+            delta,
+            meta: req.body?.meta || {},
+            overrideDefinition: definition,
+        });
+        return ok(res, { achievement });
+    } catch (error) {
+        return fail(res, 500, error.message || 'ACHIEVEMENT_FAILED', 'Unable to update achievement.');
     }
-    // Prevent duplicates by unique index
-    const achievement = await Achievement.findOneAndUpdate(
-      { user: req.user.id, code },
-      { $setOnInsert: { title, description: description || '', icon: icon || '🏅', earnedAt: new Date() } },
-      { new: true, upsert: true }
-    );
-    return res.json({ success: true, achievement });
-  } catch (err) {
-    console.error('awardAchievement error:', err);
-    return res.status(500).json({ success: false, error: 'AWARD_FAILED', message: 'Failed to award achievement.' });
-  }
 };

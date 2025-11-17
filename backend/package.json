@@ -10,7 +10,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed:admin": "node src/scripts/createAdmin.js",
-    "backfill:feedback": "node src/scripts/backfillFeedbackStats.js"
+    "backfill:feedback": "node src/scripts/backfillFeedbackStats.js",
+    "test": "node --test"
   },
   "dependencies": {
     "axios": "^1.13.2",
@@ -21,8 +22,9 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-  "express-rate-limit": "^7.1.5",
+    "express-rate-limit": "^7.1.5",
     "express-session": "^1.17.3",
+    "googleapis": "^131.0.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.7.1",
@@ -33,7 +35,8 @@
     "passport-facebook": "^3.0.0",
     "passport-google-oauth20": "^2.0.0",
     "pdfkit": "^0.17.2",
-    "pusher": "^5.1.2"
+    "pusher": "^5.1.2",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

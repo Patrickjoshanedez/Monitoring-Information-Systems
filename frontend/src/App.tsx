@@ -32,6 +32,7 @@ import SetPasswordPage from './features/auth/pages/SetPasswordPage.jsx';
 import ProfileSettings from './features/profile/pages/ProfileSettings.jsx';
 import ChatPage from './pages/ChatPage';
 import MentorProfileEditor from './components/mentor/MentorProfileEditor';
+import GoogleCalendarCallbackPage from './features/integrations/pages/GoogleCalendarCallback.jsx';
 
 // Wrapper components for better TypeScript support
 const AdminRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminDashboard />} />;
@@ -75,6 +76,7 @@ const App = () => {
                 <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
                 <Route path="/role-selection" element={<RoleSelectionPage />} />
                 <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
+                <Route path="/integrations/google-calendar/callback" element={<GoogleCalendarCallbackPage />} />
                 <Route path="/set-password" element={<SetPasswordRoute />} />
 
                 {/* Dashboard Routes */}

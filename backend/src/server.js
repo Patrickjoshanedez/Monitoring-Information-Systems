@@ -67,6 +67,7 @@ app.use('/api', require('./routes/progressRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api', require('./routes/feedbackRoutes'));
 app.use('/api', require('./routes/certificateRoutes'));
+app.use('/api', require('./routes/integrationRoutes'));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));

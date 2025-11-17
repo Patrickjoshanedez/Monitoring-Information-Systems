@@ -72,6 +72,14 @@ const formatSessionRow = (sessionDoc) => {
         participantCount: participants.length || (sessionDoc.mentee ? 1 : 0),
         chatThreadId: getChatThreadId(sessionDoc),
         completedAt: sessionDoc.completedAt || null,
+        calendarEvent: sessionDoc.calendarEvent
+            ? {
+                provider: sessionDoc.calendarEvent.provider || null,
+                htmlLink: sessionDoc.calendarEvent.htmlLink || null,
+                hangoutLink: sessionDoc.calendarEvent.hangoutLink || null,
+                status: sessionDoc.calendarEvent.status || null,
+              }
+            : null,
     };
 };
 

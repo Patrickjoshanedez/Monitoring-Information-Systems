@@ -6,11 +6,14 @@ const ctrl = require('../controllers/certificateController');
 // Issue a certificate (mentee requests; verifies criteria)
 router.post('/certificates/issue', auth, ctrl.issueCertificate);
 
+// Public verification endpoint (QR codes)
+router.get('/certificates/verify/:code', ctrl.verifyCertificate);
+
 // List achievements (badges)
 router.get('/achievements', auth, ctrl.listAchievements);
 
-// Award an achievement to self (placeholder) — typically system- or admin-driven
-router.post('/achievements/award', auth, ctrl.awardAchievement);
+// Trigger/increment an achievement (used by clients for progress displays)
+router.post('/achievements/trigger', auth, ctrl.triggerAchievement);
 
 // Download certificate PDF
 router.get('/certificates/:id/download', auth, ctrl.downloadCertificate);

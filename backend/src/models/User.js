@@ -131,6 +131,23 @@ const userSchema = new mongoose.Schema(
         },
       },
     },
+    calendarIntegrations: {
+      google: {
+        refreshToken: { type: String },
+        calendarId: { type: String, trim: true, default: 'primary' },
+        accountEmail: { type: String, trim: true },
+        grantedScopes: [{ type: String }],
+        syncEnabled: { type: Boolean, default: false },
+        lastSyncedAt: { type: Date },
+        lastError: {
+          code: { type: String },
+          message: { type: String },
+          occurredAt: { type: Date },
+        },
+        createdAt: { type: Date },
+        updatedAt: { type: Date },
+      },
+    },
     feedbackStats: {
       totalReviews: { type: Number, default: 0 },
       totalScore: { type: Number, default: 0 },

@@ -4,6 +4,7 @@ const User = require('../models/User');
 const ChatThread = require('../models/ChatThread');
 const { sendNotification } = require('../utils/notificationService');
 const { annotateSessionsWithMeta, formatSessionRow, summarizePerson } = require('../utils/sessionFormatter');
+const googleCalendarService = require('../services/googleCalendarService');
 
 const NOTIFICATION_DISPATCH_TIMEOUT_MS = 2500;
 
@@ -120,7 +121,7 @@ exports.getMenteeSessions = async (req, res) => {
 
     query
       .limit(limit)
-      .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes createdAt updatedAt')
+  .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes createdAt updatedAt calendarEvent')
       .populate('mentor', 'firstname lastname email')
       .populate('mentee', 'firstname lastname email')
       .populate('participants.user', 'firstname lastname email')
@@ -180,7 +181,7 @@ exports.getMentorSessions = async (req, res) => {
 
     query
       .limit(limit)
-      .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes createdAt updatedAt')
+  .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes createdAt updatedAt calendarEvent')
       .populate('mentee', 'firstname lastname email')
       .populate('mentor', 'firstname lastname email')
       .populate('participants.user', 'firstname lastname email')
@@ -219,6 +220,14 @@ exports.createMentorSession = async (req, res) => {
   }
 
   try {
+    const mentorAccount = await User.findById(req.user.id)
+      .select('firstname lastname email profile calendarIntegrations')
+      .lean();
+
+    if (!mentorAccount) {
+      return res.status(404).json({ success: false, error: 'MENTOR_NOT_FOUND', message: 'Mentor profile not found.' });
+    }
+
     const { subject, date, durationMinutes = 60, room, capacity = 1, participantIds } = req.body || {};
 
     const trimmedSubject = typeof subject === 'string' ? subject.trim() : '';
@@ -292,7 +301,7 @@ exports.createMentorSession = async (req, res) => {
     let chatThreadId = null;
 
     try {
-      const threadParticipantIds = [mentorObjectId, ...participantDocs.map((entry) => entry.user)];
+  const threadParticipantIds = [mentorObjectId, ...participantDocs.map((entry) => entry.user)];
       const thread = await ChatThread.create({
         type: 'session',
         title: `${trimmedSubject} (${trimmedRoom})`,
@@ -379,10 +388,28 @@ exports.createMentorSession = async (req, res) => {
       }
     }
 
+    try {
+      const calendarResult = await googleCalendarService.syncMentorSessionEvent({
+        session,
+        mentor: mentorAccount,
+        mentees,
+      });
+
+      if (calendarResult?.warning) {
+        warnings.push(calendarResult.warning);
+      }
+    } catch (calendarError) {
+      console.error('mentor session calendar sync failed:', calendarError);
+      warnings.push({
+        code: 'GOOGLE_CALENDAR_SYNC_FAILED',
+        message: 'Session saved but Google Calendar sync failed. Reconnect Google Calendar in Profile settings to resume automatic invites.',
+      });
+    }
+
     let hydrated;
     try {
       hydrated = await Session.findById(session._id)
-        .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes createdAt updatedAt')
+        .select('subject mentor mentee participants room capacity isGroup chatThread date durationMinutes attended tasksCompleted notes createdAt updatedAt calendarEvent')
         .populate('mentor', 'firstname lastname email')
         .populate('mentee', 'firstname lastname email')
         .populate('participants.user', 'firstname lastname email')
@@ -405,11 +432,20 @@ exports.createMentorSession = async (req, res) => {
         return relatedUser ? { ...entry, user: relatedUser } : entry;
       });
 
-      let fallbackMentor = null;
-      try {
-        fallbackMentor = await User.findById(req.user.id).select('firstname lastname email').lean();
-      } catch (mentorLookupError) {
-        console.error('mentor session mentor lookup failed:', mentorLookupError);
+      let fallbackMentor = mentorAccount
+        ? {
+            _id: mentorAccount._id,
+            firstname: mentorAccount.firstname,
+            lastname: mentorAccount.lastname,
+            email: mentorAccount.email,
+          }
+        : null;
+      if (!fallbackMentor) {
+        try {
+          fallbackMentor = await User.findById(req.user.id).select('firstname lastname email').lean();
+        } catch (mentorLookupError) {
+          console.error('mentor session mentor lookup failed:', mentorLookupError);
+        }
       }
 
       const fallbackDoc = {
@@ -427,6 +463,7 @@ exports.createMentorSession = async (req, res) => {
         attended: session.attended,
         tasksCompleted: session.tasksCompleted,
         notes: session.notes,
+        calendarEvent: session.calendarEvent || null,
         createdAt: session.createdAt || session.date,
         updatedAt: session.updatedAt || session.date,
       };
