@@ -268,37 +268,60 @@ const AvailabilityForm: React.FC<AvailabilityFormProps> = ({
     };
 
     const timezoneInputId = useMemo(() => `availability-timezone-${mode}`, [mode]);
+    const handleTypeSelect = (nextType: 'recurring' | 'oneoff') => {
+        if (mode === 'edit' && initialEntry?.type !== nextType) {
+            return;
+        }
+
+        setType(nextType);
+    };
 
     return (
         <form onSubmit={handleSubmit} className="tw-space-y-5" aria-live="polite">
-            <div className="tw-flex tw-flex-wrap tw-gap-2" role="group" aria-label="Availability type selector">
-                <button
-                    type="button"
-                    onClick={() => (mode === 'edit' ? null : setType('recurring'))}
-                    className={`tw-flex-1 tw-rounded-lg tw-border tw-px-3 tw-py-2 tw-text-sm tw-font-semibold ${
-                        type === 'recurring'
-                            ? 'tw-bg-primary tw-text-white tw-border-primary'
-                            : 'tw-bg-white tw-text-gray-700 tw-border-gray-200 hover:tw-bg-gray-50'
-                    } ${mode === 'edit' && initialEntry?.type !== 'recurring' ? 'tw-opacity-60 tw-cursor-not-allowed' : ''}`}
-                    aria-pressed={type === 'recurring' ? 'true' : 'false'}
-                    disabled={mode === 'edit' && initialEntry?.type !== 'recurring'}
-                >
-                    Weekly recurring slots
-                </button>
-                <button
-                    type="button"
-                    onClick={() => (mode === 'edit' ? null : setType('oneoff'))}
-                    className={`tw-flex-1 tw-rounded-lg tw-border tw-px-3 tw-py-2 tw-text-sm tw-font-semibold ${
-                        type === 'oneoff'
-                            ? 'tw-bg-primary tw-text-white tw-border-primary'
-                            : 'tw-bg-white tw-text-gray-700 tw-border-gray-200 hover:tw-bg-gray-50'
-                    } ${mode === 'edit' && initialEntry?.type !== 'oneoff' ? 'tw-opacity-60 tw-cursor-not-allowed' : ''}`}
-                    aria-pressed={type === 'oneoff' ? 'true' : 'false'}
-                    disabled={mode === 'edit' && initialEntry?.type !== 'oneoff'}
-                >
-                    One-off window
-                </button>
-            </div>
+            <fieldset className="tw-border-0 tw-p-0" aria-describedby="availability-type-hint">
+                <legend className="tw-sr-only">Availability type selector</legend>
+                <div className="tw-flex tw-flex-wrap tw-gap-2">
+                    <label
+                        className={`tw-flex-1 tw-rounded-lg tw-border tw-px-3 tw-py-2 tw-text-sm tw-font-semibold tw-cursor-pointer ${
+                            type === 'recurring'
+                                ? 'tw-bg-primary tw-text-white tw-border-primary'
+                                : 'tw-bg-white tw-text-gray-700 tw-border-gray-200 hover:tw-bg-gray-50'
+                        } ${mode === 'edit' && initialEntry?.type !== 'recurring' ? 'tw-opacity-60 tw-cursor-not-allowed' : ''}`}
+                    >
+                        <input
+                            type="radio"
+                            name="availability-type"
+                            value="recurring"
+                            className="tw-sr-only"
+                            checked={type === 'recurring'}
+                            onChange={() => handleTypeSelect('recurring')}
+                            disabled={mode === 'edit' && initialEntry?.type !== 'recurring'}
+                        />
+                        <span>Weekly recurring slots</span>
+                    </label>
+                    <label
+                        className={`tw-flex-1 tw-rounded-lg tw-border tw-px-3 tw-py-2 tw-text-sm tw-font-semibold tw-cursor-pointer ${
+                            type === 'oneoff'
+                                ? 'tw-bg-primary tw-text-white tw-border-primary'
+                                : 'tw-bg-white tw-text-gray-700 tw-border-gray-200 hover:tw-bg-gray-50'
+                        } ${mode === 'edit' && initialEntry?.type !== 'oneoff' ? 'tw-opacity-60 tw-cursor-not-allowed' : ''}`}
+                    >
+                        <input
+                            type="radio"
+                            name="availability-type"
+                            value="oneoff"
+                            className="tw-sr-only"
+                            checked={type === 'oneoff'}
+                            onChange={() => handleTypeSelect('oneoff')}
+                            disabled={mode === 'edit' && initialEntry?.type !== 'oneoff'}
+                        />
+                        <span>One-off window</span>
+                    </label>
+                </div>
+                <p id="availability-type-hint" className="tw-sr-only">
+                    Choose whether to define weekly recurring slots or a single one-off window.
+                </p>
+            </fieldset>
 
             <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
                 <label className="tw-flex tw-flex-col tw-gap-1">
