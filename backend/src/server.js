@@ -8,6 +8,7 @@ const passport = require('./config/passport');
 const helmet = require('helmet');
 const { startSessionReminderWorker } = require('./services/sessionReminderWorker');
 const { startFeedbackRetentionWorker } = require('./services/feedbackRetentionWorker');
+const { startMentorFeedbackAggregationWorker } = require('./services/mentorFeedbackAggregationWorker');
 const compression = require('compression');
 
 const app = express();
@@ -66,6 +67,7 @@ app.use('/api', require('./routes/materialRoutes'));
 app.use('/api', require('./routes/goalRoutes'));
 app.use('/api', require('./routes/progressRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api', require('./routes/mentorFeedbackRoutes'));
 app.use('/api', require('./routes/feedbackRoutes'));
 app.use('/api', require('./routes/certificateRoutes'));
 app.use('/api', require('./routes/integrationRoutes'));
@@ -111,6 +113,7 @@ const start = async () => {
     logger.info(`API running on :${port}`);
     startSessionReminderWorker();
     startFeedbackRetentionWorker();
+    startMentorFeedbackAggregationWorker();
   });
 };
 

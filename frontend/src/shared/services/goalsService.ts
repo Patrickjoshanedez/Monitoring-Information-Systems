@@ -38,20 +38,3 @@ export async function updateGoalProgress(id: string, payload: { value?: number; 
   return { updated: data.updated, progressPercent: data.progressPercent };
 }
 
-export interface ProgressDashboardData {
-  goalsSummary: {
-    totalGoals: number;
-    completedGoals: number;
-    avgProgress: number;
-    nearingDeadlines: number;
-    totalMilestones: number;
-    achievedMilestones: number;
-  };
-  sessionsTrend: { week: string; sessions: number; attended: number; tasksCompleted: number }[];
-  badges: { code: string; label: string }[];
-}
-
-export async function getProgressDashboard(): Promise<ProgressDashboardData> {
-  const { data } = await apiClient.get('/progress-dashboard');
-  return data;
-}

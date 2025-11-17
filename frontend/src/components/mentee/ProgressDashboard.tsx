@@ -2,10 +2,32 @@ import React from 'react';
 import { useProgressDashboard, useGoals, useCreateGoal, useUpdateGoalProgress } from '../../shared/hooks/useGoals';
 
 const ProgressDashboard: React.FC = () => {
-  const { data, isLoading, isError, refetch } = useProgressDashboard();
+  const { data: snapshot, isLoading, isError, refetch } = useProgressDashboard();
   const goalsQuery = useGoals();
   const createGoal = useCreateGoal();
   const updateGoal = useUpdateGoalProgress();
+
+  const goalStats = React.useMemo(() => {
+    const goals = goalsQuery.data || [];
+    if (!goals.length) {
+      return { total: 0, completed: 0, avgProgress: 0, totalMilestones: 0, achievedMilestones: 0 };
+    }
+
+    const total = goals.length;
+    const completed = goals.filter((goal) => goal.status === 'completed').length;
+    const avgProgress = Math.round(
+      goals.reduce((sum, goal) => sum + goal.progressPercent, 0) / total
+    );
+
+    let totalMilestones = 0;
+    let achievedMilestones = 0;
+    goals.forEach((goal) => {
+      totalMilestones += goal.milestones.length;
+      achievedMilestones += goal.milestones.filter((milestone) => milestone.achieved).length;
+    });
+
+    return { total, completed, avgProgress, totalMilestones, achievedMilestones };
+  }, [goalsQuery.data]);
 
   if (isLoading) {
     return (
@@ -15,7 +37,7 @@ const ProgressDashboard: React.FC = () => {
     );
   }
 
-  if (isError || !data) {
+  if (isError || !snapshot) {
     return (
       <div className="tw-bg-red-50 tw-border tw-border-red-200 tw-rounded-lg tw-p-4">
         <div className="tw-text-red-700 tw-font-medium">Failed to load progress.</div>
@@ -24,7 +46,14 @@ const ProgressDashboard: React.FC = () => {
     );
   }
 
-  const { goalsSummary, sessionsTrend, badges } = data;
+  const ratingAvg = snapshot.ratingAvg ?? 0;
+  const ratingDisplay = ratingAvg.toFixed(2);
+  const ratingCount = snapshot.ratingCount ?? 0;
+  const milestonesReached = snapshot.milestones?.reached ?? 0;
+  const milestoneUpdatedLabel = formatDateTime(snapshot.milestones?.lastUpdatedAt);
+  const lastUpdatedLabel = formatDateTime(snapshot.lastUpdated);
+  const monthlyTrend = snapshot.monthlyTrend || [];
+  const recentComments = snapshot.recentComments || [];
 
   return (
     <div className="tw-bg-white tw-border tw-border-gray-200 tw-rounded-lg tw-p-6 tw-shadow-sm tw-space-y-6">
@@ -37,59 +66,87 @@ const ProgressDashboard: React.FC = () => {
           Refresh
         </button>
       </div>
-      <div className="tw-grid sm:tw-grid-cols-2 lg:tw-grid-cols-3 tw-gap-4">
-        <Stat label="Total Goals" value={goalsSummary.totalGoals} />
-        <Stat label="Completed Goals" value={goalsSummary.completedGoals} />
-        <Stat label="Avg Progress" value={`${goalsSummary.avgProgress}%`} />
-        <Stat label="Milestones" value={`${goalsSummary.achievedMilestones}/${goalsSummary.totalMilestones}`} />
-        <Stat label="Nearing Deadlines" value={goalsSummary.nearingDeadlines} />
-      </div>
+      <section aria-label="Mentor feedback snapshot">
+        <h3 className="tw-text-sm tw-font-medium tw-text-gray-700 tw-mb-2">Mentor Feedback Snapshot</h3>
+        <div className="tw-grid sm:tw-grid-cols-2 lg:tw-grid-cols-4 tw-gap-4">
+          <Stat label="Average Rating" value={`${ratingDisplay}/5`} />
+          <Stat label="Feedback Count" value={ratingCount} />
+          <Stat label="Milestones Reached" value={milestonesReached} />
+          <Stat label="Snapshot Updated" value={lastUpdatedLabel} />
+        </div>
+        <div className="tw-mt-2 tw-text-xs tw-text-gray-500">Last milestone update: {milestoneUpdatedLabel}</div>
+      </section>
 
-      {/* Badges */}
-      <div>
-        <h3 className="tw-text-sm tw-font-medium tw-text-gray-700 tw-mb-2">Badges</h3>
-        {badges.length === 0 ? (
-          <div className="tw-text-xs tw-text-gray-500">No badges yet. Keep going!</div>
-        ) : (
-          <div className="tw-flex tw-flex-wrap tw-gap-2">
-            {badges.map((b) => (
-              <span key={b.code} className="tw-bg-blue-50 tw-text-blue-700 tw-text-xs tw-font-medium tw-px-2 tw-py-1 tw-rounded">
-                {b.label}
-              </span>
-            ))}
+      <section aria-label="Goal summary">
+        <h3 className="tw-text-sm tw-font-medium tw-text-gray-700 tw-mb-2">Goal Snapshot</h3>
+        <div className="tw-grid sm:tw-grid-cols-2 lg:tw-grid-cols-4 tw-gap-4">
+          <Stat label="Total Goals" value={goalStats.total} />
+          <Stat label="Completed Goals" value={goalStats.completed} />
+          <Stat label="Avg Progress" value={`${goalStats.avgProgress}%`} />
+          <Stat
+            label="Milestones"
+            value={`${goalStats.achievedMilestones}/${goalStats.totalMilestones}`}
+          />
+        </div>
+      </section>
+
+      <section aria-label="Monthly rating trend">
+        <h3 className="tw-text-sm tw-font-medium tw-text-gray-700 tw-mb-2">Monthly Rating Trend</h3>
+        {monthlyTrend.length === 0 && (
+          <div className="tw-text-xs tw-text-gray-500">No mentor feedback yet.</div>
+        )}
+        {monthlyTrend.length > 0 && (
+          <div className="tw-overflow-x-auto">
+            <table className="tw-w-full tw-text-sm tw-border tw-border-gray-200 tw-rounded">
+              <thead className="tw-bg-gray-50">
+                <tr>
+                  <Th>Month</Th>
+                  <Th>Avg Rating</Th>
+                  <Th>Feedback Count</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyTrend.map((trend) => (
+                  <tr key={trend.month} className="tw-border-t tw-border-gray-200">
+                    <Td>{formatMonthLabel(trend.month)}</Td>
+                    <Td>{trend.avg.toFixed(2)}</Td>
+                    <Td>{trend.count}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Sessions Trend */}
-      <div>
-        <h3 className="tw-text-sm tw-font-medium tw-text-gray-700 tw-mb-2">Weekly Sessions Trend</h3>
-        {sessionsTrend.length === 0 && (
-          <div className="tw-text-xs tw-text-gray-500">No recent sessions.</div>
+      <section aria-label="Recent mentor comments">
+        <h3 className="tw-text-sm tw-font-medium tw-text-gray-700 tw-mb-2">Recent Mentor Comments</h3>
+        {recentComments.length === 0 ? (
+          <div className="tw-text-xs tw-text-gray-500">Mentors have not shared public comments yet.</div>
+        ) : (
+          <ul className="tw-space-y-3">
+            {recentComments.map((comment) => (
+              <li
+                key={comment.feedbackId || comment.createdAt || comment.mentorId}
+                className="tw-border tw-border-gray-200 tw-rounded tw-p-3"
+              >
+                <div className="tw-flex tw-items-center tw-justify-between">
+                  <div>
+                    <div className="tw-text-sm tw-font-semibold tw-text-gray-900">{comment.mentorName}</div>
+                    <div className="tw-text-xs tw-text-gray-500">{formatDateTime(comment.createdAt)}</div>
+                  </div>
+                  <span className="tw-text-sm tw-font-medium tw-text-gray-700" aria-label="Rating">
+                    {comment.rating.toFixed(1)}/5
+                  </span>
+                </div>
+                <p className="tw-text-sm tw-text-gray-700 tw-mt-2">
+                  {comment.comment || 'Mentor shared a rating without a public comment.'}
+                </p>
+              </li>
+            ))}
+          </ul>
         )}
-        <div className="tw-overflow-x-auto">
-          <table className="tw-w-full tw-text-sm tw-border tw-border-gray-200 tw-rounded">
-            <thead className="tw-bg-gray-50">
-              <tr>
-                <Th>Week</Th>
-                <Th>Sessions</Th>
-                <Th>Attended</Th>
-                <Th>Tasks</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {sessionsTrend.map((w) => (
-                <tr key={w.week} className="tw-border-t tw-border-gray-200">
-                  <Td>{w.week}</Td>
-                  <Td>{w.sessions}</Td>
-                  <Td>{w.attended}</Td>
-                  <Td>{w.tasksCompleted}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </section>
 
       {/* Goals List */}
       <div>
@@ -191,6 +248,39 @@ const AddGoalForm: React.FC<{ onCreate: (payload: { title: string; milestones?: 
       </button>
     </form>
   );
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) {
+    return '—';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  try {
+    return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+  } catch {
+    return date.toLocaleString();
+  }
+};
+
+const formatMonthLabel = (monthKey: string) => {
+  const [yearStr, monthStr] = monthKey.split('-');
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!year || !month) {
+    return monthKey || '—';
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  try {
+    return new Intl.DateTimeFormat(undefined, { month: 'short', year: 'numeric' }).format(date);
+  } catch {
+    return `${date.toLocaleString('default', { month: 'short' })} ${year}`;
+  }
 };
 
 export default React.memo(ProgressDashboard);

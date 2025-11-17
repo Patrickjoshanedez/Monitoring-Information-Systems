@@ -1,8 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createGoal, listGoals, updateGoalProgress, getProgressDashboard, GoalItem } from '../services/goalsService';
+import { createGoal, listGoals, updateGoalProgress, GoalItem } from '../services/goalsService';
+import { fetchMenteeProgressSnapshot, MenteeProgressSnapshot } from '../services/mentorFeedbackService';
 
 export const goalsKey = ['goals'];
-export const progressDashboardKey = ['progressDashboard'];
+export const progressSnapshotKey = ['progressSnapshot'];
 
 export function useGoals() {
   return useQuery<GoalItem[]>(goalsKey, listGoals, { staleTime: 60 * 1000 });
@@ -13,7 +14,7 @@ export function useCreateGoal() {
   return useMutation(createGoal, {
     onSuccess: () => {
       qc.invalidateQueries(goalsKey);
-      qc.invalidateQueries(progressDashboardKey);
+      qc.invalidateQueries(progressSnapshotKey);
     },
   });
 }
@@ -23,11 +24,13 @@ export function useUpdateGoalProgress() {
   return useMutation(({ id, value, milestoneLabel }: { id: string; value?: number; milestoneLabel?: string }) => updateGoalProgress(id, { value, milestoneLabel }), {
     onSuccess: () => {
       qc.invalidateQueries(goalsKey);
-      qc.invalidateQueries(progressDashboardKey);
+      qc.invalidateQueries(progressSnapshotKey);
     },
   });
 }
 
 export function useProgressDashboard() {
-  return useQuery(progressDashboardKey, getProgressDashboard, { refetchInterval: 60 * 1000 });
+  return useQuery<MenteeProgressSnapshot>(progressSnapshotKey, fetchMenteeProgressSnapshot, {
+    refetchInterval: 120 * 1000,
+  });
 }

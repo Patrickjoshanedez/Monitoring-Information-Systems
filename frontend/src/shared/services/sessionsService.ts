@@ -1,6 +1,15 @@
 import type { AxiosResponse } from 'axios';
 import { apiClient } from '../config/apiClient';
 
+export type SessionStatus =
+    | 'pending'
+    | 'confirmed'
+    | 'rescheduled'
+    | 'cancelled'
+    | 'completed'
+    | 'overdue'
+    | 'upcoming';
+
 export interface SessionParticipant {
     id: string | null;
     name: string;
@@ -25,7 +34,7 @@ export interface SessionRecord {
     attended: boolean;
     tasksCompleted: number;
     notes: string | null;
-    status?: 'upcoming' | 'completed' | 'overdue' | 'cancelled';
+    status?: SessionStatus;
     completedAt?: string | null;
     feedbackDue?: boolean;
     feedbackSubmitted?: boolean;
@@ -44,6 +53,13 @@ export interface SessionsResponse {
         page?: number;
     };
 }
+
+const extractWarnings = (meta?: { warnings?: ApiWarning[] }): ApiWarning[] | undefined => {
+    if (!meta?.warnings || meta.warnings.length === 0) {
+        return undefined;
+    }
+    return meta.warnings;
+};
 
 export interface ApiWarning {
     code: string;
@@ -68,6 +84,56 @@ export interface CreateMentorSessionPayload {
 export interface CreateMentorSessionResult {
     session: SessionRecord;
     warnings?: ApiWarning[];
+}
+
+export interface SessionResponse {
+    session: SessionRecord;
+    warnings?: ApiWarning[];
+}
+
+export interface BookSessionPayload {
+    mentorId: string;
+    subject: string;
+    scheduledAt: string;
+    durationMinutes?: number;
+    room?: string;
+    availabilityRef?: string;
+    lockId?: string;
+}
+
+export interface BookingLockPayload {
+    mentorId: string;
+    scheduledAt: string;
+    durationMinutes?: number;
+    availabilityRef?: string;
+}
+
+export interface BookingLockResult {
+    lockId: string;
+    expiresAt: string;
+}
+
+export interface RescheduleSessionPayload {
+    scheduledAt: string;
+    durationMinutes?: number;
+    availabilityRef?: string;
+}
+
+export interface CancelSessionPayload {
+    reason?: string;
+    notify?: boolean;
+}
+
+export type AttendanceStatus = 'present' | 'absent' | 'late';
+
+export interface AttendanceEntryPayload {
+    userId: string;
+    status: AttendanceStatus;
+    note?: string;
+}
+
+export interface AttendancePayload {
+    attendance: AttendanceEntryPayload[];
 }
 
 export const fetchMenteeSessions = async (): Promise<MenteeSession[]> => {
@@ -99,8 +165,107 @@ export const createMentorSession = async (payload: CreateMentorSessionPayload): 
         meta?: { warnings?: ApiWarning[] };
     }>('/mentor/sessions', payload);
 
-    const warnings = data.meta?.warnings && data.meta.warnings.length ? data.meta.warnings : undefined;
+    const warnings = extractWarnings(data.meta);
     return { session: data.session, warnings };
+};
+
+export const bookSession = async (payload: BookSessionPayload): Promise<SessionResponse> => {
+    const { data } = await apiClient.post<{
+        success: boolean;
+        session: SessionRecord;
+        meta?: { warnings?: ApiWarning[] };
+    }>('/sessions', payload);
+
+    return {
+        session: data.session,
+        warnings: extractWarnings(data.meta),
+    };
+};
+
+export const createBookingLock = async (payload: BookingLockPayload): Promise<BookingLockResult> => {
+    const { data } = await apiClient.post<{ success: boolean; lockId: string; expiresAt: string }>(
+        '/sessions/lock',
+        payload
+    );
+
+    return {
+        lockId: data.lockId,
+        expiresAt: data.expiresAt,
+    };
+};
+
+export const getSessionDetail = async (sessionId: string): Promise<SessionResponse> => {
+    const { data } = await apiClient.get<{
+        success: boolean;
+        session: SessionRecord;
+        meta?: { warnings?: ApiWarning[] };
+    }>(`/sessions/${sessionId}`);
+
+    return {
+        session: data.session,
+        warnings: extractWarnings(data.meta),
+    };
+};
+
+export const confirmSession = async (sessionId: string): Promise<SessionResponse> => {
+    const { data } = await apiClient.patch<{
+        success: boolean;
+        session: SessionRecord;
+        meta?: { warnings?: ApiWarning[] };
+    }>(`/sessions/${sessionId}/confirm`, {});
+
+    return {
+        session: data.session,
+        warnings: extractWarnings(data.meta),
+    };
+};
+
+export const rescheduleSession = async (
+    sessionId: string,
+    payload: RescheduleSessionPayload
+): Promise<SessionResponse> => {
+    const { data } = await apiClient.patch<{
+        success: boolean;
+        session: SessionRecord;
+        meta?: { warnings?: ApiWarning[] };
+    }>(`/sessions/${sessionId}/reschedule`, payload);
+
+    return {
+        session: data.session,
+        warnings: extractWarnings(data.meta),
+    };
+};
+
+export const cancelSession = async (
+    sessionId: string,
+    payload: CancelSessionPayload = {}
+): Promise<SessionResponse> => {
+    const { data } = await apiClient.patch<{
+        success: boolean;
+        session: SessionRecord;
+        meta?: { warnings?: ApiWarning[] };
+    }>(`/sessions/${sessionId}/cancel`, payload);
+
+    return {
+        session: data.session,
+        warnings: extractWarnings(data.meta),
+    };
+};
+
+export const recordAttendance = async (
+    sessionId: string,
+    payload: AttendancePayload
+): Promise<SessionResponse> => {
+    const { data } = await apiClient.post<{
+        success: boolean;
+        session: SessionRecord;
+        meta?: { warnings?: ApiWarning[] };
+    }>(`/sessions/${sessionId}/attendance`, payload);
+
+    return {
+        session: data.session,
+        warnings: extractWarnings(data.meta),
+    };
 };
 
 export const exportMenteeSessionsReport = async (

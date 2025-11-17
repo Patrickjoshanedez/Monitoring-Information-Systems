@@ -298,7 +298,38 @@ const getCalendarClientForMentor = (mentor) => {
   return { calendar, integration };
 };
 
-const syncMentorSessionEvent = async ({ session, mentor, mentees }) => {
+const persistSessionEventMetadata = async (session, mentorId, calendarId, event) => {
+  session.calendarEvent = {
+    provider: 'google',
+    externalId: event.id,
+    calendarId,
+    htmlLink: event.htmlLink,
+    hangoutLink: event.hangoutLink,
+    status: event.status,
+    updatedAt: event.updated ? new Date(event.updated) : new Date(),
+    lastSyncedAt: new Date(),
+  };
+
+  session.googleEvents = Array.isArray(session.googleEvents) ? session.googleEvents : [];
+  const existingIndex = session.googleEvents.findIndex((entry) => entry.user?.toString() === mentorId.toString());
+  const entryPayload = {
+    user: mentorId,
+    eventId: event.id,
+    calendarId,
+    status: event.status,
+    syncedAt: new Date(),
+  };
+  if (existingIndex >= 0) {
+    session.googleEvents[existingIndex] = entryPayload;
+  } else {
+    session.googleEvents.push(entryPayload);
+  }
+
+  await session.save();
+  await clearIntegrationError(mentorId);
+};
+
+const upsertMentorSessionEvent = async ({ session, mentor, mentees, operation = 'insert' }) => {
   const clientResult = getCalendarClientForMentor(mentor);
 
   if (clientResult.skipped) {
@@ -318,28 +349,28 @@ const syncMentorSessionEvent = async ({ session, mentor, mentees }) => {
   const { calendar, integration } = clientResult;
   const calendarId = integration.calendarId || 'primary';
   const eventPayload = buildEventPayload({ session, mentor, mentees });
+  const existingEventId = session.calendarEvent?.externalId;
 
   try {
-    const response = await calendar.events.insert({
-      calendarId,
-      requestBody: eventPayload,
-      sendUpdates: 'all',
-    });
+    let response;
+    if (operation === 'patch' && existingEventId) {
+      response = await calendar.events.patch({
+        calendarId,
+        eventId: existingEventId,
+        requestBody: eventPayload,
+        sendUpdates: 'all',
+      });
+    } else {
+      response = await calendar.events.insert({
+        calendarId,
+        requestBody: eventPayload,
+        sendUpdates: 'all',
+      });
+    }
 
     const event = response?.data;
     if (event) {
-      session.calendarEvent = {
-        provider: 'google',
-        externalId: event.id,
-        calendarId,
-        htmlLink: event.htmlLink,
-        hangoutLink: event.hangoutLink,
-        status: event.status,
-        updatedAt: event.updated ? new Date(event.updated) : new Date(),
-        lastSyncedAt: new Date(),
-      };
-      await session.save();
-      await clearIntegrationError(mentor._id);
+      await persistSessionEventMetadata(session, mentor._id, calendarId, event);
     }
 
     return { success: true };
@@ -356,6 +387,56 @@ const syncMentorSessionEvent = async ({ session, mentor, mentees }) => {
   }
 };
 
+const syncMentorSessionEvent = (args) => upsertMentorSessionEvent({ ...args, operation: 'insert' });
+
+const updateMentorSessionEvent = (args) => upsertMentorSessionEvent({
+  ...args,
+  operation: args.session?.calendarEvent?.externalId ? 'patch' : 'insert',
+});
+
+const deleteMentorSessionEvent = async ({ session, mentor }) => {
+  const clientResult = getCalendarClientForMentor(mentor);
+
+  if (clientResult.skipped) {
+    return { skipped: clientResult.skipped };
+  }
+
+  if (clientResult.error) {
+    return {
+      warning: {
+        code: 'GOOGLE_CALENDAR_TOKEN_INVALID',
+        message: 'Calendar connection invalid. Removal skipped.',
+      },
+    };
+  }
+
+  const eventId = session.calendarEvent?.externalId;
+  if (!eventId) {
+    return { skipped: 'no_event' };
+  }
+
+  const { calendar, integration } = clientResult;
+  const calendarId = integration.calendarId || 'primary';
+
+  try {
+    await calendar.events.delete({ calendarId, eventId, sendUpdates: 'all' });
+    session.calendarEvent = null;
+    session.googleEvents = (session.googleEvents || []).filter((entry) => entry.eventId !== eventId);
+    await session.save();
+    return { success: true };
+  } catch (error) {
+    const message = error?.errors?.[0]?.message || error?.message || 'Failed to remove calendar event';
+    logger.error('Google Calendar delete failed:', message);
+    await recordIntegrationError(mentor._id, 'GOOGLE_CALENDAR_SYNC_FAILED', message);
+    return {
+      warning: {
+        code: 'GOOGLE_CALENDAR_SYNC_FAILED',
+        message: 'Session cancelled but Calendar event removal failed.',
+      },
+    };
+  }
+};
+
 module.exports = {
   isConfigured,
   getStatusForUser,
@@ -363,4 +444,6 @@ module.exports = {
   completeOAuthConnection,
   disconnectGoogleCalendar,
   syncMentorSessionEvent,
+  updateMentorSessionEvent,
+  deleteMentorSessionEvent,
 };

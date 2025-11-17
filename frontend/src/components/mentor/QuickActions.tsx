@@ -5,6 +5,13 @@ import { Link } from 'react-router-dom';
 // Extend with additional actions (e.g., session scheduling, materials upload) later.
 const actions: Array<{ label: string; description: string; to: string; icon: string; ariaLabel: string }> = [
     {
+        label: 'Availability',
+        description: 'Publish slots mentees can book',
+        to: '/mentor/availability',
+        icon: '📅',
+        ariaLabel: 'Go to mentor availability page'
+    },
+    {
         label: 'Chat',
         description: 'Open conversations with your mentees',
         to: '/mentor/chat',

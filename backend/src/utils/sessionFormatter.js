@@ -62,6 +62,7 @@ const formatSessionRow = (sessionDoc) => {
         mentee: summarizePerson(sessionDoc.mentee),
         date: sessionDoc.date,
         durationMinutes: sessionDoc.durationMinutes,
+        status: sessionDoc.status || null,
         attended: !!sessionDoc.attended,
         tasksCompleted: sessionDoc.tasksCompleted || 0,
         notes: sessionDoc.notes || null,
@@ -111,16 +112,25 @@ const annotateSessionsWithMeta = async (sessionDocs = []) => {
 
     return plainDocs.map((doc) => {
         const baseRow = formatSessionRow(doc);
-        const completedAt = doc.completedAt || doc.updatedAt || doc.date;
+        const completedAt = doc.completedAt || doc.statusMeta?.confirmedAt || doc.updatedAt || doc.date;
         const completedMs = completedAt ? new Date(completedAt).getTime() : null;
         const attended = !!doc.attended;
         const feedbackSubmitted = submittedSet.has(doc._id.toString());
         const feedbackWindowOpen = attended && completedMs && completedMs <= nowMs && nowMs - completedMs <= FEEDBACK_WINDOW_MS;
         const feedbackWindowClosesAt = feedbackWindowOpen && completedMs ? new Date(completedMs + FEEDBACK_WINDOW_MS) : null;
 
+        let status = baseRow.status;
+        if (!status) {
+            status = attended
+                ? 'completed'
+                : new Date(doc.date).getTime() < nowMs
+                    ? 'overdue'
+                    : 'upcoming';
+        }
+
         return {
             ...baseRow,
-            status: attended ? 'completed' : new Date(doc.date).getTime() < nowMs ? 'overdue' : 'upcoming',
+            status,
             completedAt: attended ? completedAt : null,
             feedbackSubmitted,
             feedbackDue: feedbackWindowOpen && !feedbackSubmitted,

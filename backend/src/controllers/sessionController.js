@@ -1,12 +1,22 @@
+const crypto = require('crypto');
 const mongoose = require('mongoose');
+const { DateTime } = require('luxon');
 const Session = require('../models/Session');
+const Availability = require('../models/Availability');
+const BookingLock = require('../models/BookingLock');
+const AuditLog = require('../models/AuditLog');
 const User = require('../models/User');
 const ChatThread = require('../models/ChatThread');
-const { sendNotification } = require('../utils/notificationService');
+const notificationService = require('../utils/notificationService');
 const { annotateSessionsWithMeta, formatSessionRow, summarizePerson } = require('../utils/sessionFormatter');
 const googleCalendarService = require('../services/googleCalendarService');
 
 const NOTIFICATION_DISPATCH_TIMEOUT_MS = 2500;
+const SESSION_CANCEL_PENALTY_HOURS = Number(process.env.SESSION_CANCEL_PENALTY_HOURS || 6);
+const SESSION_ATTENDANCE_EDIT_DAYS = Number(process.env.SESSION_ATTENDANCE_EDIT_DAYS || 14);
+const SESSION_BOOKING_LOCK_SECONDS = Number(process.env.SESSION_BOOKING_LOCK_SECONDS || 120);
+const DEFAULT_BOOKING_SUBJECT = 'Mentoring Session';
+const DEFAULT_ROOM_PLACEHOLDER = 'Virtual meeting link to be shared upon confirmation.';
 
 const toObjectId = (id) => (mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null);
 
@@ -96,6 +106,249 @@ const formatInviteDate = (date) => {
     console.warn('formatInviteDate fallback:', error.message);
     return date.toISOString();
   }
+};
+
+let notificationAdapter = {
+  sendNotification: notificationService.sendNotification,
+};
+
+const sendNotificationSafe = (payload) => notificationAdapter.sendNotification(payload);
+
+const clampDurationMinutes = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 60;
+  return Math.min(240, Math.max(15, parsed));
+};
+
+const sanitizeSubject = (subject) => {
+  if (typeof subject !== 'string') {
+    return DEFAULT_BOOKING_SUBJECT;
+  }
+  const trimmed = subject.trim();
+  return trimmed || DEFAULT_BOOKING_SUBJECT;
+};
+
+const sanitizeRoom = (room) => {
+  if (typeof room !== 'string') {
+    return DEFAULT_ROOM_PLACEHOLDER;
+  }
+  const trimmed = room.trim();
+  return trimmed || DEFAULT_ROOM_PLACEHOLDER;
+};
+
+const computeEndDate = (start, durationMinutes) => {
+  const minutes = clampDurationMinutes(durationMinutes);
+  return new Date(start.getTime() + minutes * 60000);
+};
+
+const isSameMinute = (a, b) => Math.abs(new Date(a).getTime() - new Date(b).getTime()) < 60 * 1000;
+
+const normalizeWeekday = (dt) => {
+  const weekday = dt.weekday % 7;
+  return weekday; // Sunday => 0, Monday => 1, etc.
+};
+
+const matchesRecurringSlot = (availability, scheduledAt) => {
+  if (!Array.isArray(availability.recurring)) {
+    return false;
+  }
+
+  return availability.recurring.some((rule) => {
+    if (typeof rule.dayOfWeek !== 'number' || !rule.startTime) {
+      return false;
+    }
+
+    const zone = rule.timezone || availability.timezone || 'UTC';
+    const scheduled = DateTime.fromJSDate(scheduledAt, { zone });
+    if (!scheduled.isValid) {
+      return false;
+    }
+
+    if (normalizeWeekday(scheduled) !== rule.dayOfWeek) {
+      return false;
+    }
+
+    const scheduledTime = scheduled.toFormat('HH:mm');
+    return scheduledTime === rule.startTime;
+  });
+};
+
+const matchesOneOffSlot = (availability, scheduledAt) => {
+  if (!Array.isArray(availability.oneOff)) {
+    return false;
+  }
+
+  return availability.oneOff.some((slot) => slot.start && isSameMinute(slot.start, scheduledAt));
+};
+
+const isScheduledWithinAvailability = (availability, scheduledAt) => {
+  if (!availability) {
+    return false;
+  }
+
+  if (availability.type === 'recurring') {
+    return matchesRecurringSlot(availability, scheduledAt);
+  }
+
+  return matchesOneOffSlot(availability, scheduledAt);
+};
+
+const hasMentorConflict = async ({ mentorId, start, end, excludeId, availabilityId }) => {
+  const conflict = await Session.findOne({
+    mentor: mentorId,
+    status: { $nin: ['cancelled'] },
+    ...(excludeId ? { _id: { $ne: excludeId } } : {}),
+    date: { $lt: end },
+    endDate: { $gt: start },
+    ...(availabilityId
+      ? {
+          $nor: [
+            {
+              availabilityRef: availabilityId,
+              date: start,
+            },
+          ],
+        }
+      : {}),
+  })
+    .select('_id date endDate status')
+    .lean();
+
+  return Boolean(conflict);
+};
+
+const countSlotUsage = async ({ mentorId, availabilityId, start }) => {
+  if (!availabilityId) {
+    return 0;
+  }
+
+  return Session.countDocuments({
+    mentor: mentorId,
+    availabilityRef: availabilityId,
+    date: start,
+    status: { $nin: ['cancelled'] },
+  });
+};
+
+const recordSessionAudit = async ({ actorId, sessionId, action, metadata }) => {
+  try {
+    await AuditLog.create({
+      actorId,
+      action,
+      resourceType: 'session',
+      resourceId: sessionId.toString(),
+      metadata: metadata || {},
+    });
+  } catch (error) {
+    console.error('session audit log failed:', error.message);
+  }
+};
+
+const collectParticipantIds = (session) => {
+  const ids = new Set();
+  if (session.mentee) ids.add(session.mentee.toString());
+  if (Array.isArray(session.participants)) {
+    session.participants.forEach((entry) => {
+      if (entry?.user) ids.add(entry.user.toString());
+    });
+  }
+  return Array.from(ids);
+};
+
+const notifySessionParticipants = async ({ session, actorId, type, title, message, data = {} }) => {
+  const participantIds = collectParticipantIds(session);
+  const notifications = participantIds.map((userId) => {
+    if (actorId && userId.toString() === actorId.toString()) {
+      return null;
+    }
+
+    return sendNotificationSafe({
+      userId,
+      type,
+      title,
+      message,
+      data: {
+        sessionId: session._id,
+        ...data,
+      },
+    });
+  });
+
+  await Promise.all(notifications.filter(Boolean));
+};
+
+const ensureSessionChatThread = async (session) => {
+  if (session.chatThread) {
+    return session.chatThread;
+  }
+
+  try {
+    const mentorId = session.mentor;
+    const participantIds = collectParticipantIds(session);
+    const uniqueIds = Array.from(new Set([mentorId?.toString(), ...participantIds].filter(Boolean))).map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
+
+    if (!uniqueIds.length) {
+      return null;
+    }
+
+    const thread = await ChatThread.create({
+      type: 'session',
+      title: `${session.subject} (${session.room || 'Virtual'})`,
+      session: session._id,
+      mentor: mentorId,
+      participants: uniqueIds,
+      participantStates: uniqueIds.map((userId) => ({ user: userId, unreadCount: 0 })),
+    });
+
+    session.chatThread = thread._id;
+    await session.save();
+    return thread._id;
+  } catch (error) {
+    console.error('ensureSessionChatThread failed:', error.message);
+    return null;
+  }
+};
+
+const buildSessionResponse = async (session, warnings = []) => {
+  await session.populate('mentor', 'firstname lastname email profile calendarIntegrations');
+  await session.populate('mentee', 'firstname lastname email');
+  await session.populate('participants.user', 'firstname lastname email');
+  const [annotated] = await annotateSessionsWithMeta([session]);
+  const payload = annotated || formatSessionRow(session);
+  if (warnings.length) {
+    return { session: payload, meta: { warnings } };
+  }
+
+  return { session: payload };
+};
+
+const userCanAccessSession = (session, user) => {
+  if (!session || !user) {
+    return false;
+  }
+
+  if (user.role === 'admin') {
+    return true;
+  }
+
+  if (session.mentor?.toString() === user.id?.toString()) {
+    return true;
+  }
+
+  if (session.mentee && session.mentee.toString() === user.id?.toString()) {
+    return true;
+  }
+
+  if (Array.isArray(session.participants)) {
+    const match = session.participants.find((entry) => entry?.user?.toString() === user.id?.toString());
+    if (match) {
+      return true;
+    }
+  }
+
+  return false;
 };
 
 
@@ -295,6 +548,8 @@ exports.createMentorSession = async (req, res) => {
       capacity: parsedCapacity,
       isGroup: participantDocs.length > 1,
       participants: participantDocs,
+      status: 'confirmed',
+      statusMeta: { confirmedAt: new Date() },
     });
 
     const warnings = [];
@@ -324,8 +579,8 @@ exports.createMentorSession = async (req, res) => {
 
     const inviteMessage = `Your mentor scheduled "${trimmedSubject}" on ${formatInviteDate(scheduledDate)} at ${trimmedRoom}.`;
     const notificationJob = Promise.allSettled(
-      participantDocs.map((participant) =>
-        sendNotification({
+        participantDocs.map((participant) =>
+          sendNotificationSafe({
           userId: participant.user,
           type: 'SESSION_INVITE',
           title: 'New mentoring session scheduled',
@@ -360,7 +615,7 @@ exports.createMentorSession = async (req, res) => {
         message: 'Invitations are still sending. Participants should receive them shortly.',
       });
 
-      notificationJob
+  notificationJob
         .then((results) => {
           const delayedFailures = results.filter(
             (entry) => entry.status === 'rejected' || entry.value?.delivered === false
@@ -504,6 +759,633 @@ exports.createMentorSession = async (req, res) => {
   }
 };
 
+exports.bookSession = async (req, res) => {
+  if (req.user.role !== 'mentee') {
+    return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Only mentees can request sessions.' });
+  }
+
+  const menteeId = normalizeUserId(req.user.id);
+
+  try {
+    const { mentorId: bodyMentorId, scheduledAt, durationMinutes, room, subject, availabilityRef, lockId } = req.body || {};
+    const mentorId = toObjectId(bodyMentorId);
+    if (!mentorId) {
+      return res.status(400).json({ success: false, error: 'MENTOR_REQUIRED', message: 'Select a mentor to book.' });
+    }
+
+    const scheduled = scheduledAt ? new Date(scheduledAt) : null;
+    if (!scheduled || Number.isNaN(scheduled.getTime())) {
+      return res.status(400).json({ success: false, error: 'INVALID_DATE', message: 'Provide a valid start time.' });
+    }
+
+    if (scheduled.getTime() < Date.now()) {
+      return res.status(400).json({ success: false, error: 'PAST_DATE_NOT_ALLOWED', message: 'Please pick a future time.' });
+    }
+
+    const duration = clampDurationMinutes(durationMinutes);
+    const endDate = computeEndDate(scheduled, duration);
+
+    const mentor = await User.findById(mentorId).select('firstname lastname email role profile calendarIntegrations');
+    if (!mentor || mentor.role !== 'mentor') {
+      return res.status(404).json({ success: false, error: 'MENTOR_NOT_FOUND', message: 'Mentor not found.' });
+    }
+
+    let availabilityDoc = null;
+    if (availabilityRef) {
+      availabilityDoc = await Availability.findOne({ _id: availabilityRef, mentor: mentorId, active: true });
+      if (!availabilityDoc) {
+        return res.status(404).json({ success: false, error: 'AVAILABILITY_NOT_FOUND', message: 'Selected slot is unavailable.' });
+      }
+
+      if (!isScheduledWithinAvailability(availabilityDoc, scheduled)) {
+        return res.status(400).json({ success: false, error: 'SLOT_OUT_OF_RANGE', message: 'Selected time does not match the availability slot.' });
+      }
+    }
+
+    let bookingLockDoc = null;
+    if (lockId) {
+      bookingLockDoc = await BookingLock.findOne({ key: lockId, mentor: mentorId, createdBy: menteeId });
+      if (!bookingLockDoc) {
+        return res.status(410).json({ success: false, error: 'BOOKING_LOCK_EXPIRED', message: 'The booking hold expired. Refresh and try again.' });
+      }
+
+      if (!isSameMinute(bookingLockDoc.scheduledAt, scheduled)) {
+        return res.status(400).json({ success: false, error: 'BOOKING_LOCK_MISMATCH', message: 'Booking lock does not match the selected time.' });
+      }
+
+      if (availabilityDoc && (!bookingLockDoc.availability || bookingLockDoc.availability.toString() !== availabilityDoc._id.toString())) {
+        return res.status(400).json({ success: false, error: 'BOOKING_LOCK_SLOT_MISMATCH', message: 'Booking lock does not match the selected slot.' });
+      }
+    }
+
+    const slotCapacity = availabilityDoc ? availabilityDoc.capacity : 1;
+
+    const overlap = await hasMentorConflict({
+      mentorId,
+      start: scheduled,
+      end: endDate,
+      availabilityId: availabilityDoc?._id,
+    });
+    if (overlap) {
+      return res.status(409).json({ success: false, error: 'MENTOR_CONFLICT', message: 'Mentor already has a session that overlaps with this time.' });
+    }
+
+    const slotUsage = await countSlotUsage({ mentorId, availabilityId: availabilityDoc?._id, start: scheduled });
+    if (slotUsage >= slotCapacity) {
+      return res.status(409).json({ success: false, error: 'SLOT_FULL', message: 'This time slot has already been fully booked.' });
+    }
+
+    const safeSubject = sanitizeSubject(subject);
+    const safeRoom = sanitizeRoom(room || availabilityDoc?.note);
+
+    const session = await Session.create({
+      mentor: mentorId,
+      mentee: menteeId,
+      subject: safeSubject,
+      date: scheduled,
+      durationMinutes: duration,
+      room: safeRoom,
+      capacity: slotCapacity,
+      isGroup: slotCapacity > 1,
+      availabilityRef: availabilityDoc?._id,
+      lockId: lockId || undefined,
+      participants: [
+        {
+          user: menteeId,
+          status: 'pending',
+          invitedAt: new Date(),
+        },
+      ],
+      status: 'pending',
+    });
+
+    if (bookingLockDoc) {
+      await bookingLockDoc.deleteOne();
+    }
+
+    await recordSessionAudit({
+      actorId: menteeId,
+      sessionId: session._id,
+      action: 'session:book',
+      metadata: {
+        mentorId,
+        availabilityId: availabilityDoc?._id,
+      },
+    });
+
+    const bookingMessage = `${req.user.firstname || 'A mentee'} requested "${safeSubject}" on ${formatInviteDate(scheduled)}.`;
+    await sendNotificationSafe({
+      userId: mentorId,
+      type: 'SESSION_BOOKING_REQUEST',
+      title: 'New session booking pending confirmation',
+      message: bookingMessage,
+      data: { sessionId: session._id },
+    });
+
+    await session.populate('mentor', 'firstname lastname email');
+    await session.populate('mentee', 'firstname lastname email');
+    await session.populate('participants.user', 'firstname lastname email');
+    const [annotated] = await annotateSessionsWithMeta([session]);
+
+    return res.status(201).json({ success: true, session: annotated || formatSessionRow(session) });
+  } catch (error) {
+    console.error('bookSession error:', error);
+    return res.status(500).json({ success: false, error: 'SESSION_BOOK_FAILED', message: 'Unable to create session booking.' });
+  }
+};
+
+exports.getSessionDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'INVALID_SESSION_ID', message: 'Invalid session identifier.' });
+    }
+
+    const session = await Session.findById(id)
+      .populate('mentor', 'firstname lastname email')
+      .populate('mentee', 'firstname lastname email')
+      .populate('participants.user', 'firstname lastname email');
+
+    if (!session) {
+      return res.status(404).json({ success: false, error: 'SESSION_NOT_FOUND', message: 'Session not found.' });
+    }
+
+    if (!userCanAccessSession(session, req.user)) {
+      return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'You do not have access to this session.' });
+    }
+
+    const [annotated] = await annotateSessionsWithMeta([session]);
+    return res.json({ success: true, session: annotated || formatSessionRow(session) });
+  } catch (error) {
+    console.error('getSessionDetail error:', error);
+    return res.status(500).json({ success: false, error: 'SESSION_LOOKUP_FAILED', message: 'Unable to load session.' });
+  }
+};
+
+exports.confirmSession = async (req, res) => {
+  if (req.user.role !== 'mentor') {
+    return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Only mentors can confirm sessions.' });
+  }
+
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'INVALID_SESSION_ID', message: 'Invalid session identifier.' });
+    }
+
+    const session = await Session.findById(id)
+      .populate('mentor', 'firstname lastname email profile calendarIntegrations')
+      .populate('mentee', 'firstname lastname email')
+      .populate('participants.user', 'firstname lastname email');
+
+    if (!session) {
+      return res.status(404).json({ success: false, error: 'SESSION_NOT_FOUND', message: 'Session not found.' });
+    }
+
+  if (session.mentor._id.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'You can only confirm your own sessions.' });
+    }
+
+    if (session.status === 'cancelled') {
+      return res.status(400).json({ success: false, error: 'SESSION_CANCELLED', message: 'Cancelled sessions cannot be confirmed.' });
+    }
+
+    session.status = 'confirmed';
+    session.statusMeta = {
+      ...(session.statusMeta || {}),
+      confirmedAt: new Date(),
+    };
+
+    await ensureSessionChatThread(session);
+    await session.save();
+
+    await recordSessionAudit({
+      actorId: req.user.id,
+      sessionId: session._id,
+      action: 'session:confirm',
+    });
+
+    const mentees = session.mentee
+      ? [session.mentee]
+      : (session.participants || []).map((entry) => entry.user).filter(Boolean);
+
+    const warnings = [];
+    try {
+      const result = await googleCalendarService.syncMentorSessionEvent({
+        session,
+        mentor: session.mentor,
+        mentees,
+      });
+      if (result?.warning) {
+        warnings.push(result.warning);
+      }
+    } catch (calendarError) {
+      console.error('confirm session calendar sync failed:', calendarError);
+      warnings.push({
+        code: 'GOOGLE_CALENDAR_SYNC_FAILED',
+        message: 'Session confirmed but Calendar sync failed. Reconnect Google Calendar to resume invites.',
+      });
+    }
+
+    const message = `${req.user.firstname || 'Your mentor'} confirmed "${session.subject}" on ${formatInviteDate(session.date)}.`;
+    await notifySessionParticipants({
+      session,
+      actorId: req.user.id,
+      type: 'SESSION_CONFIRMED',
+      title: 'Session confirmed',
+      message,
+    });
+
+    const payload = await buildSessionResponse(session, warnings);
+    return res.json({ success: true, ...payload });
+  } catch (error) {
+    console.error('confirmSession error:', error);
+    return res.status(500).json({ success: false, error: 'SESSION_CONFIRM_FAILED', message: 'Unable to confirm session.' });
+  }
+};
+
+exports.rescheduleSession = async (req, res) => {
+  if (req.user.role !== 'mentor') {
+    return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Only mentors can reschedule sessions.' });
+  }
+
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'INVALID_SESSION_ID', message: 'Invalid session identifier.' });
+    }
+
+    const session = await Session.findById(id)
+      .populate('mentor', 'firstname lastname email profile calendarIntegrations')
+      .populate('mentee', 'firstname lastname email')
+      .populate('participants.user', 'firstname lastname email');
+
+    if (!session) {
+      return res.status(404).json({ success: false, error: 'SESSION_NOT_FOUND', message: 'Session not found.' });
+    }
+
+    if (session.mentor._id.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'You can only reschedule your own sessions.' });
+    }
+
+    if (session.status === 'cancelled') {
+      return res.status(400).json({ success: false, error: 'SESSION_CANCELLED', message: 'Cancelled sessions cannot be rescheduled.' });
+    }
+
+    const { scheduledAt, durationMinutes, availabilityRef } = req.body || {};
+    const newDate = scheduledAt ? new Date(scheduledAt) : null;
+    if (!newDate || Number.isNaN(newDate.getTime())) {
+      return res.status(400).json({ success: false, error: 'INVALID_DATE', message: 'Provide a valid new time.' });
+    }
+
+    const duration = clampDurationMinutes(durationMinutes || session.durationMinutes);
+    const newEnd = computeEndDate(newDate, duration);
+
+    let availabilityDoc = null;
+    if (availabilityRef) {
+      availabilityDoc = await Availability.findOne({ _id: availabilityRef, mentor: session.mentor._id, active: true });
+      if (!availabilityDoc) {
+        return res.status(404).json({ success: false, error: 'AVAILABILITY_NOT_FOUND', message: 'Selected slot is unavailable.' });
+      }
+
+      if (!isScheduledWithinAvailability(availabilityDoc, newDate)) {
+        return res.status(400).json({ success: false, error: 'SLOT_OUT_OF_RANGE', message: 'Selected time does not match the slot.' });
+      }
+    }
+
+    const overlap = await hasMentorConflict({
+      mentorId: session.mentor._id,
+      start: newDate,
+      end: newEnd,
+      excludeId: session._id,
+      availabilityId: availabilityDoc?._id || session.availabilityRef,
+    });
+    if (overlap) {
+      return res.status(409).json({ success: false, error: 'MENTOR_CONFLICT', message: 'Mentor already has a session that overlaps with this time.' });
+    }
+
+    const previousDate = session.date;
+    session.date = newDate;
+    session.durationMinutes = duration;
+    session.status = 'rescheduled';
+    session.statusMeta = {
+      ...(session.statusMeta || {}),
+      rescheduledAt: new Date(),
+    };
+    if (availabilityDoc) {
+      session.availabilityRef = availabilityDoc._id;
+      session.capacity = availabilityDoc.capacity;
+      session.isGroup = availabilityDoc.capacity > 1;
+    }
+
+    await session.save();
+
+    await recordSessionAudit({
+      actorId: req.user.id,
+      sessionId: session._id,
+      action: 'session:reschedule',
+      metadata: { previousDate, newDate },
+    });
+
+    const mentees = session.mentee
+      ? [session.mentee]
+      : (session.participants || []).map((entry) => entry.user).filter(Boolean);
+    const warnings = [];
+    try {
+      const result = await googleCalendarService.updateMentorSessionEvent({
+        session,
+        mentor: session.mentor,
+        mentees,
+      });
+      if (result?.warning) {
+        warnings.push(result.warning);
+      }
+    } catch (calendarError) {
+      console.error('reschedule session calendar sync failed:', calendarError);
+      warnings.push({
+        code: 'GOOGLE_CALENDAR_SYNC_FAILED',
+        message: 'Session rescheduled but Calendar sync failed. Reconnect Google Calendar to resume invites.',
+      });
+    }
+
+    const message = `${req.user.firstname || 'Your mentor'} moved "${session.subject}" to ${formatInviteDate(newDate)} (was ${formatInviteDate(previousDate)}).`;
+    await notifySessionParticipants({
+      session,
+      actorId: req.user.id,
+      type: 'SESSION_RESCHEDULED',
+      title: 'Session rescheduled',
+      message,
+    });
+
+    const payload = await buildSessionResponse(session, warnings);
+    return res.json({ success: true, ...payload });
+  } catch (error) {
+    console.error('rescheduleSession error:', error);
+    return res.status(500).json({ success: false, error: 'SESSION_RESCHEDULE_FAILED', message: 'Unable to reschedule session.' });
+  }
+};
+
+exports.cancelSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'INVALID_SESSION_ID', message: 'Invalid session identifier.' });
+    }
+
+    const session = await Session.findById(id)
+      .populate('mentor', 'firstname lastname email profile calendarIntegrations role')
+      .populate('mentee', 'firstname lastname email role')
+      .populate('participants.user', 'firstname lastname email role');
+
+    if (!session) {
+      return res.status(404).json({ success: false, error: 'SESSION_NOT_FOUND', message: 'Session not found.' });
+    }
+
+    if (!userCanAccessSession(session, req.user)) {
+      return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'You do not have access to this session.' });
+    }
+
+    if (session.status === 'cancelled') {
+      return res.status(400).json({ success: false, error: 'ALREADY_CANCELLED', message: 'Session is already cancelled.' });
+    }
+
+    const { reason, notify = true } = req.body || {};
+    session.status = 'cancelled';
+    session.statusMeta = {
+      ...(session.statusMeta || {}),
+      cancelledAt: new Date(),
+      cancellationReason: typeof reason === 'string' ? reason.trim().slice(0, 500) : undefined,
+      cancellationBy: req.user.id,
+    };
+
+    await session.save();
+
+    const hoursUntilSession = (session.date.getTime() - Date.now()) / 3_600_000;
+    const penaltyWindow = hoursUntilSession <= SESSION_CANCEL_PENALTY_HOURS;
+
+    await recordSessionAudit({
+      actorId: req.user.id,
+      sessionId: session._id,
+      action: 'session:cancel',
+      metadata: {
+        penaltyWindow,
+        reason: session.statusMeta.cancellationReason,
+      },
+    });
+
+    if (req.user.role === 'mentor' && penaltyWindow) {
+      console.warn('Mentor cancelled within penalty window', {
+        sessionId: session._id.toString(),
+        mentorId: req.user.id,
+      });
+
+      const admins = await User.find({ role: 'admin' }).select('_id');
+      await Promise.all(
+        admins.map((admin) =>
+          sendNotificationSafe({
+            userId: admin._id,
+            type: 'SESSION_CANCEL_ALERT',
+            title: 'Mentor cancelled within penalty window',
+            message: `${req.user.firstname || 'A mentor'} cancelled "${session.subject}" happening soon.`,
+            data: { sessionId: session._id },
+          })
+        )
+      );
+    }
+
+    const mentees = session.mentee
+      ? [session.mentee]
+      : (session.participants || []).map((entry) => entry.user).filter(Boolean);
+    const warnings = [];
+    try {
+      const result = await googleCalendarService.deleteMentorSessionEvent({ session, mentor: session.mentor });
+      if (result?.warning) {
+        warnings.push(result.warning);
+      }
+    } catch (calendarError) {
+      console.error('cancel session calendar sync failed:', calendarError);
+      warnings.push({
+        code: 'GOOGLE_CALENDAR_SYNC_FAILED',
+        message: 'Session cancelled but Calendar event removal failed.',
+      });
+    }
+
+    if (notify) {
+      const message = `${req.user.firstname || 'A participant'} cancelled "${session.subject}" scheduled on ${formatInviteDate(session.date)}.`;
+      await notifySessionParticipants({
+        session,
+        actorId: req.user.id,
+        type: 'SESSION_CANCELLED',
+        title: 'Session cancelled',
+        message,
+      });
+
+      if (req.user.role === 'mentee') {
+        await sendNotificationSafe({
+          userId: session.mentor._id,
+          type: 'SESSION_CANCELLED',
+          title: 'Session cancelled by mentee',
+          message,
+          data: { sessionId: session._id },
+        });
+      }
+    }
+
+    const payload = await buildSessionResponse(session, warnings);
+    return res.json({ success: true, ...payload });
+  } catch (error) {
+    console.error('cancelSession error:', error);
+    return res.status(500).json({ success: false, error: 'SESSION_CANCEL_FAILED', message: 'Unable to cancel session.' });
+  }
+};
+
+exports.recordAttendance = async (req, res) => {
+  if (req.user.role !== 'mentor') {
+    return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Only mentors can record attendance.' });
+  }
+
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, error: 'INVALID_SESSION_ID', message: 'Invalid session identifier.' });
+    }
+
+    const session = await Session.findById(id)
+      .populate('mentor', 'firstname lastname email profile calendarIntegrations')
+      .populate('mentee', 'firstname lastname email')
+      .populate('participants.user', 'firstname lastname email');
+
+    if (!session) {
+      return res.status(404).json({ success: false, error: 'SESSION_NOT_FOUND', message: 'Session not found.' });
+    }
+
+    if (session.mentor._id.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'You can only update your own sessions.' });
+    }
+
+    const now = Date.now();
+    const end = session.endDate ? session.endDate.getTime() : session.date.getTime();
+    if (now < end) {
+      return res.status(400).json({ success: false, error: 'SESSION_NOT_COMPLETED', message: 'Attendance can be recorded after the session ends.' });
+    }
+
+    const cutoff = end + SESSION_ATTENDANCE_EDIT_DAYS * 24 * 60 * 60 * 1000;
+    if (now > cutoff) {
+      return res.status(400).json({ success: false, error: 'ATTENDANCE_WINDOW_CLOSED', message: 'Attendance window has closed.' });
+    }
+
+    const entries = Array.isArray(req.body?.attendance) ? req.body.attendance : [];
+    if (!entries.length) {
+      return res.status(400).json({ success: false, error: 'ATTENDANCE_REQUIRED', message: 'Provide at least one attendance entry.' });
+    }
+
+    const validStatuses = new Set(['present', 'absent', 'late']);
+    const attendanceDocs = [];
+    const seen = new Set();
+    entries.forEach((entry) => {
+      const userId = toObjectId(entry.userId || entry.user || entry.participantId);
+      if (!userId || seen.has(userId.toString())) {
+        return;
+      }
+
+      const status = typeof entry.status === 'string' ? entry.status.toLowerCase() : '';
+      if (!validStatuses.has(status)) {
+        return;
+      }
+
+      seen.add(userId.toString());
+      attendanceDocs.push({
+        user: userId,
+        status,
+        recordedBy: req.user.id,
+        recordedAt: new Date(),
+        note: typeof entry.note === 'string' ? entry.note.trim().slice(0, 280) : undefined,
+      });
+    });
+
+    if (!attendanceDocs.length) {
+      return res.status(400).json({ success: false, error: 'INVALID_ATTENDANCE', message: 'Attendance payload invalid.' });
+    }
+
+    session.attendance = attendanceDocs;
+    session.attended = attendanceDocs.some((entry) => entry.status === 'present');
+    session.completedAt = new Date();
+    session.status = 'completed';
+
+    await session.save();
+
+    await recordSessionAudit({
+      actorId: req.user.id,
+      sessionId: session._id,
+      action: 'session:attendance',
+      metadata: { count: attendanceDocs.length },
+    });
+
+    const payload = await buildSessionResponse(session);
+    return res.json({ success: true, ...payload });
+  } catch (error) {
+    console.error('recordAttendance error:', error);
+    return res.status(500).json({ success: false, error: 'ATTENDANCE_FAILED', message: 'Unable to record attendance.' });
+  }
+};
+
+exports.createBookingLock = async (req, res) => {
+  if (req.user.role !== 'mentee') {
+    return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Only mentees can reserve slots.' });
+  }
+
+  try {
+    const { mentorId: bodyMentorId, availabilityRef, scheduledAt, durationMinutes } = req.body || {};
+    const mentorId = toObjectId(bodyMentorId);
+    if (!mentorId) {
+      return res.status(400).json({ success: false, error: 'MENTOR_REQUIRED', message: 'Mentor id is required.' });
+    }
+
+    const scheduled = scheduledAt ? new Date(scheduledAt) : null;
+    if (!scheduled || Number.isNaN(scheduled.getTime())) {
+      return res.status(400).json({ success: false, error: 'INVALID_DATE', message: 'Provide a valid slot start time.' });
+    }
+
+    let availabilityDoc = null;
+    if (availabilityRef) {
+      availabilityDoc = await Availability.findOne({ _id: availabilityRef, mentor: mentorId, active: true });
+      if (!availabilityDoc) {
+        return res.status(404).json({ success: false, error: 'AVAILABILITY_NOT_FOUND', message: 'Slot not found.' });
+      }
+
+      if (!isScheduledWithinAvailability(availabilityDoc, scheduled)) {
+        return res.status(400).json({ success: false, error: 'SLOT_OUT_OF_RANGE', message: 'Slot does not match availability.' });
+      }
+    }
+
+    const duration = clampDurationMinutes(durationMinutes || availabilityDoc?.metadata?.defaultDuration || 60);
+    const expiresAt = new Date(Date.now() + SESSION_BOOKING_LOCK_SECONDS * 1000);
+    const key = crypto.randomUUID();
+
+    await BookingLock.deleteMany({
+      mentor: mentorId,
+      createdBy: req.user.id,
+      scheduledAt: scheduled,
+    });
+
+    await BookingLock.create({
+      key,
+      mentor: mentorId,
+      availability: availabilityDoc?._id,
+      scheduledAt: scheduled,
+      durationMinutes: duration,
+      createdBy: req.user.id,
+      sessionCandidate: { capacity: availabilityDoc?.capacity || 1 },
+      expiresAt,
+    });
+
+    return res.status(201).json({ success: true, lockId: key, expiresAt });
+  } catch (error) {
+    console.error('createBookingLock error:', error);
+    return res.status(500).json({ success: false, error: 'LOCK_CREATE_FAILED', message: 'Unable to create booking lock.' });
+  }
+};
+
 exports.completeSession = async (req, res) => {
   try {
     const { id } = req.params;
@@ -557,8 +1439,12 @@ exports.completeSession = async (req, res) => {
       if (!wasAttended || !session.completedAt) {
         session.completedAt = new Date();
       }
+      session.status = 'completed';
     } else {
       session.completedAt = null;
+      if (session.status === 'completed') {
+        session.status = 'confirmed';
+      }
     }
 
     await session.save();
@@ -637,5 +1523,11 @@ exports.exportMenteeData = async (req, res) => {
   } catch (error) {
     console.error('exportMenteeData error:', error);
     return res.status(500).json({ success: false, error: 'EXPORT_FAILED', message: 'Unable to export report.' });
+  }
+};
+
+exports.__setNotificationAdapter = (adapter) => {
+  if (adapter && typeof adapter.sendNotification === 'function') {
+    notificationAdapter.sendNotification = adapter.sendNotification;
   }
 };
