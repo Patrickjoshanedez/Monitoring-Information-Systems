@@ -131,6 +131,19 @@ const userSchema = new mongoose.Schema(
         },
       },
     },
+    mentorSettings: {
+      capacity: {
+        type: Number,
+        min: 1,
+        default: 3,
+      },
+      activeMenteesCount: {
+        type: Number,
+        min: 0,
+        default: 0,
+      },
+      capacityUpdatedAt: { type: Date },
+    },
     calendarIntegrations: {
       google: {
         refreshToken: { type: String },

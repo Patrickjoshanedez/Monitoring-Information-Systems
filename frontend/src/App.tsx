@@ -33,6 +33,8 @@ import ProfileSettings from './features/profile/pages/ProfileSettings.jsx';
 import ChatPage from './pages/ChatPage';
 import MentorProfileEditor from './components/mentor/MentorProfileEditor';
 import GoogleCalendarCallbackPage from './features/integrations/pages/GoogleCalendarCallback.jsx';
+import MentorMatchSuggestionsPage from './features/matchmaking/pages/MentorMatchSuggestionsPage';
+import MenteeMatchSuggestionsPage from './features/matchmaking/pages/MenteeMatchSuggestionsPage';
 
 // Wrapper components for better TypeScript support
 const AdminRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminDashboard />} />;
@@ -55,6 +57,8 @@ const MenteeChatRoute = () => <ProtectedRoute requiredRole="mentee" children={<C
 const MentorProfileEditRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorProfileEditor />} />;
 const MentorMaterialsUploadRoute = () => <ProtectedRoute requiredRole="mentor" children={<MaterialsUploadPage />} />;
 const MentorSessionsRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorSessionsPage />} />;
+const MentorMatchesRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorMatchSuggestionsPage />} />;
+const MenteeMatchesRoute = () => <ProtectedRoute requiredRole="mentee" children={<MenteeMatchSuggestionsPage />} />;
 
 const App = () => {
     const location = useLocation();
@@ -85,6 +89,7 @@ const App = () => {
                 <Route path="/mentor/chat" element={<MentorChatRoute />} />
                 <Route path="/mentor/materials/upload" element={<MentorMaterialsUploadRoute />} />
                 <Route path="/mentor/sessions" element={<MentorSessionsRoute />} />
+                <Route path="/mentor/matches" element={<MentorMatchesRoute />} />
                 <Route path="/mentor/profile/edit" element={<MentorProfileEditRoute />} />
                 <Route path="/mentee/dashboard" element={<MenteeRoute />} />
                 <Route path="/mentee/chat" element={<MenteeChatRoute />} />
@@ -92,6 +97,7 @@ const App = () => {
                 <Route path="/mentee/session" element={<SessionRoute />} />
                 <Route path="/mentee/apply" element={<ApplyRoute />} />
                 <Route path="/mentee/announcements" element={<AnnouncementsRoute />} />
+                <Route path="/mentee/matches" element={<MenteeMatchesRoute />} />
 
                 {/* Application Routes */}
                 <Route path="/mentee/application" element={<ApplicationRoute />} />

@@ -1,6 +1,7 @@
 import React from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import ApplicationReviewPanel from '../admin/ApplicationReviewPanel';
+import MentorCapacityOverridesPanel from '../admin/MentorCapacityOverridesPanel';
 
 const AdminDashboard: React.FC = () => {
   return (
@@ -15,6 +16,10 @@ const AdminDashboard: React.FC = () => {
 
         <section id="applications" className="tw-scroll-mt-24">
           <ApplicationReviewPanel />
+        </section>
+
+        <section id="capacity" className="tw-scroll-mt-24">
+          <MentorCapacityOverridesPanel />
         </section>
       </div>
     </DashboardLayout>

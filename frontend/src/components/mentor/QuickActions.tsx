@@ -19,6 +19,13 @@ const actions: Array<{ label: string; description: string; to: string; icon: str
         ariaLabel: 'Go to materials upload page'
     },
     {
+        label: 'Matches',
+        description: 'Review suggested mentees and take action',
+        to: '/mentor/matches',
+        icon: '🤝',
+        ariaLabel: 'Go to mentor match suggestions page'
+    },
+    {
         label: 'Profile',
         description: 'Edit your public mentor profile',
         to: '/mentor/profile/edit',

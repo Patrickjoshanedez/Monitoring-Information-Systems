@@ -62,6 +62,13 @@
    - Notification routes push announcements, approvals, reminder alerts. Nodemailer handles email parity (HTML templates).
 5. **Certificates & Achievements**
    - `certificateController` leverages `certificatePdf.js` (PDFKit) for downloadable completion certificates; goals/achievements recorded via dedicated models.
+6. **Mentor–Mentee Matchmaking (MUS005)**
+  - `MatchRequest`, `Mentorship`, and `MatchAudit` models capture ranked suggestions, decisions, and auditing metadata.
+  - `matchService` scores mentees for each mentor (expertise overlap 50%, availability 25%, interactions 15%, priority 10%) and enforces mentor capacity.
+    - Endpoints under `/api/mentors/:mentorId/match-suggestions`, `/api/mentees/:menteeId/match-suggestions`, `/api/matches/:id/(accept|decline|mentee-accept|mentee-decline)`, and `/api/matches/generate` supply dashboards, decision flows, and cron jobs.
+  - Notifications (in-app + email) are fired for new suggestions, mentor responses, mentee confirmations, and mutual matches → which create `Mentorship` records and bump `mentorSettings.activeMenteesCount`.
+    - Frontend pages `MentorMatchSuggestionsPage` (`/mentor/matches`) and `MenteeMatchSuggestionsPage` (`/mentee/matches`) surface ranked cards, profile modals/toasts, and status feeds powered by React Query hooks.
+    - Admins can override mentor capacity via `/api/admin/mentors/capacity` + `/api/admin/mentors/:mentorId/capacity`, with UI controls embedded in `AdminDashboard`.
 
 ## 6. Security, Privacy, and Compliance
 - JWT auth with refresh handling on the server; tokens stored HTTP-only.

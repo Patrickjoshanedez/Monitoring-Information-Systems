@@ -11,6 +11,7 @@
     "dev": "nodemon src/server.js",
     "seed:admin": "node src/scripts/createAdmin.js",
     "backfill:feedback": "node src/scripts/backfillFeedbackStats.js",
+    "backfill:matches": "node src/scripts/backfill/match-suggestions.js",
     "test": "node --test"
   },
   "dependencies": {
@@ -39,6 +40,7 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "mongodb-memory-server": "^10.3.0",
     "nodemon": "^3.1.4"
   }
 }

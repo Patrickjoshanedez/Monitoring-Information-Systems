@@ -51,6 +51,9 @@ The sections below list prerequisites, environment variables, and the click-by-c
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Media uploads. |
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS` | SMTP settings for `emailService`. |
 | `RECAPTCHA_SECRET_KEY` | For server-side verification. |
+| `MATCH_SUGGESTION_LIMIT` (optional) | Override default suggestion batch size (defaults to 10). |
+| `MATCH_SUGGESTION_TTL_DAYS` (optional) | Days before suggestions auto-expire (defaults to 14). |
+| `MAX_MENTOR_CAPACITY` (optional) | Upper bound for admin overrides (defaults to 25). Prevents unrealistic capacity entries. |
 | Any other `process.env.*` referenced in `backend/src`. Document them as you add new features. |
 
 > **Tip:** If you need the reminder worker in `src/services/sessionReminderWorker.js`, create a separate **Background Worker** on Render that runs `node src/services/sessionReminderWorker.js` with the same environment variables.
@@ -154,6 +157,12 @@ To enable automatic event creation when mentors schedule sessions:
    - `GOOGLE_CALENDAR_STATE_SECRET` — optional; falls back to `JWT_SECRET`, but using a separate secret is recommended.
    - Reuse `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` or provide calendar-specific overrides via `GOOGLE_CALENDAR_CLIENT_ID` and `GOOGLE_CALENDAR_CLIENT_SECRET` (only needed if you created a second OAuth client).
 3. Redeploy the backend after setting these values. Once live, mentors can visit **Profile → Calendar integration** to connect/disconnect Google Calendar, and new sessions will create Google Calendar events automatically.
+
+### 3.7 Match suggestion backfill / cron
+
+- Script: `npm run backfill:matches` (runs `src/scripts/backfill/match-suggestions.js`).
+- Purpose: re-score mentees for all approved mentors, send notifications for new suggestions, and refresh the dashboard ordering.
+- Schedule: run daily via Render cron job or GitHub Action hitting `/api/matches/generate` (admin token required). Include the same env vars as the API plus optional `MATCH_SUGGESTION_LIMIT` overrides.
 
 ### 3.3 Connect frontend → backend
 

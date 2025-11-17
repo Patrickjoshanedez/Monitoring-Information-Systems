@@ -57,6 +57,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api', require('./routes/authRoutes'));
 app.use('/api', require('./routes/applicationRoutes'));
 app.use('/api', require('./routes/mentorRoutes'));
+app.use('/api', require('./routes/adminRoutes'));
 app.use('/api', require('./routes/profileRoutes'));
 app.use('/api', require('./routes/sessionRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
@@ -68,6 +69,7 @@ app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api', require('./routes/feedbackRoutes'));
 app.use('/api', require('./routes/certificateRoutes'));
 app.use('/api', require('./routes/integrationRoutes'));
+app.use('/api', require('./routes/matchRoutes'));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
