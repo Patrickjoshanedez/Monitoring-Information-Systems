@@ -1,19 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const uploadMaterial = require('../middleware/uploadMaterial');
+const uploadMaterialMiddleware = require('../middleware/uploadMaterial');
 const materialController = require('../controllers/materialController');
 
-// Upload material (mentor only)
-router.post('/materials/upload', auth, uploadMaterial.single('file'), materialController.uploadMaterial);
+// Mentor-only upload to Google Drive for a specific session
+router.post(
+  '/sessions/:sessionId/upload',
+  auth,
+  uploadMaterialMiddleware.array('files'),
+  materialController.uploadToGoogleDrive,
+);
 
-// List materials (mentor sees own; mentee sees shared or addressed)
-router.get('/materials', auth, materialController.listMaterials);
+// Mentee view of materials shared with them
+router.get('/mentee', auth, materialController.getMenteeMaterials);
 
-// Delete material (mentor only for own)
-router.delete('/materials/:id', auth, materialController.deleteMaterial);
+// Preview a material via Google Drive web view link
+router.get('/:materialId/preview', auth, materialController.getMaterialPreview);
 
-// Download material with access checks
-router.get('/materials/:id/download', auth, materialController.downloadMaterial);
+// Delete material (mentor only)
+router.delete('/:id', auth, materialController.deleteMaterial);
 
 module.exports = router;

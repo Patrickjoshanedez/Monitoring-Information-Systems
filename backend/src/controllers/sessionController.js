@@ -863,6 +863,16 @@ exports.bookSession = async (req, res) => {
       await bookingLockDoc.deleteOne();
     }
 
+    // Ensure a chat thread exists for this session so mentor and mentee can communicate.
+    // Keep this non-blocking for the booking flow — failures should not prevent session creation.
+    let chatThreadId = null;
+    try {
+      const threadId = await ensureSessionChatThread(session);
+      if (threadId) chatThreadId = threadId;
+    } catch (threadErr) {
+      console.error('bookSession ensureSessionChatThread failed:', threadErr);
+    }
+
     await recordSessionAudit({
       actorId: menteeId,
       sessionId: session._id,
@@ -879,7 +889,7 @@ exports.bookSession = async (req, res) => {
       type: 'SESSION_BOOKING_REQUEST',
       title: 'New session booking pending confirmation',
       message: bookingMessage,
-      data: { sessionId: session._id },
+      data: { sessionId: session._id, chatThreadId },
     });
 
     await session.populate('mentor', 'firstname lastname email');

@@ -94,19 +94,81 @@ const start = async () => {
     process.exit(1);
   }
 
-  try {
-    await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 10000,
-      tls: true,
-      tlsAllowInvalidCertificates: false,
-      retryWrites: true,
-      appName: process.env.APP_NAME || 'MentoringSystem',
-    });
-  } catch (err) {
-    // Sanitize driver details
-    logger.error('MongoDB connection failed:', err?.message || err);
-    process.exit(1);
+  const connOptions = {
+    // keep defaults but explicitly enable modern parser/topology for reliability
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 10000,
+    retryWrites: true,
+    appName: process.env.APP_NAME || 'MentoringSystem',
+  };
+
+  // Enable TLS only for SRV (Atlas) URIs or when explicitly requested via env
+  if (String(uri).startsWith('mongodb+srv://') || process.env.MONGODB_TLS === 'true') {
+    connOptions.tls = true;
+    connOptions.tlsAllowInvalidCertificates = process.env.MONGODB_TLS_ALLOW_INVALID === 'true';
   }
+
+  // Connection event handlers for better observability
+  mongoose.connection.on('connected', () => logger.info('MongoDB connected'));
+  mongoose.connection.on('reconnected', () => logger.info('MongoDB reconnected'));
+  mongoose.connection.on('disconnected', () => logger.warn('MongoDB disconnected'));
+  mongoose.connection.on('close', () => logger.warn('MongoDB connection closed'));
+  mongoose.connection.on('error', (err) => logger.error('MongoDB connection error:', err && err.message ? err.message : err));
+
+  // Retry logic with exponential backoff for transient network errors (ECONNRESET etc.)
+  const maxRetries = Number(process.env.MONGODB_CONNECT_RETRIES || 5);
+  const baseDelayMs = Number(process.env.MONGODB_CONNECT_BACKOFF_MS || 1000);
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  let attempt = 0;
+  while (attempt <= maxRetries) {
+    try {
+      attempt += 1;
+      logger.info(`Attempting MongoDB connection (attempt ${attempt}/${maxRetries + 1})`);
+      await mongoose.connect(uri, connOptions);
+      logger.info('MongoDB connection established');
+      break;
+    } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      logger.error(`MongoDB connection attempt ${attempt} failed: ${msg}`);
+      // If we've exhausted retries, exit with error
+      if (attempt > maxRetries) {
+        logger.error('Exceeded maximum MongoDB connection attempts; exiting');
+        // Give the logger a brief moment to flush
+        await sleep(200);
+        process.exit(1);
+      }
+
+      // If error looks like a transient network/reset issue, backoff and retry
+      const isTransient = msg.includes('ECONNRESET') || msg.includes('timed out') || msg.includes('ENOTFOUND') || msg.includes('failed to connect');
+      const delay = Math.min(30000, baseDelayMs * Math.pow(2, attempt - 1));
+      if (!isTransient) {
+        // For non-transient errors, still wait a short amount before retrying
+        logger.warn('Non-transient MongoDB connect error; retrying after delay', { delay });
+      } else {
+        logger.warn('Transient MongoDB error; retrying after delay', { delay });
+      }
+      await sleep(delay);
+    }
+  }
+
+  // Gracefully handle termination signals to close DB connection
+  const shutdown = async (signal) => {
+    try {
+      logger.info(`Received ${signal}; closing MongoDB connection`);
+      await mongoose.connection.close(false);
+      logger.info('MongoDB connection closed');
+      process.exit(0);
+    } catch (closeErr) {
+      logger.error('Error during MongoDB shutdown:', closeErr && closeErr.message ? closeErr.message : closeErr);
+      process.exit(1);
+    }
+  };
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 
   const port = process.env.PORT || 4000;
   app.listen(port, () => {

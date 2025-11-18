@@ -2,10 +2,8 @@ import React, { useCallback, useMemo } from 'react';
 import DashboardLayout from '../../components/layouts/DashboardLayout';
 import PendingFeedbackList from '../../components/mentee/PendingFeedbackList';
 import { useMentorshipRequests } from '../../features/mentorship/hooks/useMentorshipRequests';
-import { useMaterials } from '../../shared/hooks/useMaterials';
-import { downloadMaterial, MaterialItem } from '../../shared/services/materialsService';
+import MaterialsLibrary from '../../features/materials/MaterialsLibrary';
 import type { MentorshipRequest, MentorshipRequestStatus } from '../../shared/services/mentorMatching';
-import logger from '../../shared/utils/logger';
 
 const statusStyles: Record<MentorshipRequestStatus, string> = {
   pending: 'tw-bg-yellow-100 tw-text-yellow-800',
@@ -38,19 +36,6 @@ const formatDateTime = (value: string | null | undefined) => {
   });
 };
 
-const formatFileSize = (bytes?: number) => {
-  if (!bytes || Number.isNaN(bytes)) {
-    return '—';
-  }
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  if (bytes < 1024 * 1024) {
-    return `${Math.round(bytes / 1024)} KB`;
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
-
 const MyMentorPage: React.FC = () => {
   const {
     requests,
@@ -58,15 +43,6 @@ const MyMentorPage: React.FC = () => {
     isRefetching: refetchingRequests,
     refetch: refetchRequests
   } = useMentorshipRequests('mentee');
-
-  const materialsQuery = useMaterials({ limit: 50 });
-  const {
-    data: materialsData,
-    isLoading: loadingMaterials,
-    isError: materialsError,
-    isFetching: fetchingMaterials,
-    refetch: refetchMaterials
-  } = materialsQuery;
 
   const currentMatches = useMemo(
     () => requests.filter((request) => request.status === 'accepted'),
@@ -77,25 +53,11 @@ const MyMentorPage: React.FC = () => {
     () => requests.filter((request) => request.status !== 'accepted'),
     [requests]
   );
-
-  const materials = useMemo<MaterialItem[]>(
-    () => materialsData?.materials ?? [],
-    [materialsData]
-  );
-
-  const refreshing = refetchingRequests || fetchingMaterials;
+  const refreshing = refetchingRequests;
 
   const handleRefresh = useCallback(async () => {
-    await Promise.all([refetchRequests(), refetchMaterials()]);
-  }, [refetchRequests, refetchMaterials]);
-
-  const handleDownload = useCallback(async (id: string) => {
-    try {
-      await downloadMaterial(id);
-    } catch (error) {
-      logger.error('downloadMaterial failed', error);
-    }
-  }, []);
+    await refetchRequests();
+  }, [refetchRequests]);
 
   const renderMatchCard = (match: MentorshipRequest) => {
     const mentorName = match.mentor?.name || 'Mentor';
@@ -146,108 +108,11 @@ const MyMentorPage: React.FC = () => {
     );
   };
 
-  const renderMaterialsTable = () => {
-    if (loadingMaterials) {
-      return (
-        <div className="tw-flex tw-justify-center tw-items-center tw-py-8" role="status" aria-live="polite">
-          <div className="tw-animate-spin tw-rounded-full tw-h-6 tw-w-6 tw-border-b-2 tw-border-purple-500" />
-        </div>
-      );
-    }
-
-    if (materialsError) {
-      return (
-        <div className="tw-bg-red-50 tw-border tw-border-red-200 tw-rounded-lg tw-p-4 tw-text-sm tw-text-red-700" role="alert">
-          Unable to load materials right now. Please try refreshing.
-        </div>
-      );
-    }
-
-    if (materials.length === 0) {
-      return (
-        <div className="tw-text-center tw-text-sm tw-text-gray-500 tw-py-8" role="status">
-          No materials available yet.
-        </div>
-      );
-    }
-
-    return (
-      <div className="tw-overflow-x-auto">
-        <table className="tw-min-w-full tw-divide-y tw-divide-gray-200">
-          <thead className="tw-bg-gray-50">
-            <tr>
-              <th scope="col" className="tw-px-4 tw-py-3 tw-text-left tw-text-xs tw-font-semibold tw-uppercase tw-text-gray-500">
-                Title
-              </th>
-              <th scope="col" className="tw-px-4 tw-py-3 tw-text-left tw-text-xs tw-font-semibold tw-uppercase tw-text-gray-500">
-                Uploaded
-              </th>
-              <th scope="col" className="tw-px-4 tw-py-3 tw-text-left tw-text-xs tw-font-semibold tw-uppercase tw-text-gray-500">
-                Visibility
-              </th>
-              <th scope="col" className="tw-px-4 tw-py-3 tw-text-left tw-text-xs tw-font-semibold tw-uppercase tw-text-gray-500">
-                Tags
-              </th>
-              <th scope="col" className="tw-px-4 tw-py-3 tw-text-left tw-text-xs tw-font-semibold tw-uppercase tw-text-gray-500">
-                Size
-              </th>
-              <th scope="col" className="tw-px-4 tw-py-3 tw-text-left tw-text-xs tw-font-semibold tw-uppercase tw-text-gray-500">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="tw-divide-y tw-divide-gray-200 tw-bg-white">
-            {materials.map((material) => (
-              <tr key={material.id} className="hover:tw-bg-gray-50">
-                <td className="tw-px-4 tw-py-3">
-                  <div className="tw-flex tw-flex-col">
-                    <span className="tw-text-sm tw-font-semibold tw-text-gray-900">{material.title}</span>
-                    {material.description && (
-                      <span className="tw-text-xs tw-text-gray-500 tw-mt-1">{material.description}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="tw-px-4 tw-py-3 tw-text-sm tw-text-gray-600">{formatDateTime(material.createdAt)}</td>
-                <td className="tw-px-4 tw-py-3">
-                  <span
-                    className={`tw-inline-flex tw-items-center tw-rounded-full tw-px-2 tw-py-0.5 tw-text-[11px] tw-font-semibold ${{
-                      'mentor-only': 'tw-bg-gray-100 tw-text-gray-700',
-                      shared: 'tw-bg-green-100 tw-text-green-800'
-                    }[material.visibility] || 'tw-bg-gray-100 tw-text-gray-700'}`}
-                  >
-                    {material.visibility === 'shared' ? 'Shared with mentees' : 'Mentor only' }
-                  </span>
-                </td>
-                <td className="tw-px-4 tw-py-3">
-                  <div className="tw-flex tw-flex-wrap tw-gap-1">
-                    {material.tags && material.tags.length > 0 ? (
-                      material.tags.map((tag) => (
-                        <span key={tag} className="tw-bg-purple-50 tw-text-purple-700 tw-text-[11px] tw-font-medium tw-rounded-full tw-px-2 tw-py-0.5">
-                          #{tag}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="tw-text-xs tw-text-gray-500">No tags</span>
-                    )}
-                  </div>
-                </td>
-                <td className="tw-px-4 tw-py-3 tw-text-sm tw-text-gray-600">{formatFileSize(material.sizeBytes)}</td>
-                <td className="tw-px-4 tw-py-3">
-                  <button
-                    type="button"
-                    onClick={() => handleDownload(material.id)}
-                    className="tw-text-sm tw-font-medium tw-text-purple-600 hover:tw-text-purple-700"
-                  >
-                    Download
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
+  const renderMaterialsSection = () => (
+    <div className="tw-mt-2">
+      <MaterialsLibrary />
+    </div>
+  );
 
   return (
     <DashboardLayout>
@@ -314,7 +179,7 @@ const MyMentorPage: React.FC = () => {
               Materials uploaded by your mentor and shared with you or your sessions appear here.
             </p>
           </header>
-          {renderMaterialsTable()}
+          {renderMaterialsSection()}
         </section>
 
         <section className="tw-space-y-4">

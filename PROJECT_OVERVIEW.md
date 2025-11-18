@@ -9,7 +9,7 @@
 | Layer | Stack | Notes |
 | --- | --- | --- |
 | Frontend | React 18 + Vite + TypeScript, Tailwind (strict `tw-` prefix), React Router v6, React Query, Zustand, Framer Motion | SPA hosted on Vite dev server (5173). Animations via `AnimatePresence`. Routing guarded with `<ProtectedRoute>` enforcing role + applicationStatus. Real-time updates through `pusher-js`. |
-| Backend | Node 20 + Express 4, Mongoose 8, JWT + bcryptjs auth, Passport OAuth (Google/Facebook) | API server (`src/server.js`) uses CORS allowlist, Helmet CSP, compression, and centralized JSON error handler. Background `sessionReminderWorker` schedules reminders. |
+| Backend | Node 20 + Express 4, Mongoose 8, JWT + bcryptjs auth, Passport OAuth (Google/Facebook) | API server (`src/server.js`) uses CORS allowlist, Helmet CSP, compression, centralized JSON error handler, and a resilient MongoDB connection with retries/backoff and graceful shutdown. Background workers: `sessionReminderWorker`, `feedbackRetentionWorker`, `mentorFeedbackAggregationWorker`. |
 | Realtime & Notifications | Pusher Channels, email via Nodemailer, in-app Notification model | `notificationService` fan-outs alerts; `chatController`/`ChatThread` deliver live conversations. |
 | Storage & Assets | MongoDB Atlas (TLS enforced), Cloudinary for media uploads, local `/uploads` fallback | Multer-based upload middleware variants (`upload`, `uploadAvatar`, `uploadMaterial`). |
 
@@ -29,17 +29,19 @@
 ## 4. Backend Structure & Responsibilities
 - **Server Boot (`src/server.js`):**
   - Configures CORS from `CLIENT_URLS`, JSON body parsing, cookies, Helmet CSP, compression, Passport strategies, `/health` probe, and static `/uploads` serving.
-  - Registers modular routers: `authRoutes`, `applicationRoutes`, `mentorRoutes`, `profileRoutes`, `sessionRoutes`, `/notifications`, `/announcements`, `materialRoutes`, `goalRoutes`, `progressRoutes`, `/chat`, `/feedback`, `certificateRoutes`.
+  - Registers modular routers: `authRoutes`, `applicationRoutes`, `mentorRoutes`, `adminRoutes`, `profileRoutes`, `sessionRoutes`, `/notifications`, `/announcements`, `materialRoutes`, `goalRoutes`, `progressRoutes`, `/chat`, `/mentorFeedback`, `/feedback`, `certificateRoutes`, `integrationRoutes`, `matchRoutes`.
   - Central error handler returns `{ success: false, error: 'SERVER_ERROR', message }` and logs sanitized stack traces via `utils/logger`.
-  - Connects to MongoDB using `MONGODB_URI`, enforces TLS, `retryWrites`, and names the app via `APP_NAME`. Starts reminder worker once listening.
-- **Key Models (Mongoose):** `User`, `MentorshipRequest`, `Session`, `Goal`, `Progress`, `Notification`, `Announcement`, `Material`, `Certificate`, `Achievement`, `ChatThread`/`ChatMessage`, `FeedbackReviewTicket`. Indexes prioritize role/applicationStatus/createdAt for dashboards and review queues.
+  - Connects to MongoDB using `MONGODB_URI` with explicit modern options (`useNewUrlParser`, `useUnifiedTopology`, `serverSelectionTimeoutMS`, `retryWrites`, `appName`), connection event logging, and retry logic with exponential backoff for transient errors (e.g., ECONNRESET). Exits only after exhausting configurable retries (`MONGODB_CONNECT_RETRIES`, `MONGODB_CONNECT_BACKOFF_MS`) and performs graceful shutdown on SIGINT/SIGTERM.
+- **Key Models (Mongoose):** `User`, `MentorshipRequest`, `Mentorship`, `MatchRequest`, `MatchAudit`, `Session`, `Goal`, `Progress`, `Notification`, `Announcement`, `Material`, `Certificate`, `Achievement`, `ChatThread`/`ChatMessage`, `Feedback`, `MentorFeedback`, `ProgressSnapshot`, `FeedbackAuditLog`, `FeedbackReviewTicket`, `AdminReviewTicket`, `AuditLog`, `Availability`, `BookingLock`. Indexes prioritize role/applicationStatus/createdAt for dashboards and review queues, plus session/availability indexes for scheduling.
 - **Controllers:**
   - `authController` handles registration/login, OTP, OAuth callbacks, password resets, and JWT issuance.
   - `applicationController` manages mentee/mentor applications, status transitions, and admin approval workflows.
-  - `sessionController` orchestrates booking, rescheduling, cancellations, reminder scheduling, and post-session feedback capture (`SessionFeedback`).
+  - `sessionController` orchestrates booking, rescheduling, cancellations, reminder scheduling, post-session feedback capture (`SessionFeedback`), and session-linked chat creation via `ensureSessionChatThread` for both mentor-created sessions and mentee bookings.
   - `mentorController` exposes mentor directory filtering, profile updates, achievements, and availability settings.
+  - `mentorFeedbackController` lets mentors submit structured feedback for completed sessions, exposes sanitized progress snapshots to mentees/admins, and records feedback audit logs.
   - `materialController` + `uploadMaterial` support lesson uploads backed by Cloudinary metadata.
   - `chatController` manages thread creation, participant policies, and message delivery (persist + Pusher broadcast).
+  - `adminController`, `announcementController`, `certificateController`, `integrationController`, `matchController`, `feedbackController`, `goalController`, `progressController`, `notificationController` provide admin tooling, announcements, certificates, calendar integration, matchmaking, generic feedback, goals/progress, and notifications.
 - **Middleware & Utilities:**
   - `middleware/auth.js` validates JWT, role gates, and applicationStatus requirements.
   - Upload middlewares enforce file type + size caps; `cloudinary.js` centralizes host config.
@@ -55,11 +57,15 @@
    - Mentor: upcoming sessions, mentee roster, goal tracking, material uploads, chat access.
    - Mentee: assigned mentor view, session schedule, progress/goal tracking, announcements feed.
 3. **Sessions & Goals**
-   - Mentors set availability; mentees request/reserve slots; reminders via worker + notifications.
-   - Progress + goal controllers allow CRUD with timeline visualizations (Recharts) on frontend.
+  - Mentors set availability; mentees request/reserve slots; reminders via worker + notifications.
+  - Session booking paths:
+    - Mentor-created sessions (`createMentorSession`) immediately create a `ChatThread` (type `session`) for all participants.
+    - Mentees booking a session (`bookSession`) trigger `ensureSessionChatThread` so a shared chat space exists as soon as a booking is created; mentor booking notifications include `chatThreadId` for deep-links.
+  - Progress + goal controllers allow CRUD with timeline visualizations (Recharts) on frontend.
 4. **Communication & Notifications**
-   - Real-time chat (per mentor/mentee pairing) via Pusher + Mongoose threads.
-   - Notification routes push announcements, approvals, reminder alerts. Nodemailer handles email parity (HTML templates).
+  - Real-time chat via Pusher + `ChatThread` (`direct` mentor–mentee chats and `session`-scoped group chats).
+  - Notification routes push announcements, approvals, reminder alerts, match updates, mentor feedback events, and session-related changes; booking/confirmation payloads can include `chatThreadId` so the UI can open the right conversation.
+  - Nodemailer handles email parity (HTML templates).
 5. **Certificates & Achievements**
    - `certificateController` leverages `certificatePdf.js` (PDFKit) for downloadable completion certificates; goals/achievements recorded via dedicated models.
 6. **Mentor–Mentee Matchmaking (MUS005)**
@@ -69,6 +75,19 @@
   - Notifications (in-app + email) are fired for new suggestions, mentor responses, mentee confirmations, and mutual matches → which create `Mentorship` records and bump `mentorSettings.activeMenteesCount`.
     - Frontend pages `MentorMatchSuggestionsPage` (`/mentor/matches`) and `MenteeMatchSuggestionsPage` (`/mentee/matches`) surface ranked cards, profile modals/toasts, and status feeds powered by React Query hooks.
     - Admins can override mentor capacity via `/api/admin/mentors/capacity` + `/api/admin/mentors/:mentorId/capacity`, with UI controls embedded in `AdminDashboard`.
+
+7. **Mentor Feedback & Progress Dashboard (MUS007)**
+   - Mentors submit structured feedback for completed sessions via `mentorFeedbackController`; feedback is stored in `MentorFeedback` and linked to sessions and mentees.
+   - `mentorFeedbackAggregationWorker` builds `ProgressSnapshot` documents per mentee, aggregating:
+     - Average rating over time.
+     - Monthly trend points.
+     - Recent public comments and milestone metadata.
+   - Mentees (and authorized admins) can query progress snapshots to power the mentee dashboard.
+   - Backend ensures only completed/authorized sessions contribute to snapshots and audits all feedback changes via `FeedbackAuditLog`.
+   - Frontend integrates this via `mentorFeedbackService` + React Query hook (`useProgressDashboard`), and `ProgressDashboard.tsx` renders:
+     - Overall rating and trend line/table.
+     - Recent mentor comments.
+     - Goal and task completion stats combined with snapshot data.
 
 ## 6. Security, Privacy, and Compliance
 - JWT auth with refresh handling on the server; tokens stored HTTP-only.

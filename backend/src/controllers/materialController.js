@@ -1,80 +1,10 @@
-const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
+const { Types } = require('mongoose');
 const Material = require('../models/Material');
 const Session = require('../models/Session');
 const MentorshipRequest = require('../models/MentorshipRequest');
 const { fail, ok } = require('../utils/responses');
-const { uploadBuffer, deleteAsset } = require('../utils/cloudinary');
-
-const materialsFolder = process.env.CLOUDINARY_MATERIALS_FOLDER || 'mentoring/materials';
-
-// POST /api/materials/upload
-// Mentor-only upload. Optional mentee or session association.
-exports.uploadMaterial = async (req, res) => {
-  try {
-    if (req.user.role !== 'mentor') {
-      return fail(res, 403, 'FORBIDDEN', 'Only mentors can upload materials.');
-    }
-    if (!req.file) {
-      return fail(res, 400, 'NO_FILE', 'No file uploaded.');
-    }
-
-    const { title, description, menteeId, sessionId, visibility = 'shared', tags } = req.body || {};
-    if (!title) return fail(res, 400, 'MISSING_FIELDS', 'Title is required.');
-
-    // If sessionId provided, ensure the mentor owns the session
-    if (sessionId) {
-      const session = await Session.findById(sessionId).select('mentor').lean();
-      if (!session || session.mentor.toString() !== req.user.id) {
-        return fail(res, 403, 'FORBIDDEN', 'You can only attach materials to your own sessions.');
-      }
-    }
-
-    const sanitizedBase = path
-      .basename(req.file.originalname, path.extname(req.file.originalname))
-      .replace(/[^a-zA-Z0-9_-]/g, '_')
-      .slice(0, 120) || 'material';
-
-    let uploadResult;
-    try {
-      uploadResult = await uploadBuffer(req.file.buffer, {
-        folder: materialsFolder,
-        resource_type: 'auto',
-        public_id: `${sanitizedBase}_${Date.now()}`,
-        overwrite: false,
-      });
-    } catch (cloudErr) {
-      if (cloudErr.code === 'CLOUDINARY_NOT_CONFIGURED') {
-        return fail(res, 500, 'STORAGE_NOT_CONFIGURED', cloudErr.message);
-      }
-      return fail(res, 502, 'STORAGE_UPLOAD_FAILED', cloudErr.message || 'Failed to upload to storage provider.');
-    }
-
-    const doc = await Material.create({
-      mentor: req.user.id,
-      mentee: menteeId || undefined,
-      session: sessionId || undefined,
-      title: String(title).trim(),
-      description: description ? String(description).trim() : undefined,
-      originalName: req.file.originalname,
-      storedName: undefined,
-      sizeBytes: uploadResult.bytes || req.file.size,
-      mimeType: req.file.mimetype,
-      tags: Array.isArray(tags) ? tags : typeof tags === 'string' ? tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
-      visibility: visibility === 'mentor-only' ? 'mentor-only' : 'shared',
-      cloudinaryPublicId: uploadResult.public_id,
-      cloudinaryUrl: uploadResult.url,
-      cloudinarySecureUrl: uploadResult.secure_url,
-      cloudinaryResourceType: uploadResult.resource_type,
-      cloudinaryFormat: uploadResult.format,
-    });
-
-    return ok(res, { material: { id: doc._id.toString(), title: doc.title } });
-  } catch (err) {
-    return fail(res, 500, 'MATERIAL_UPLOAD_FAILED', err.message);
-  }
-};
+const { uploadSessionMaterial } = require('../utils/gdriveService');
+const { toUserMessage } = require('../utils/gdriveErrorHandler');
 
 // Helper: get session ids for mentee to filter shared materials tied to their sessions
 const getMenteeSessionIds = async (menteeId) => {
@@ -82,139 +12,197 @@ const getMenteeSessionIds = async (menteeId) => {
   return ids.map((s) => s._id);
 };
 
-// GET /api/materials
-// Mentee sees materials addressed to them OR shared and tied to sessions they attended; mentor sees own (optionally filter by mentee/session).
-exports.listMaterials = async (req, res) => {
+// POST /api/materials/sessions/:sessionId/upload
+// Mentor-only upload to Google Drive with optional mentee sharing.
+exports.uploadToGoogleDrive = async (req, res) => {
   try {
-    const { session, menteeId, search, limit } = req.query || {};
-    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+    if (req.user.role !== 'mentor') {
+      return fail(res, 403, 'FORBIDDEN', 'Only mentors can upload materials.');
+    }
 
-    const q = {};
-    if (req.user.role === 'mentor') {
-      q.mentor = req.user.id;
-      if (menteeId) {
-        q.mentee = menteeId;
+    const { sessionId } = req.params;
+    const { menteeIds } = req.body || {};
+    const files = Array.isArray(req.files) ? req.files : [];
+
+    if (!sessionId) {
+      return fail(res, 400, 'SESSION_REQUIRED', 'SessionId is required.');
+    }
+
+    if (!Types.ObjectId.isValid(sessionId)) {
+      return fail(res, 400, 'INVALID_SESSION_ID', 'The provided sessionId is invalid.');
+    }
+
+    const session = await Session.findById(sessionId).select('mentor').lean();
+    if (!session || session.mentor.toString() !== req.user.id) {
+      return fail(res, 403, 'FORBIDDEN', 'You can only attach materials to your own sessions.');
+    }
+
+    if (!files.length) {
+      return fail(res, 400, 'NO_FILE', 'No files uploaded.');
+    }
+
+    const normalizedMenteeIds = Array.isArray(menteeIds)
+      ? menteeIds
+      : typeof menteeIds === 'string'
+      ? menteeIds.split(',').map((id) => id.trim()).filter(Boolean)
+      : [];
+
+    const mentees = normalizedMenteeIds.length
+      ? await MentorshipRequest.find({ mentee: { $in: normalizedMenteeIds }, mentor: req.user.id, status: 'accepted' })
+          .populate('mentee', 'email')
+          .lean()
+      : [];
+
+    const menteeEmails = mentees.map((m) => m.mentee?.email).filter(Boolean);
+
+    const mentorEmail = req.user.email;
+
+    const createdMaterials = [];
+
+    for (const file of files) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const uploaded = await uploadSessionMaterial({
+          mentorId: session.mentor,
+          sessionId,
+          file,
+          mentorEmail,
+          menteeEmails,
+        });
+
+        // eslint-disable-next-line no-await-in-loop
+        const doc = await Material.create({
+          mentor: req.user.id,
+          session: sessionId,
+          title: file.originalname,
+          description: undefined,
+          originalName: file.originalname,
+          googleDriveFileId: uploaded.googleDriveFileId,
+          googleDriveWebViewLink: uploaded.googleDriveWebViewLink,
+          googleDriveDownloadLink: uploaded.googleDriveDownloadLink,
+          mimeType: uploaded.mimeType,
+          fileSize: uploaded.fileSize,
+          folderPath: uploaded.folderPath,
+          sharedWith: [
+            ...menteeEmails.map((email) => ({ email, role: 'viewer' })),
+          ],
+          visibility: 'shared',
+        });
+
+        createdMaterials.push({
+          id: doc._id.toString(),
+          title: doc.title,
+          mimeType: doc.mimeType,
+          fileSize: doc.fileSize,
+          googleDriveWebViewLink: doc.googleDriveWebViewLink,
+          googleDriveDownloadLink: doc.googleDriveDownloadLink,
+        });
+      } catch (err) {
+        const code = err.appCode || 'GOOGLE_DRIVE_UPLOAD_FAILED';
+        const message = toUserMessage(code);
+        return fail(res, 502, code, message);
       }
-    } else {
-      const [sessionIds, acceptedMentors] = await Promise.all([
-        getMenteeSessionIds(req.user.id),
-        MentorshipRequest.find({ mentee: req.user.id, status: 'accepted' }).select('mentor').lean()
-      ]);
+    }
 
-      const acceptedMentorIds = acceptedMentors
-        .map((item) => item.mentor && item.mentor.toString())
-        .filter(Boolean);
+    return ok(res, { materials: createdMaterials }, { count: createdMaterials.length });
+  } catch (err) {
+    return fail(res, 500, 'MATERIAL_UPLOAD_FAILED', err.message || 'Unable to upload materials.');
+  }
+};
 
-      const visibilityConditions = [];
-      if (sessionIds.length) {
-        visibilityConditions.push({ visibility: 'shared', session: { $in: sessionIds } });
-      }
-      if (acceptedMentorIds.length) {
-        visibilityConditions.push({ visibility: 'shared', mentor: { $in: acceptedMentorIds } });
-      }
+// GET /api/materials/mentee
+// Mentee sees files shared with them or explicitly targeted.
+exports.getMenteeMaterials = async (req, res) => {
+  try {
+    if (req.user.role !== 'mentee') {
+      return fail(res, 403, 'FORBIDDEN', 'Only mentees can view mentee materials.');
+    }
 
-      q.$or = [
+    const { page = 1, limit = 20, search } = req.query || {};
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+
+    const baseFilter = {
+      $or: [
         { mentee: req.user.id },
-        ...visibilityConditions
-      ];
-    }
-    if (session) {
-      q.session = session;
-    }
+        { sharedWith: { $elemMatch: { email: req.user.email } } },
+      ],
+    };
+
     if (search) {
-      q.title = new RegExp(String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      baseFilter.title = new RegExp(String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     }
 
-    const items = await Material.find(q)
-      .sort({ createdAt: -1 })
-      .limit(pageLimit)
-      .select('title description originalName storedName sizeBytes mimeType tags visibility mentor mentee session createdAt')
-      .lean();
+    const [items, total] = await Promise.all([
+      Material.find(baseFilter)
+        .sort({ createdAt: -1 })
+        .skip((pageNum - 1) * pageLimit)
+        .limit(pageLimit)
+        .select('title originalName mimeType fileSize googleDriveWebViewLink googleDriveDownloadLink createdAt')
+        .lean(),
+      Material.countDocuments(baseFilter),
+    ]);
 
     const rows = items.map((m) => ({
       id: m._id.toString(),
       title: m.title,
-      description: m.description || null,
-      sizeBytes: m.sizeBytes,
+      originalName: m.originalName,
       mimeType: m.mimeType,
-      tags: m.tags || [],
-      visibility: m.visibility,
-      session: m.session || null,
-      mentee: m.mentee || null,
+      fileSize: m.fileSize,
+      googleDriveWebViewLink: m.googleDriveWebViewLink,
+      googleDriveDownloadLink: m.googleDriveDownloadLink,
       createdAt: m.createdAt,
-      downloadUrl: m.cloudinarySecureUrl || m.cloudinaryUrl || (m.storedName ? `/uploads/materials/${m.storedName}` : null),
-      asset: m.cloudinaryPublicId
-        ? {
-            publicId: m.cloudinaryPublicId,
-            resourceType: m.cloudinaryResourceType || null,
-            format: m.cloudinaryFormat || null,
-          }
-        : null,
     }));
 
-    return ok(res, { materials: rows }, { count: rows.length, limit: pageLimit });
+    const totalPages = Math.max(1, Math.ceil(total / pageLimit));
+
+    return ok(res, { materials: rows }, { total, page: pageNum, limit: pageLimit, totalPages });
   } catch (err) {
-    return fail(res, 500, 'MATERIAL_LIST_FAILED', err.message);
+    return fail(res, 500, 'MENTEE_MATERIALS_FETCH_FAILED', err.message || 'Unable to fetch materials.');
   }
 };
 
-// GET /api/materials/:id/download (auth + access check)
-exports.downloadMaterial = async (req, res) => {
+// GET /api/materials/:materialId/preview
+// Validates user access and redirects to Google Drive preview URL.
+exports.getMaterialPreview = async (req, res) => {
   try {
-    const m = await Material.findById(req.params.id)
-      .select('mentor mentee session storedName visibility cloudinarySecureUrl cloudinaryUrl cloudinaryPublicId cloudinaryResourceType originalName title')
+    const { materialId } = req.params;
+    const m = await Material.findById(materialId)
+      .select('mentor mentee googleDriveWebViewLink visibility session')
       .lean();
-    if (!m) return fail(res, 404, 'NOT_FOUND', 'Material not found.');
+
+    if (!m) {
+      return fail(res, 404, 'NOT_FOUND', 'Material not found.');
+    }
 
     if (req.user.role === 'mentor') {
-      if (m.mentor.toString() !== req.user.id) return fail(res, 403, 'FORBIDDEN', 'Access denied.');
-    } else {
-      // mentee: must be addressed OR shared and from one of their sessions
+      if (m.mentor.toString() !== req.user.id) {
+        return fail(res, 403, 'FORBIDDEN', 'Access denied.');
+      }
+    } else if (req.user.role === 'mentee') {
       const allowed = m.mentee && m.mentee.toString() === req.user.id;
-      let sessionAllowed = false;
-      let mentorMatchAllowed = false;
-      if (!allowed && m.visibility === 'shared' && m.session) {
-        const ownsSession = await Session.exists({ _id: m.session, mentee: req.user.id });
-        sessionAllowed = !!ownsSession;
+      if (!allowed) {
+        const sessionAllowed = m.session
+          ? await Session.exists({ _id: m.session, mentee: req.user.id })
+          : false;
+        if (!sessionAllowed) {
+          return fail(res, 403, 'FORBIDDEN', 'Access denied.');
+        }
       }
-      if (!allowed && !sessionAllowed && m.visibility === 'shared') {
-        const hasAcceptedMatch = await MentorshipRequest.exists({
-          mentor: m.mentor,
-          mentee: req.user.id,
-          status: 'accepted'
-        });
-        mentorMatchAllowed = !!hasAcceptedMatch;
-      }
-      if (!allowed && !sessionAllowed && !mentorMatchAllowed) return fail(res, 403, 'FORBIDDEN', 'Access denied.');
     }
 
-    const fileUrl = m.cloudinarySecureUrl || m.cloudinaryUrl;
-    if (fileUrl) {
-      try {
-        const upstream = await axios.get(fileUrl, { responseType: 'stream' });
-        const filenameBase = (m.originalName || m.title || 'material').replace(/"/g, '');
-        if (upstream.headers['content-type']) {
-          res.setHeader('Content-Type', upstream.headers['content-type']);
-        }
-        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filenameBase)}"`);
-        upstream.data.on('error', () => {
-          res.end();
-        });
-        return upstream.data.pipe(res);
-      } catch (err) {
-        return fail(res, 502, 'STORAGE_FETCH_FAILED', 'Unable to retrieve the material from storage.');
-      }
+    if (!m.googleDriveWebViewLink) {
+      return fail(res, 404, 'NOT_FOUND', 'Preview link not available.');
     }
-    if (m.storedName) {
-      return res.redirect(`/uploads/materials/${m.storedName}`);
-    }
-    return fail(res, 404, 'NOT_FOUND', 'Material asset missing.');
+
+    return res.redirect(302, m.googleDriveWebViewLink);
   } catch (err) {
-    return fail(res, 500, 'MATERIAL_DOWNLOAD_FAILED', err.message);
+    return fail(res, 500, 'MATERIAL_PREVIEW_FAILED', err.message || 'Unable to preview material.');
   }
 };
 
 // DELETE /api/materials/:id (mentor only, delete own)
+// Note: for now this is a soft delete of DB record; Drive permissions can be pruned in a follow-up.
 exports.deleteMaterial = async (req, res) => {
   try {
     if (req.user.role !== 'mentor') return fail(res, 403, 'FORBIDDEN', 'Only mentors can delete materials.');
@@ -222,15 +210,9 @@ exports.deleteMaterial = async (req, res) => {
     if (!doc) return fail(res, 404, 'NOT_FOUND', 'Material not found.');
 
     await Material.deleteOne({ _id: doc._id });
-    if (doc.cloudinaryPublicId) {
-      deleteAsset(doc.cloudinaryPublicId, doc.cloudinaryResourceType).catch(() => {});
-    }
-    if (doc.storedName) {
-      const filePath = path.join(__dirname, `../../uploads/materials/${doc.storedName}`);
-      fs.promises.unlink(filePath).catch(() => {});
-    }
+
     return ok(res, { deleted: true });
   } catch (err) {
-    return fail(res, 500, 'MATERIAL_DELETE_FAILED', err.message);
+    return fail(res, 500, 'MATERIAL_DELETE_FAILED', err.message || 'Unable to delete material.');
   }
 };
