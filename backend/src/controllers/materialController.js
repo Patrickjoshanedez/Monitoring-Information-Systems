@@ -6,6 +6,16 @@ const { fail, ok } = require('../utils/responses');
 const { uploadSessionMaterial } = require('../utils/gdriveService');
 const { toUserMessage } = require('../utils/gdriveErrorHandler');
 
+const DRIVE_ERROR_STATUS_MAP = {
+  GOOGLE_DRIVE_FILE_TOO_LARGE: 400,
+  GOOGLE_DRIVE_UNSUPPORTED_FILE_TYPE: 400,
+  GOOGLE_DRIVE_NO_FILE: 400,
+  GOOGLE_DRIVE_PERMISSION_DENIED: 403,
+  GOOGLE_DRIVE_FILE_NOT_FOUND: 404,
+  GOOGLE_DRIVE_SERVICE_UNAVAILABLE: 503,
+  NETWORK_ERROR: 503,
+};
+
 // Helper: get session ids for mentee to filter shared materials tied to their sessions
 const getMenteeSessionIds = async (menteeId) => {
   const ids = await Session.find({ mentee: menteeId }).select('_id').lean();
@@ -100,7 +110,8 @@ exports.uploadToGoogleDrive = async (req, res) => {
       } catch (err) {
         const code = err.appCode || 'GOOGLE_DRIVE_UPLOAD_FAILED';
         const message = toUserMessage(code);
-        return fail(res, 502, code, message);
+        const status = DRIVE_ERROR_STATUS_MAP[code] || 502;
+        return fail(res, status, code, message);
       }
     }
 

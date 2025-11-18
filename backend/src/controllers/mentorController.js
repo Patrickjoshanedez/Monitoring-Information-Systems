@@ -237,6 +237,14 @@ exports.submitMentorshipRequest = async (req, res) => {
       });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(mentorId)) {
+      return res.status(404).json({
+        success: false,
+        error: 'MENTOR_NOT_AVAILABLE',
+        message: 'Selected mentor is not available.',
+      });
+    }
+
     const mentee = await User.findById(req.user.id).select('role applicationStatus firstname lastname email');
     if (!mentee || mentee.role !== 'mentee') {
       return res.status(403).json({
@@ -318,6 +326,13 @@ exports.submitMentorshipRequest = async (req, res) => {
     });
   } catch (error) {
     console.error('submitMentorshipRequest error:', error);
+    if (error instanceof mongoose.Error.CastError) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_MENTOR_ID',
+        message: 'The provided mentorId is invalid.',
+      });
+    }
     return res.status(500).json({
       success: false,
       error: 'REQUEST_FAILED',

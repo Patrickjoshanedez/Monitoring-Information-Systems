@@ -23,6 +23,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   REQUEST_EXISTS: 'You already have an active request with this mentor.',
   MENTOR_NOT_AVAILABLE: 'This mentor is not available right now. Please pick another mentor.',
   FORBIDDEN: 'Only mentees can send mentorship requests.',
+  INVALID_MENTOR_ID: 'This mentor is not available right now. Please pick another mentor.',
+  REQUEST_FAILED: 'Unable to submit mentorship request right now. Please try again shortly.',
 };
 
 const MentorshipRequestModal: React.FC<MentorshipRequestModalProps> = ({ open, mentor, onClose, onSubmit, submitting }) => {

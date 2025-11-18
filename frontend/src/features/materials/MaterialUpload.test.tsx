@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import MaterialUpload from './MaterialUpload';
 
 const mockUploadHook = {
@@ -34,5 +34,21 @@ describe('MaterialUpload', () => {
         const file = new File(['example'], 'notes.pdf', { type: 'application/pdf' });
         fireEvent.change(input, { target: { files: [file] } });
         expect(screen.getByText(/1 file\(s\) selected/i)).toBeInTheDocument();
+    });
+
+    it('surfaces server error message when upload fails', async () => {
+        mockUploadHook.mutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { data: { message: 'Only mentors can upload materials.' } },
+        });
+
+        render(<MaterialUpload sessionId="general" />);
+        const input = screen.getByLabelText(/upload materials/i);
+        const file = new File(['example'], 'notes.pdf', { type: 'application/pdf' });
+        fireEvent.change(input, { target: { files: [file] } });
+
+        fireEvent.click(screen.getByRole('button', { name: /upload/i }));
+
+        await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Only mentors can upload materials.'));
     });
 });

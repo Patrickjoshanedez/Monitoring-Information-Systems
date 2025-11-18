@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../shared/config/apiClient';
 
+const MATERIAL_UPLOAD_TIMEOUT_MS = Number(importMetaEnv?.VITE_MATERIAL_UPLOAD_TIMEOUT_MS ?? 60_000);
+
 export interface MaterialItem {
     id: string;
     title: string;
@@ -37,6 +39,7 @@ export const useUploadSessionMaterials = (sessionId: string) => {
 
             const response = await apiClient.post(`/sessions/${sessionId}/upload`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: MATERIAL_UPLOAD_TIMEOUT_MS,
             });
             return (response.data?.data?.materials ?? []) as MaterialItem[];
         },

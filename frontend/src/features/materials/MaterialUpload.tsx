@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import axios from 'axios';
 import PropTypes from 'prop-types';
 import { useUploadSessionMaterials } from '../../hooks/useMaterials';
 
@@ -29,9 +30,25 @@ const MaterialUpload: React.FC<MaterialUploadProps> = ({ sessionId, menteeIds })
             }
             try {
                 await uploadMutation.mutateAsync({ files, menteeIds });
+                setError(null);
                 setFiles([]);
-            } catch (e: any) {
-                setError(e?.message || 'Upload failed.');
+            } catch (unknownError) {
+                if (axios.isAxiosError(unknownError)) {
+                    if (unknownError.code === 'ECONNABORTED') {
+                        setError('Upload is taking longer than expected. Please check your connection and try again.');
+                        return;
+                    }
+
+                    const apiMessage =
+                        (unknownError.response?.data as { message?: string; error?: string } | undefined)?.message ||
+                        (unknownError.response?.data as { message?: string; error?: string } | undefined)?.error;
+
+                    setError(apiMessage || unknownError.message || 'Upload failed.');
+                    return;
+                }
+
+                const fallbackMessage = unknownError instanceof Error ? unknownError.message : 'Upload failed.';
+                setError(fallbackMessage);
             }
         },
         [files, menteeIds, uploadMutation],

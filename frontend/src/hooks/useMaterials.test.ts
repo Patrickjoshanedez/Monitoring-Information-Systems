@@ -6,6 +6,10 @@ jest.mock('../shared/config/apiClient', () => ({
     },
 }));
 
+(globalThis as any).importMetaEnv = {
+    VITE_MATERIAL_UPLOAD_TIMEOUT_MS: '60000',
+};
+
 import { buildPreviewUrl } from './useMaterials';
 
 describe('buildPreviewUrl', () => {

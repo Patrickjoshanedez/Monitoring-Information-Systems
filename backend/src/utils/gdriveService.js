@@ -1,6 +1,5 @@
 const { google } = require('googleapis');
 const stream = require('stream');
-const mongoose = require('mongoose');
 const { toAppErrorCode, logDriveError } = require('./gdriveErrorHandler');
 
 const MAX_FILE_SIZE_BYTES = Number(process.env.MAX_FILE_SIZE_BYTES || 25 * 1024 * 1024); // 25MB default
@@ -15,19 +14,40 @@ const SUPPORTED_MIME_TYPES = new Set([
   'application/zip',
 ]);
 
-const getDriveClient = () => {
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-  const scopes = ['https://www.googleapis.com/auth/drive'];
+let oauthClient;
+let driveClient;
 
-  if (!clientEmail || !privateKey) {
-    throw new Error('GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_PRIVATE_KEY is not configured');
+const requiredEnv = [
+  'GOOGLE_DRIVE_CLIENT_ID',
+  'GOOGLE_DRIVE_CLIENT_SECRET',
+  'GOOGLE_DRIVE_REDIRECT_URI',
+  'GOOGLE_DRIVE_REFRESH_TOKEN',
+];
+
+const ensureEnv = () => {
+  const missing = requiredEnv.filter((key) => !process.env[key]);
+  if (missing.length) {
+    throw new Error(`Missing Google Drive OAuth env vars: ${missing.join(', ')}`);
+  }
+};
+
+const getDriveClient = () => {
+  ensureEnv();
+
+  if (!oauthClient) {
+    oauthClient = new google.auth.OAuth2(
+      process.env.GOOGLE_DRIVE_CLIENT_ID,
+      process.env.GOOGLE_DRIVE_CLIENT_SECRET,
+      process.env.GOOGLE_DRIVE_REDIRECT_URI,
+    );
+    oauthClient.setCredentials({ refresh_token: process.env.GOOGLE_DRIVE_REFRESH_TOKEN });
   }
 
-  const jwtClient = new google.auth.JWT(clientEmail, null, privateKey, scopes);
-  const drive = google.drive({ version: 'v3', auth: jwtClient });
+  if (!driveClient) {
+    driveClient = google.drive({ version: 'v3', auth: oauthClient });
+  }
 
-  return { drive, auth: jwtClient };
+  return { drive: driveClient, auth: oauthClient };
 };
 
 const ensureFolder = async (drive, name, parentId) => {
