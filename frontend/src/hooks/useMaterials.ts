@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../shared/config/apiClient';
 
-const MATERIAL_UPLOAD_TIMEOUT_MS = Number(importMetaEnv?.VITE_MATERIAL_UPLOAD_TIMEOUT_MS ?? 60_000);
+const MATERIAL_UPLOAD_TIMEOUT_MS = (() => {
+    const parsed = Number(import.meta.env.VITE_MATERIAL_UPLOAD_TIMEOUT_MS ?? 60_000);
+    return Number.isFinite(parsed) ? parsed : 60_000;
+})();
 
 export interface MaterialItem {
     id: string;
@@ -12,16 +15,57 @@ export interface MaterialItem {
     googleDriveWebViewLink?: string;
     googleDriveDownloadLink?: string;
     createdAt: string;
+    sessionId?: string;
 }
 
-const menteeMaterialsKey = ['materials', 'mentee'];
+export interface MaterialsMeta {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+}
+
+export interface MentorMaterialsResult {
+    materials: MaterialItem[];
+    meta?: MaterialsMeta | null;
+}
+
+const menteeMaterialsKey = ['materials', 'mentee'] as const;
+const mentorMaterialsKey = ['materials', 'mentor'] as const;
+
+const extractMaterialsArray = (response: any): MaterialItem[] => {
+    const possible =
+        response?.data?.data?.materials ??
+        response?.data?.materials ??
+        response?.data ??
+        [];
+    return Array.isArray(possible) ? (possible as MaterialItem[]) : [];
+};
+
+const invalidateMaterialQueries = (queryClient: ReturnType<typeof useQueryClient>) => {
+    queryClient.invalidateQueries({ queryKey: menteeMaterialsKey });
+    queryClient.invalidateQueries({ queryKey: mentorMaterialsKey });
+};
 
 export const useMenteeMaterials = (params?: { page?: number; limit?: number; search?: string }) => {
-    return useQuery({
+    return useQuery<MaterialItem[]>({
         queryKey: [...menteeMaterialsKey, params ?? {}],
         queryFn: async () => {
-            const response = await apiClient.get('/mentee', { params });
-            return (response.data?.data?.materials ?? []) as MaterialItem[];
+            const response = await apiClient.get('/materials/mentee', { params });
+            return extractMaterialsArray(response);
+        },
+    });
+};
+
+export const useMentorMaterials = (params?: { page?: number; limit?: number; search?: string; sessionId?: string }) => {
+    return useQuery<MentorMaterialsResult>({
+        queryKey: [...mentorMaterialsKey, params ?? {}],
+        queryFn: async () => {
+            const response = await apiClient.get('/materials/mentor', { params });
+            return {
+                materials: extractMaterialsArray(response),
+                meta: response.data?.meta ?? response.data?.data?.meta ?? null,
+            };
         },
     });
 };
@@ -37,14 +81,14 @@ export const useUploadSessionMaterials = (sessionId: string) => {
                 payload.menteeIds.forEach((id) => formData.append('menteeIds', id));
             }
 
-            const response = await apiClient.post(`/sessions/${sessionId}/upload`, formData, {
+            const response = await apiClient.post(`/materials/sessions/${sessionId}/upload`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
                 timeout: MATERIAL_UPLOAD_TIMEOUT_MS,
             });
-            return (response.data?.data?.materials ?? []) as MaterialItem[];
+            return extractMaterialsArray(response);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: menteeMaterialsKey });
+            invalidateMaterialQueries(queryClient);
         },
     });
 };
@@ -54,12 +98,12 @@ export const useDeleteMaterial = () => {
 
     return useMutation({
         mutationFn: async (materialId: string) => {
-            await apiClient.delete(`/${materialId}`);
+            await apiClient.delete(`/materials/${materialId}`);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: menteeMaterialsKey });
+            invalidateMaterialQueries(queryClient);
         },
     });
 };
 
-export const buildPreviewUrl = (materialId: string) => `/api/${materialId}/preview`;
+export const buildPreviewUrl = (materialId: string) => `/api/materials/${materialId}/preview`;

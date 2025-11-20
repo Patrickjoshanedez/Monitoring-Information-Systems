@@ -15,6 +15,9 @@ router.post(
 // Mentee view of materials shared with them
 router.get('/mentee', auth, materialController.getMenteeMaterials);
 
+// Mentor view/managing of their own materials
+router.get('/mentor', auth, materialController.getMentorMaterials);
+
 // Preview a material via Google Drive web view link
 router.get('/:materialId/preview', auth, materialController.getMaterialPreview);
 

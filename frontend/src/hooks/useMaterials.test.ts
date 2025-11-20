@@ -14,6 +14,6 @@ import { buildPreviewUrl } from './useMaterials';
 
 describe('buildPreviewUrl', () => {
     it('returns the API preview path for a given material id', () => {
-        expect(buildPreviewUrl('abc123')).toBe('/api/abc123/preview');
+        expect(buildPreviewUrl('abc123')).toBe('/api/materials/abc123/preview');
     });
 });

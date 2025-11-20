@@ -227,3 +227,63 @@ exports.deleteMaterial = async (req, res) => {
     return fail(res, 500, 'MATERIAL_DELETE_FAILED', err.message || 'Unable to delete material.');
   }
 };
+
+// GET /api/materials/mentor
+// Mentors can review their uploaded files, optionally filtered by session or search term
+exports.getMentorMaterials = async (req, res) => {
+  try {
+    if (req.user.role !== 'mentor') {
+      return fail(res, 403, 'FORBIDDEN', 'Only mentors can view mentor materials.');
+    }
+
+    const { page = 1, limit = 20, search, sessionId } = req.query || {};
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+
+    const filter = { mentor: req.user.id };
+
+    if (sessionId && Types.ObjectId.isValid(sessionId)) {
+      filter.session = sessionId;
+    }
+
+    if (search) {
+      const sanitized = String(search).trim();
+      if (sanitized.length) {
+        filter.title = new RegExp(sanitized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      }
+    }
+
+    const [items, total] = await Promise.all([
+      Material.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((pageNum - 1) * pageLimit)
+        .limit(pageLimit)
+        .select('title originalName mimeType fileSize googleDriveWebViewLink googleDriveDownloadLink createdAt session')
+        .lean(),
+      Material.countDocuments(filter),
+    ]);
+
+    const rows = items.map((m) => ({
+      id: m._id.toString(),
+      title: m.title,
+      originalName: m.originalName,
+      mimeType: m.mimeType,
+      fileSize: m.fileSize,
+      googleDriveWebViewLink: m.googleDriveWebViewLink,
+      googleDriveDownloadLink: m.googleDriveDownloadLink,
+      createdAt: m.createdAt,
+      sessionId: m.session ? m.session.toString() : undefined,
+    }));
+
+    const meta = {
+      total,
+      page: pageNum,
+      limit: pageLimit,
+      totalPages: Math.max(1, Math.ceil(total / pageLimit)),
+    };
+
+    return ok(res, { materials: rows }, meta);
+  } catch (err) {
+    return fail(res, 500, 'MENTOR_MATERIALS_FETCH_FAILED', err.message || 'Unable to fetch mentor materials.');
+  }
+};
