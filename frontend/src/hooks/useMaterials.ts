@@ -16,6 +16,10 @@ export interface MaterialItem {
     googleDriveDownloadLink?: string;
     createdAt: string;
     sessionId?: string;
+    sessionSubject?: string | null;
+    sessionDate?: string | null;
+    mentorName?: string | null;
+    mentorEmail?: string | null;
 }
 
 export interface MaterialsMeta {
@@ -28,6 +32,18 @@ export interface MaterialsMeta {
 export interface MentorMaterialsResult {
     materials: MaterialItem[];
     meta?: MaterialsMeta | null;
+}
+
+export interface MaterialSessionOption {
+    id: string;
+    subject: string;
+    date?: string | null;
+    mentorName?: string | null;
+}
+
+export interface MenteeMaterialsResult {
+    materials: MaterialItem[];
+    sessions: MaterialSessionOption[];
 }
 
 const menteeMaterialsKey = ['materials', 'mentee'] as const;
@@ -47,12 +63,17 @@ const invalidateMaterialQueries = (queryClient: ReturnType<typeof useQueryClient
     queryClient.invalidateQueries({ queryKey: mentorMaterialsKey });
 };
 
-export const useMenteeMaterials = (params?: { page?: number; limit?: number; search?: string }) => {
-    return useQuery<MaterialItem[]>({
+export const useMenteeMaterials = (params?: { page?: number; limit?: number; search?: string; sessionId?: string }) => {
+    return useQuery<MenteeMaterialsResult>({
         queryKey: [...menteeMaterialsKey, params ?? {}],
         queryFn: async () => {
             const response = await apiClient.get('/materials/mentee', { params });
-            return extractMaterialsArray(response);
+            const materials = extractMaterialsArray(response);
+            const sessions = response?.data?.data?.sessions ?? response?.data?.sessions ?? [];
+            return {
+                materials,
+                sessions: Array.isArray(sessions) ? (sessions as MaterialSessionOption[]) : [],
+            };
         },
     });
 };

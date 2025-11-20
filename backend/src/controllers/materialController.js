@@ -122,16 +122,25 @@ exports.uploadToGoogleDrive = async (req, res) => {
 };
 
 // GET /api/materials/mentee
-// Mentee sees files shared with them or explicitly targeted.
+// Mentee sees files shared with them or explicitly targeted, optionally filtered by session.
 exports.getMenteeMaterials = async (req, res) => {
   try {
     if (req.user.role !== 'mentee') {
       return fail(res, 403, 'FORBIDDEN', 'Only mentees can view mentee materials.');
     }
 
-    const { page = 1, limit = 20, search } = req.query || {};
+    const { page = 1, limit = 20, search, sessionId } = req.query || {};
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
     const pageLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+
+    const menteeSessions = await Session.find({ mentee: req.user.id })
+      .sort({ date: -1 })
+      .limit(100)
+      .select('subject date mentor')
+      .populate({ path: 'mentor', select: 'name' })
+      .lean();
+
+    const menteeSessionIds = menteeSessions.map((session) => session._id);
 
     const baseFilter = {
       $or: [
@@ -139,6 +148,17 @@ exports.getMenteeMaterials = async (req, res) => {
         { sharedWith: { $elemMatch: { email: req.user.email } } },
       ],
     };
+
+    if (menteeSessionIds.length) {
+      baseFilter.$or.push({ session: { $in: menteeSessionIds } });
+    }
+
+    if (sessionId) {
+      if (!Types.ObjectId.isValid(sessionId)) {
+        return fail(res, 400, 'INVALID_SESSION_ID', 'The provided sessionId is invalid.');
+      }
+      baseFilter.session = sessionId;
+    }
 
     if (search) {
       baseFilter.title = new RegExp(String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -149,7 +169,11 @@ exports.getMenteeMaterials = async (req, res) => {
         .sort({ createdAt: -1 })
         .skip((pageNum - 1) * pageLimit)
         .limit(pageLimit)
-        .select('title originalName mimeType fileSize googleDriveWebViewLink googleDriveDownloadLink createdAt')
+        .select(
+          'title originalName mimeType fileSize googleDriveWebViewLink googleDriveDownloadLink createdAt session mentor'
+        )
+        .populate({ path: 'session', select: 'subject date mentor' })
+        .populate({ path: 'mentor', select: 'name email' })
         .lean(),
       Material.countDocuments(baseFilter),
     ]);
@@ -163,11 +187,27 @@ exports.getMenteeMaterials = async (req, res) => {
       googleDriveWebViewLink: m.googleDriveWebViewLink,
       googleDriveDownloadLink: m.googleDriveDownloadLink,
       createdAt: m.createdAt,
+      mentorName: m.mentor?.name || null,
+      mentorEmail: m.mentor?.email || null,
+      sessionId: m.session?._id ? m.session._id.toString() : undefined,
+      sessionSubject: m.session?.subject || null,
+      sessionDate: m.session?.date || null,
     }));
 
     const totalPages = Math.max(1, Math.ceil(total / pageLimit));
 
-    return ok(res, { materials: rows }, { total, page: pageNum, limit: pageLimit, totalPages });
+    const sessionOptions = menteeSessions.map((session) => ({
+      id: session._id.toString(),
+      subject: session.subject,
+      date: session.date,
+      mentorName: session.mentor?.name || null,
+    }));
+
+    return ok(
+      res,
+      { materials: rows, sessions: sessionOptions },
+      { total, page: pageNum, limit: pageLimit, totalPages }
+    );
   } catch (err) {
     return fail(res, 500, 'MENTEE_MATERIALS_FETCH_FAILED', err.message || 'Unable to fetch materials.');
   }

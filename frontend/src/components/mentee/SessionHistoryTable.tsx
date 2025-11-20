@@ -4,6 +4,8 @@ import type { MenteeSession } from '../../shared/services/sessionsService';
 
 type SortKey = 'subject' | 'mentor' | 'date';
 
+const normalizeText = (value?: string | null) => (typeof value === 'string' ? value : '');
+
 const SessionHistoryTable: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortKey>('date');
   const { data: sessions = [], isLoading, isError, refetch } = useMenteeSessions();
@@ -16,10 +18,16 @@ const SessionHistoryTable: React.FC = () => {
   const sortedSessions = useMemo(() => {
     return [...completedSessions].sort((a, b) => {
       switch (sortBy) {
-        case 'subject':
-          return a.subject.localeCompare(b.subject);
-        case 'mentor':
-          return (a.mentor?.name || '').localeCompare(b.mentor?.name || '');
+        case 'subject': {
+          const subjectA = normalizeText(a.subject);
+          const subjectB = normalizeText(b.subject);
+          return subjectA.localeCompare(subjectB);
+        }
+        case 'mentor': {
+          const mentorA = normalizeText(a.mentor?.name);
+          const mentorB = normalizeText(b.mentor?.name);
+          return mentorA.localeCompare(mentorB);
+        }
         case 'date':
         default:
           return new Date(b.completedAt || b.date).getTime() - new Date(a.completedAt || a.date).getTime();
@@ -88,7 +96,7 @@ const SessionHistoryTable: React.FC = () => {
               sortedSessions.map((session: MenteeSession) => (
                 <tr key={session.id} className="hover:tw-bg-gray-50">
                   <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-font-medium tw-text-gray-900">
-                    {session.subject}
+                    {session.subject || 'Untitled session'}
                   </td>
                   <td className="tw-px-6 tw-py-4 tw-whitespace-nowrap tw-text-sm tw-text-gray-600">
                     {session.mentor?.name || '—'}

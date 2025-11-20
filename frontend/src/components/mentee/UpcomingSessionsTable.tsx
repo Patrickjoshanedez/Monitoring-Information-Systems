@@ -11,6 +11,8 @@ const formatDate = (value?: string | null) => {
   return date.toLocaleString();
 };
 
+const normalizeText = (value?: string | null) => (typeof value === 'string' ? value : '');
+
 const UpcomingSessionsTable: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('date');
@@ -26,21 +28,28 @@ const UpcomingSessionsTable: React.FC = () => {
   const upcomingSessions = useMemo(() => sessions.filter((session) => !session.attended), [sessions]);
 
   const filteredSessions = useMemo(() => {
-    const lower = searchTerm.toLowerCase();
-    return upcomingSessions.filter((session) =>
-      session.subject.toLowerCase().includes(lower) ||
-      (session.mentor?.name?.toLowerCase().includes(lower) ?? false)
-    );
+    const lower = normalizeText(searchTerm).toLowerCase();
+    return upcomingSessions.filter((session) => {
+      const subject = normalizeText(session.subject).toLowerCase();
+      const mentor = normalizeText(session.mentor?.name).toLowerCase();
+      return subject.includes(lower) || mentor.includes(lower);
+    });
   }, [upcomingSessions, searchTerm]);
 
   const sortedSessions = useMemo(() => {
     const toTime = (value?: string | null) => (value ? Date.parse(value) : 0);
     return [...filteredSessions].sort((a, b) => {
       switch (sortBy) {
-        case 'subject':
-          return a.subject.localeCompare(b.subject);
-        case 'mentor':
-          return (a.mentor?.name || '').localeCompare(b.mentor?.name || '');
+        case 'subject': {
+          const subjectA = normalizeText(a.subject);
+          const subjectB = normalizeText(b.subject);
+          return subjectA.localeCompare(subjectB);
+        }
+        case 'mentor': {
+          const mentorA = normalizeText(a.mentor?.name);
+          const mentorB = normalizeText(b.mentor?.name);
+          return mentorA.localeCompare(mentorB);
+        }
         case 'duration':
           return b.durationMinutes - a.durationMinutes;
         case 'date':
@@ -195,7 +204,7 @@ const UpcomingSessionsTable: React.FC = () => {
             ) : (
               sortedSessions.map((session) => (
                 <tr key={session.id} className="hover:tw-bg-gray-50">
-                  <td className="tw-px-6 tw-py-4 tw-text-sm tw-font-medium tw-text-gray-900">{session.subject}</td>
+                  <td className="tw-px-6 tw-py-4 tw-text-sm tw-font-medium tw-text-gray-900">{session.subject || 'Untitled session'}</td>
                   <td className="tw-px-6 tw-py-4 tw-text-sm tw-text-gray-600">{session.mentor?.name || '—'}</td>
                   <td className="tw-px-6 tw-py-4 tw-text-sm tw-text-gray-600">{formatDate(session.date)}</td>
                   <td className="tw-px-6 tw-py-4 tw-text-sm tw-text-gray-600">{session.durationMinutes || 60} min</td>

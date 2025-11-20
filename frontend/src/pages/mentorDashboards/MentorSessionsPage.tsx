@@ -1,6 +1,7 @@
 import React from 'react';
 import DashboardLayout from '../../components/layouts/DashboardLayout';
 import MentorSessionsManager from '../../components/mentor/MentorSessionsManager';
+import MentorRecognitionPanel from '../../components/mentor/MentorRecognitionPanel';
 
 const MentorSessionsPage: React.FC = () => (
     <DashboardLayout>
@@ -12,6 +13,8 @@ const MentorSessionsPage: React.FC = () => (
                     Review upcoming meetings, capture outcomes, and instantly open feedback for your mentees with one click.
                 </p>
             </div>
+
+            <MentorRecognitionPanel />
 
             <MentorSessionsManager />
         </div>
