@@ -5,6 +5,8 @@ import {
     createMentorFeedback,
     updateMentorFeedback,
     MentorFeedbackRecord,
+    fetchProgressSnapshotForMentee,
+    MenteeProgressSnapshot,
 } from '../services/mentorFeedbackService';
 import { mentorSessionsKey } from './useMentorSessions';
 import { progressSnapshotKey } from './useGoals';
@@ -41,6 +43,18 @@ export const useUpdateMentorFeedback = () => {
             qc.invalidateQueries({ queryKey: progressSnapshotKey });
             qc.invalidateQueries({ queryKey: buildSessionMentorFeedbackKey(variables.sessionId) });
         },
+    });
+};
+
+// Hook: fetch progress snapshot for a first-class mentee id (mentor / admin views)
+const buildMenteeProgressKey = (menteeId?: string | null) => ['progressSnapshot', 'mentee', menteeId];
+
+export const useMenteeProgressSnapshot = (menteeId?: string | null, options?: { enabled?: boolean }) => {
+    return useQuery<MenteeProgressSnapshot | null>({
+        queryKey: buildMenteeProgressKey(menteeId),
+        queryFn: () => fetchProgressSnapshotForMentee(menteeId as string),
+        enabled: Boolean(menteeId) && (options?.enabled ?? true),
+        staleTime: 60 * 1000,
     });
 };
 

@@ -7,7 +7,8 @@ jest.mock('../../../shared/hooks/useSessionLifecycle', () => ({
     useRecordSessionAttendance: jest.fn(),
 }));
 
-const mockUseRecord = require('../../../shared/hooks/useSessionLifecycle').useRecordSessionAttendance as jest.Mock;
+import { useRecordSessionAttendance } from '../../../shared/hooks/useSessionLifecycle';
+const mockUseRecord = useRecordSessionAttendance as jest.Mock;
 
 const participants = [
     { id: 'p1', name: 'Alice' },

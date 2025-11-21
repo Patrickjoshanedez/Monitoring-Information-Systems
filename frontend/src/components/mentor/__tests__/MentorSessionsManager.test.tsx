@@ -21,10 +21,14 @@ jest.mock('../../mentor/MentorSessionComposer', () => ({
     default: () => null,
 }));
 
+// Stub the ProgressDashboard so unit-tests don't render the full component.
+jest.mock('../../mentee/ProgressDashboard', () => ({ __esModule: true, default: () => <div>ProgressDashboardStub</div> }));
+
 jest.mock('../../../shared/hooks/useMentorFeedback', () => ({
     useMentorFeedbackForSession: jest.fn(),
     useCreateMentorFeedback: jest.fn(),
     useUpdateMentorFeedback: jest.fn(),
+    useMenteeProgressSnapshot: jest.fn(),
 }));
 
 const mockUseMentorSessions = useMentorSessions as jest.Mock;
@@ -32,7 +36,11 @@ const mockUseCompleteMentorSession = useCompleteMentorSession as jest.Mock;
 const mockUseMentorFeedbackForSession = useMentorFeedbackForSession as jest.Mock;
 const mockUseCreateMentorFeedback = useCreateMentorFeedback as jest.Mock;
 const mockUseUpdateMentorFeedback = useUpdateMentorFeedback as jest.Mock;
-const mockUseRecordAttendance = require('../../../shared/hooks/useSessionLifecycle').useRecordSessionAttendance as jest.Mock;
+import { useMenteeProgressSnapshot } from '../../../shared/hooks/useMentorFeedback';
+import { useRecordSessionAttendance } from '../../../shared/hooks/useSessionLifecycle';
+
+const mockUseMenteeProgressSnapshot = useMenteeProgressSnapshot as jest.Mock;
+const mockUseRecordAttendance = useRecordSessionAttendance as jest.Mock;
 
 function baseSession(overrides: Record<string, any> = {}) {
     return {
@@ -56,6 +64,7 @@ beforeEach(() => {
     mockUseCompleteMentorSession.mockReturnValue({ mutateAsync: jest.fn(), isLoading: false });
     mockUseRecordAttendance.mockReturnValue({ mutateAsync: jest.fn(), isLoading: false });
     mockUseMentorFeedbackForSession.mockReturnValue({ data: null, isLoading: false });
+    mockUseMenteeProgressSnapshot.mockReturnValue({ data: null, isLoading: false });
     mockUseCreateMentorFeedback.mockReturnValue({ mutateAsync: jest.fn(), isLoading: false });
     mockUseUpdateMentorFeedback.mockReturnValue({ mutateAsync: jest.fn(), isLoading: false });
 });
@@ -77,23 +86,43 @@ describe('MentorSessionsManager', () => {
         const row = within(table).getByText('Portfolio Review').closest('tr');
         expect(row).toBeTruthy();
 
-        // Find the Give feedback button in this row
-        const giveFeedbackBtn = within(row as HTMLElement).getByRole('button', { name: /give feedback/i });
+        // Click View details to open the right-side details panel
+        const viewBtn = within(row as HTMLElement).getByRole('button', { name: /view details/i });
+        expect(viewBtn).toBeInTheDocument();
+        fireEvent.click(viewBtn);
+
+        // The panel should show the session subject and the Attendance badge for primary participant
+        const menteeEls = screen.getAllByText(/mentee:\s*student one/i);
+        const panelEl = menteeEls.find((el) => el.closest('aside'));
+        expect(panelEl).toBeTruthy();
+        const panelAside = panelEl!.closest('aside') as HTMLElement;
+        expect(within(panelAside).getByText(/present/i)).toBeInTheDocument();
+
+        // The action buttons should be shown in the right-side panel now
+        const giveFeedbackBtn = screen.getByRole('button', { name: /give feedback/i });
         expect(giveFeedbackBtn).toBeInTheDocument();
 
-        // Find the Attendance button that we just added
-        const attendanceBtn = within(row as HTMLElement).getByRole('button', { name: /attendance/i });
-        expect(attendanceBtn).toBeInTheDocument();
+        // Row should no longer contain action buttons (they live in the right-side panel)
+        expect(within(row as HTMLElement).queryByRole('button', { name: /attendance/i })).toBeNull();
 
-        fireEvent.click(attendanceBtn);
+        // Click the Attendance button in the right panel (not the row)
+        const attendanceBtnInPanel = screen.getByRole('button', { name: /attendance/i });
+        expect(attendanceBtnInPanel).toBeInTheDocument();
+        fireEvent.click(attendanceBtnInPanel);
 
-            // The attendance modal should appear
-            expect(screen.getByText(/Record attendance/i)).toBeInTheDocument();
+        // The attendance modal should appear
+        expect(screen.getByText(/Record attendance/i)).toBeInTheDocument();
+
+        // Close the attendance modal (click close) and then open feedback from panel
+        // Locate the attendance dialog and close it explicitly
+        const attendanceDialogHeading = screen.getByText(/Record attendance/i);
+        const attendanceDialog = attendanceDialogHeading.closest('[role="dialog"]') as HTMLElement;
+        const closeBtn = within(attendanceDialog).getByRole('button', { name: /close/i });
+        fireEvent.click(closeBtn);
 
         fireEvent.click(giveFeedbackBtn);
 
-        // Modal should appear with title
-            // Mentor feedback modal should appear with title
-            expect(screen.getByText('Mentor feedback')).toBeInTheDocument();
+        // Mentor feedback modal should appear with title
+        expect(screen.getByText('Mentor feedback')).toBeInTheDocument();
     });
 });

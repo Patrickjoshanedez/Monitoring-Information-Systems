@@ -5,7 +5,7 @@ declare const importMetaEnv: any;
 
 export const API_BASE_URL = (
   (typeof importMetaEnv !== 'undefined' && importMetaEnv.VITE_API_URL) ||
-  process.env.VITE_API_URL ||
+  (typeof (globalThis as any).process !== 'undefined' && (globalThis as any).process.env?.VITE_API_URL) ||
   'http://localhost:4000/api'
 ).replace(/\/+$|\/+?(?=\?)/g, '');
 

@@ -136,3 +136,27 @@
 - Add state-machine-driven flows for complex applications to reduce conditional sprawl.
 
 > This document should be your single reference point for onboarding, architecture reviews, and future audits. Keep it versioned with the repo to ensure every contributor shares the same mental model of the Mentoring System.
+
+## 11. Current Status – November 22, 2025
+
+- **Backend**
+  - `mentorFeedbackController.getProgressSnapshotForMentee` now authorizes admins, mentees viewing themselves, and mentors who have at least one session with the mentee, aligning with MUS007 UX.
+  - `profileController.getPublicProfile` embeds the mentee’s `progressSnapshot` when the viewer level is `self`, so dashboards/profile drawers can read a single payload.
+  - Added `backend/src/__tests__/profile-progress.test.js` to exercise the new access rules and profile snapshot injection using `node --test` + `mongodb-memory-server` utilities.
+  - OpenTelemetry tracing bootstrap (`backend/src/tracing.js`) initializes Node auto-instrumentations + OTLP/HTTP exporter; compose files under `devops/tracing/` provide Collector + Jaeger for local debugging.
+
+- **Frontend**
+  - `mentorFeedbackService.ts` exposes `fetchProgressSnapshotForMentee`, powering mentor/admin/mentee detail views.
+  - `MenteeProfileDrawer.tsx` fetches/display mentor evaluations (public + private visibility rules) and leverages the shared snapshot payload; Jest + RTL coverage lives in `src/components/mentor/__tests__/MenteeProfileDrawer.test.tsx`.
+  - `ProgressDashboard.test.tsx` validates loading, empty, and populated states so regression suites cover MUS007 critical paths.
+  - Client tracing bootstrap (`src/tracing.ts`) wires DocumentLoad/Fetch/XHR instrumentation while staying opt-in for tests/builds.
+
+- **Tooling, Evaluation & Observability**
+  - Evaluation scaffolding under `evaluation/` includes an API smoke script, Playwright sample (`frontend-e2e`), and a lightweight agent runner for MUS007 acceptance checks.
+  - Local OTLP Collector + Jaeger (`devops/tracing/docker-compose.yml`) stream traces from both tiers for debugging mentor feedback flows end-to-end.
+  - Frontend unit tests currently pass (`npm test --silent`), while backend dev server requires rerun after today’s merges (last `npm run dev` exit code 1—investigate before deployment).
+
+- **Outstanding Follow-Ups**
+  - Re-run `npm run dev` (frontend + backend) to confirm no regressions after the recent merges; capture logs if failures persist.
+  - Seed scripts (`npm run seed:matching-mentors ...`) recently failed—rerun once tooling issues are resolved.
+  - Consider expanding CI to include evaluation scripts + Playwright scenario to guard MUS007 and mentor snapshot usage.

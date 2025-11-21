@@ -5,6 +5,7 @@ import type { ApiWarning, MentorSession, SessionParticipant } from '../../shared
 import MentorSessionComposer from './MentorSessionComposer';
 import MentorFeedbackForm from './MentorFeedbackForm';
 import AttendanceModal from './AttendanceModal';
+import ProgressDashboard from '../mentee/ProgressDashboard';
 
 const formatDate = (value?: string | null) => {
     if (!value) return '—';
@@ -33,6 +34,8 @@ const MentorSessionsManager: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<'all' | 'upcoming' | 'completed'>('upcoming');
     const [sortBy, setSortBy] = useState<'date' | 'student' | 'subject'>('date');
     const [selectedSession, setSelectedSession] = useState<MentorSession | null>(null);
+    // control completion modal independently of panel selection so the right panel can remain visible
+    const [isCompletionOpen, setCompletionOpen] = useState(false);
     const [tasksCompleted, setTasksCompleted] = useState('0');
     const [notes, setNotes] = useState('');
     const [attended, setAttended] = useState(true);
@@ -102,8 +105,11 @@ const MentorSessionsManager: React.FC = () => {
             });
     }, [sessions, searchTerm, statusFilter, sortBy]);
 
-    const resetModalState = () => {
-        setSelectedSession(null);
+    // remove previous resetModalState - use closeCompletionModal or clearSelection explicitly where needed
+
+    const closeCompletionModal = () => {
+        // close only the completion modal but keep the right-side panel selection
+        setCompletionOpen(false);
         setTasksCompleted('0');
         setNotes('');
         setAttended(true);
@@ -114,6 +120,7 @@ const MentorSessionsManager: React.FC = () => {
         setTasksCompleted(String(session.tasksCompleted || 0));
         setNotes(session.notes || '');
         setAttended(true);
+        setCompletionOpen(true);
     };
 
     const openAttendanceModal = (session: MentorSession) => {
@@ -135,7 +142,10 @@ const MentorSessionsManager: React.FC = () => {
                 },
             });
             setBanner({ type: 'success', message: 'Session updated. The mentee can now submit feedback.' });
-            resetModalState();
+            // close completion modal but keep the panel selected
+            setCompletionOpen(false);
+            // refresh list so table/panel show updated values
+            void refetch();
         } catch (error: any) {
             setBanner({ type: 'error', message: error?.message || 'Unable to update session. Try again.' });
         }
@@ -267,13 +277,16 @@ const MentorSessionsManager: React.FC = () => {
                 </div>
             )}
 
-            <div className="tw-overflow-x-auto">
-                <table className="tw-min-w-full tw-divide-y tw-divide-gray-200">
+                        <div className="tw-overflow-x-auto lg:tw-grid lg:tw-grid-cols-3 lg:tw-gap-6">
+                                <div className="lg:tw-col-span-2">
+                                    <div className="tw-overflow-x-auto">
+                                        <table className="tw-min-w-full tw-divide-y tw-divide-gray-200">
                     <thead className="tw-bg-gray-50">
                         <tr>
                             <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Session</th>
                             <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Schedule</th>
                             <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Location & capacity</th>
+                            <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Attendance</th>
                             <th className="tw-px-6 tw-py-3 tw-text-left tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Status</th>
                             <th className="tw-px-6 tw-py-3 tw-text-right tw-text-xs tw-font-medium tw-text-gray-500 tw-uppercase tw-tracking-wider">Actions</th>
                         </tr>
@@ -282,7 +295,7 @@ const MentorSessionsManager: React.FC = () => {
                         {isLoading || isFetching ? (
                             [...Array(3)].map((_, index) => (
                                 <tr key={`loading-${index}`}>
-                                    <td className="tw-px-6 tw-py-4" colSpan={5}>
+                                    <td className="tw-px-6 tw-py-4" colSpan={6}>
                                         <div className="tw-h-4 tw-bg-gray-100 tw-rounded tw-animate-pulse" />
                                     </td>
                                 </tr>
@@ -333,6 +346,27 @@ const MentorSessionsManager: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="tw-px-6 tw-py-4 tw-align-top">
+                                            {/* Attendance for primary participant */}
+                                            {(() => {
+                                                const primary = participants[0];
+                                                const status = (primary?.status as string | undefined) || (session.attended ? 'present' : 'absent');
+                                                if (!status) return null;
+                                                const label = status === 'present' ? 'Present' : status === 'late' ? 'Late' : 'Absent';
+                                                const classes =
+                                                    status === 'present'
+                                                        ? 'tw-bg-green-50 tw-text-green-700'
+                                                        : status === 'late'
+                                                        ? 'tw-bg-amber-50 tw-text-amber-700'
+                                                        : 'tw-bg-red-50 tw-text-red-700';
+
+                                                return (
+                                                    <span className={`tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-rounded-full tw-px-3 tw-py-1 ${classes}`}>
+                                                        {label}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </td>
+                                        <td className="tw-px-6 tw-py-4 tw-align-top">
                                             {(() => {
                                                 const status = session.status || (session.attended ? 'completed' : 'upcoming');
                                                 if (status === 'completed') {
@@ -364,41 +398,14 @@ const MentorSessionsManager: React.FC = () => {
                                             ) : null}
                                         </td>
                                         <td className="tw-px-6 tw-py-4 tw-align-top tw-text-right">
-                                            <div className="tw-flex tw-flex-wrap tw-gap-2 tw-justify-end">
+                                            <div className="tw-flex tw-items-center tw-justify-end">
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleOpenChat(session.chatThreadId)}
-                                                    disabled={!session.chatThreadId}
-                                                    className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-200 disabled:tw-opacity-50"
-                                                >
-                                                    Open chat
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openCompletionModal(session)}
-                                                    className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-bg-primary tw-text-white tw-text-sm tw-font-semibold tw-px-4 tw-py-2 hover:tw-bg-primary/90 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-primary"
-                                                >
-                                                    {session.attended ? 'Update' : 'Mark complete'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => openAttendanceModal(session)}
+                                                    onClick={() => setSelectedSession(session)}
                                                     className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-200"
                                                 >
-                                                    Attendance
+                                                    View details
                                                 </button>
-                                                {((session.status || (session.attended ? 'completed' : 'upcoming')) === 'completed') && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setFeedbackSession(session);
-                                                            setFeedbackOpen(true);
-                                                        }}
-                                                        className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-200"
-                                                    >
-                                                        Give feedback
-                                                    </button>
-                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -407,16 +414,136 @@ const MentorSessionsManager: React.FC = () => {
                         )}
                         {showEmpty && (
                             <tr>
-                                <td className="tw-px-6 tw-py-6 tw-text-sm tw-text-gray-500" colSpan={5}>
+                                <td className="tw-px-6 tw-py-6 tw-text-sm tw-text-gray-500" colSpan={6}>
                                     No sessions match your filters. Try another search.
                                 </td>
                             </tr>
                         )}
                     </tbody>
-                </table>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Right-side small panel for the selected session's mentee progress */}
+                                <aside className="tw-hidden lg:tw-block lg:tw-col-span-1">
+                                    {selectedSession ? (
+                                        <div className="tw-sticky tw-top-6 tw-space-y-4">
+                                            <div className="tw-bg-white tw-rounded-xl tw-border tw-border-gray-100 tw-p-4">
+                                                <div className="tw-flex tw-justify-between tw-items-start">
+                                                    <div>
+                                                        <h3 className="tw-text-sm tw-font-semibold tw-text-gray-900">{selectedSession.subject}</h3>
+                                                        <p className="tw-text-xs tw-text-gray-500">Mentee: {selectedSession.mentee?.name || selectedSession.participants?.[0]?.name || '—'}</p>
+                                                        <p className="tw-text-xs tw-text-gray-400 tw-mt-2">{formatDate(selectedSession.date)}</p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setSelectedSession(null)}
+                                                        aria-label="Close details"
+                                                        className="tw-text-gray-400 hover:tw-text-gray-600"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+
+                                                {banner && (
+                                                    <div
+                                                        role="status"
+                                                        className={`tw-mt-3 tw-rounded-md tw-border tw-p-2 tw-text-sm ${
+                                                            banner.type === 'success'
+                                                                ? 'tw-bg-green-50 tw-border-green-200 tw-text-green-800'
+                                                                : 'tw-bg-red-50 tw-border-red-200 tw-text-red-700'
+                                                        }`}
+                                                    >
+                                                        <div className="tw-flex tw-justify-between tw-items-center">
+                                                            <span>{banner.message}</span>
+                                                            <button onClick={() => setBanner(null)} className="tw-text-xs tw-uppercase tw-font-semibold">
+                                                                Close
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="tw-mt-3 tw-flex tw-flex-wrap tw-gap-2">
+                                                    <div className="tw-text-xs tw-text-gray-500">{selectedSession.room || 'Room TBA'}</div>
+                                                    <div className="tw-text-xs tw-text-gray-500">• {selectedSession.durationMinutes || 60} min</div>
+                                                </div>
+
+                                                <div className="tw-mt-4">
+                                                    <div className="tw-text-xs tw-text-gray-500 tw-mb-2">Attendance</div>
+                                                    {(() => {
+                                                        const primary = getParticipantList(selectedSession)[0];
+                                                        const status = (primary?.status as string | undefined) || (selectedSession.attended ? 'present' : 'absent');
+                                                        const label = status === 'present' ? 'Present' : status === 'late' ? 'Late' : 'Absent';
+                                                        const classes = status === 'present' ? 'tw-bg-green-50 tw-text-green-700' : status === 'late' ? 'tw-bg-amber-50 tw-text-amber-700' : 'tw-bg-red-50 tw-text-red-700';
+
+                                                        return (
+                                                            <div className="tw-flex tw-items-center tw-gap-2">
+                                                                <span className={`tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-rounded-full tw-px-3 tw-py-1 ${classes}`}>
+                                                                    {label}
+                                                                </span>
+                                                                <span className="tw-text-xs tw-text-gray-500">{primary?.name}</span>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+
+                                                <div className="tw-mt-4 tw-flex tw-flex-col tw-gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenChat(selectedSession.chatThreadId)}
+                                                        disabled={!selectedSession.chatThreadId}
+                                                        className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50 disabled:tw-opacity-50"
+                                                    >
+                                                        Open chat
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openCompletionModal(selectedSession)}
+                                                        className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-bg-primary tw-text-white tw-text-sm tw-font-semibold tw-px-3 tw-py-2 hover:tw-bg-primary/90"
+                                                    >
+                                                        {selectedSession.attended ? 'Update' : 'Mark complete'}
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openAttendanceModal(selectedSession)}
+                                                        className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50"
+                                                    >
+                                                        Attendance
+                                                    </button>
+
+                                                    {((selectedSession.status || (selectedSession.attended ? 'completed' : 'upcoming')) === 'completed') && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setFeedbackSession(selectedSession);
+                                                                setFeedbackOpen(true);
+                                                            }}
+                                                            className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50"
+                                                        >
+                                                            Give feedback
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="tw-hidden lg:tw-block">
+                                                <div className="tw-mt-4 tw-bg-white tw-rounded-xl tw-border tw-border-gray-100 tw-p-4">
+                                                    <ProgressDashboard menteeId={selectedSession.mentee?.id || (selectedSession.participants?.[0]?.id ?? null)} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : feedbackSession ? (
+                                        <div className="tw-sticky tw-top-6">
+                                            <ProgressDashboard menteeId={feedbackSession.mentee?.id || (feedbackSession.participants?.[0]?.id ?? null)} />
+                                        </div>
+                                    ) : (
+                                        <div className="tw-bg-white tw-rounded-xl tw-border tw-border-gray-100 tw-p-4 tw-text-sm tw-text-gray-500">Select a session (click View details) to view the mentee's progress snapshot + session actions here.</div>
+                                    )}
+                                </aside>
             </div>
 
-            {selectedSession && (
+            {selectedSession && isCompletionOpen && (
                 <div
                     className="tw-fixed tw-inset-0 tw-bg-black/30 tw-backdrop-blur-sm tw-flex tw-items-center tw-justify-center tw-z-40"
                     role="dialog"
@@ -434,7 +561,7 @@ const MentorSessionsManager: React.FC = () => {
                             </div>
                             <button
                                 type="button"
-                                onClick={resetModalState}
+                                onClick={closeCompletionModal}
                                 className="tw-text-gray-400 hover:tw-text-gray-600"
                                 aria-label="Close"
                             >
@@ -487,7 +614,7 @@ const MentorSessionsManager: React.FC = () => {
                             <div className="tw-flex tw-justify-end tw-gap-3">
                                 <button
                                     type="button"
-                                    onClick={resetModalState}
+                                    onClick={closeCompletionModal}
                                     className="tw-px-4 tw-py-2 tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-gray-700 hover:tw-bg-gray-50"
                                 >
                                     Cancel
@@ -509,6 +636,7 @@ const MentorSessionsManager: React.FC = () => {
                 <MentorFeedbackForm
                     sessionId={feedbackSession.id}
                     sessionSubject={feedbackSession.subject}
+                    menteeId={feedbackSession.mentee?.id || (feedbackSession.participants?.[0]?.id ?? null)}
                     onClose={() => {
                         setFeedbackOpen(false);
                         setFeedbackSession(null);

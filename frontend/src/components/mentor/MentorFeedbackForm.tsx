@@ -1,17 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useMentorFeedbackForSession, useCreateMentorFeedback, useUpdateMentorFeedback } from '../../shared/hooks/useMentorFeedback';
+import { useMentorFeedbackForSession, useCreateMentorFeedback, useUpdateMentorFeedback, useMenteeProgressSnapshot } from '../../shared/hooks/useMentorFeedback';
 import type { MentorFeedbackRecord } from '../../shared/services/mentorFeedbackService';
 
 type Props = {
     sessionId: string;
     sessionSubject?: string | null;
+    menteeId?: string | null;
     onClose: () => void;
 };
 
-const MentorFeedbackForm: React.FC<Props> = ({ sessionId, sessionSubject, onClose }) => {
+const MentorFeedbackForm: React.FC<Props> = ({ sessionId, sessionSubject, menteeId, onClose }) => {
     const { data: existing, isLoading: isLoadingExisting } = useMentorFeedbackForSession(sessionId, { enabled: true });
     const createFeedback = useCreateMentorFeedback();
     const updateFeedback = useUpdateMentorFeedback();
+    const { data: snapshot, isLoading: isLoadingSnapshot } = useMenteeProgressSnapshot(menteeId, { enabled: Boolean(menteeId) });
 
     const [rating, setRating] = useState<number>(0);
     const [comment, setComment] = useState('');
@@ -79,7 +81,17 @@ const MentorFeedbackForm: React.FC<Props> = ({ sessionId, sessionSubject, onClos
                         <h3 className="tw-text-lg tw-font-bold tw-text-gray-900">{sessionSubject || 'Session feedback'}</h3>
                         <p className="tw-text-xs tw-text-gray-500">Share a short evaluation for the mentee.</p>
                     </div>
-                    <button type="button" onClick={onClose} className="tw-text-gray-400 hover:tw-text-gray-600" aria-label="Close">×</button>
+                    <div className="tw-flex tw-items-start tw-gap-4">
+                        {isLoadingSnapshot ? (
+                            <div className="tw-text-xs tw-text-gray-400">Loading mentee snapshot…</div>
+                        ) : (snapshot ? (
+                            <div className="tw-text-right">
+                                <div className="tw-text-xs tw-text-gray-400">Mentee progress</div>
+                                <div className="tw-text-sm tw-font-semibold tw-text-gray-900">{snapshot.ratingAvg.toFixed(2)}/5 • {snapshot.ratingCount}</div>
+                            </div>
+                        ) : null)}
+                        <button type="button" onClick={onClose} className="tw-text-gray-400 hover:tw-text-gray-600" aria-label="Close">×</button>
+                    </div>
                 </div>
 
                 {formError ? (

@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { connect, disconnect, cleanup } = require('./matchTestUtils');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Session = require('../models/Session');
 const MentorFeedback = require('../models/MentorFeedback');
@@ -134,4 +135,25 @@ test('mentor feedback aggregation builds snapshot stats and recent comments', as
   assert.equal(comment.mentorId.toString(), mentorA._id.toString());
   assert.equal(comment.comment, 'Insightful progress');
   assert.equal(comment.visibility, 'public');
+});
+
+test('rebuildSnapshotForMentee returns null when mongoose is disconnected', async (t) => {
+  await connect();
+  t.after(async () => { await disconnect(); });
+
+  // Ensure that when mongoose reports not-connected, the rebuild path is
+  // skipped and returns null rather than throwing driver errors.
+  const origState = mongoose.connection.readyState;
+  try {
+    // Simulate disconnected state
+    mongoose.connection.readyState = 0;
+
+    // Use a random ObjectId — rebuild should return null and not throw
+    const dummy = new mongoose.Types.ObjectId();
+    const result = await mentorFeedbackAggregation.rebuildSnapshotForMentee(dummy);
+    assert.equal(result, null);
+  } finally {
+    // restore the connection state (tests teardown will disconnect properly)
+    mongoose.connection.readyState = origState;
+  }
 });

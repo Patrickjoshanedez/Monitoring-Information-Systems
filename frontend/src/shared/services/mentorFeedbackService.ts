@@ -39,6 +39,11 @@ export const fetchMenteeProgressSnapshot = async (): Promise<MenteeProgressSnaps
     return data.snapshot;
 };
 
+export const fetchProgressSnapshotForMentee = async (menteeId: string): Promise<MenteeProgressSnapshot> => {
+    const { data } = await apiClient.get<{ snapshot: MenteeProgressSnapshot }>(`/mentor-feedback/mentees/${menteeId}/progress`);
+    return data.snapshot;
+};
+
 export interface MentorFeedbackCreatePayload {
     sessionId: string;
     rating: number;
