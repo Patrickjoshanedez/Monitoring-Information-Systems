@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-export const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$|\/+(?=\?)/g, '');
+// Support tests that run outside of Vite by allowing a test polyfill `importMetaEnv`.
+declare const importMetaEnv: any;
+
+export const API_BASE_URL = (
+  (typeof importMetaEnv !== 'undefined' && importMetaEnv.VITE_API_URL) ||
+  (typeof (globalThis as any).process !== 'undefined' && (globalThis as any).process.env?.VITE_API_URL) ||
+  'http://localhost:4000/api'
+).replace(/\/+$|\/+?(?=\?)/g, '');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

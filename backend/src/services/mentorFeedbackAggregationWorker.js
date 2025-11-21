@@ -153,6 +153,15 @@ const computeSnapshotPayload = async (menteeId) => {
 };
 
 const rebuildSnapshotForMentee = async (menteeId) => {
+    // If mongoose isn't connected, avoid performing DB operations which will
+    // throw "Client must be connected before running operations" when the
+    // underlying driver is disconnected (e.g. test teardown race). Instead,
+    // skip rebuilding and return null so callers and the worker can handle
+    // this case gracefully.
+    if (mongoose.connection.readyState !== 1) {
+        logger.warn('skip rebuildSnapshotForMentee for %s: mongoose not connected', menteeId);
+        return null;
+    }
     const payload = await computeSnapshotPayload(menteeId);
     if (!payload) {
         return null;

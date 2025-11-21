@@ -1,8 +1,13 @@
 import React from 'react';
+import type { SnapshotTrendPoint, SnapshotComment } from '../../shared/services/mentorFeedbackService';
 import { useProgressDashboard, useGoals, useCreateGoal, useUpdateGoalProgress } from '../../shared/hooks/useGoals';
+import { useMenteeProgressSnapshot } from '../../shared/hooks/useMentorFeedback';
 
-const ProgressDashboard: React.FC = () => {
-  const { data: snapshot, isLoading, isError, refetch } = useProgressDashboard();
+const ProgressDashboard: React.FC<{ menteeId?: string | null }> = ({ menteeId }) => {
+  // If a menteeId prop is passed (mentor/admin context), fetch that mentee's snapshot.
+  // Otherwise fall back to the logged-in mentee snapshot.
+  const query = menteeId ? useMenteeProgressSnapshot(menteeId) : useProgressDashboard();
+  const { data: snapshot, isLoading, isError, refetch } = query as any;
   const goalsQuery = useGoals();
   const createGoal = useCreateGoal();
   const updateGoal = useUpdateGoalProgress();
@@ -106,7 +111,7 @@ const ProgressDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {monthlyTrend.map((trend) => (
+                {monthlyTrend.map((trend: SnapshotTrendPoint) => (
                   <tr key={trend.month} className="tw-border-t tw-border-gray-200">
                     <Td>{formatMonthLabel(trend.month)}</Td>
                     <Td>{trend.avg.toFixed(2)}</Td>
@@ -125,7 +130,7 @@ const ProgressDashboard: React.FC = () => {
           <div className="tw-text-xs tw-text-gray-500">Mentors have not shared public comments yet.</div>
         ) : (
           <ul className="tw-space-y-3">
-            {recentComments.map((comment) => (
+            {recentComments.map((comment: SnapshotComment) => (
               <li
                 key={comment.feedbackId || comment.createdAt || comment.mentorId}
                 className="tw-border tw-border-gray-200 tw-rounded tw-p-3"

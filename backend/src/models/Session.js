@@ -103,6 +103,8 @@ sessionSchema.index({ mentee: 1, subject: 1 });
 sessionSchema.index({ mentor: 1, status: 1, date: -1 });
 sessionSchema.index({ availabilityRef: 1, date: 1 });
 sessionSchema.index({ 'participants.user': 1, date: -1 });
+// fast lookup for booking locks -> find sessions by lockId quickly
+sessionSchema.index({ lockId: 1 });
 // Helpful for feeds and exports
 sessionSchema.index({ mentee: 1, createdAt: -1 });
 sessionSchema.index({ mentor: 1, createdAt: -1 });
@@ -115,4 +117,54 @@ sessionSchema.pre('save', function deriveEndDate(next) {
     next();
 });
 
+// Statics: lean, projected fetch helpers for common queries to reduce memory and speed up controllers
+sessionSchema.statics.findMentorSessionsLean = async function (mentorId, { status, limit = 50, startDate } = {}) {
+    const q = { mentor: mentorId };
+    if (status) q.status = status;
+    if (startDate) q.date = { $gte: startDate };
+
+    // Only fetch fields used in session lists; keep payload small
+    const projection = {
+        subject: 1,
+        date: 1,
+        endDate: 1,
+        durationMinutes: 1,
+        status: 1,
+        mentee: 1,
+        participants: 1,
+        chatThread: 1,
+        attended: 1,
+        completedAt: 1,
+        feedbackDue: 1,
+        feedbackSubmitted: 1,
+        tasksCompleted: 1,
+        notes: 1,
+    };
+
+    return await this.find(q).select(projection).sort({ date: 1 }).limit(Math.min(500, limit)).lean();
+};
+
+sessionSchema.statics.findMenteeSessionsLean = async function (menteeId, { status, limit = 50, startDate } = {}) {
+    const q = { $or: [{ mentee: menteeId }, { 'participants.user': menteeId }] };
+    if (status) q.status = status;
+    if (startDate) q.date = { $gte: startDate };
+
+    const projection = {
+        subject: 1,
+        date: 1,
+        durationMinutes: 1,
+        status: 1,
+        mentor: 1,
+        participants: 1,
+        chatThread: 1,
+        attended: 1,
+        completedAt: 1,
+        tasksCompleted: 1,
+        notes: 1,
+    };
+
+    return await this.find(q).select(projection).sort({ date: -1 }).limit(Math.min(500, limit)).lean();
+};
+
 module.exports = mongoose.model('Session', sessionSchema);
+

@@ -5,6 +5,7 @@ import SessionHistoryTable from '../../components/mentee/SessionHistoryTable';
 import PendingFeedbackList from '../../components/mentee/PendingFeedbackList';
 import SessionActionsPanel from '../../components/mentee/SessionActionsPanel';
 import RecognitionPanel from '../../components/mentee/RecognitionPanel';
+import ProgressDashboard from '../../components/mentee/ProgressDashboard';
 
 const SessionPage: React.FC = () => {
   return (
@@ -15,6 +16,11 @@ const SessionPage: React.FC = () => {
 
         {/* Certificates & achievements */}
         <RecognitionPanel />
+
+        {/* Progress snapshot (mentor feedback + goals) */}
+        <div className="tw-mt-6">
+          <ProgressDashboard />
+        </div>
 
         {/* Upcoming Sessions */}
         <UpcomingSessionsTable />

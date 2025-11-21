@@ -58,6 +58,7 @@
    - Mentee: assigned mentor view, session schedule, progress/goal tracking, announcements feed.
 3. **Sessions & Goals**
   - Mentors set availability; mentees request/reserve slots; reminders via worker + notifications.
+  - (MUS006) Session management: mentors can set availability slots, schedule sessions, confirm/reschedule/cancel meetings, and record attendance for reporting and tracking. Booking flows create session-level chat threads and drive notifications + audit logs.
   - Session booking paths:
     - Mentor-created sessions (`createMentorSession`) immediately create a `ChatThread` (type `session`) for all participants.
     - Mentees booking a session (`bookSession`) trigger `ensureSessionChatThread` so a shared chat space exists as soon as a booking is created; mentor booking notifications include `chatThreadId` for deep-links.
@@ -88,6 +89,12 @@
      - Overall rating and trend line/table.
      - Recent mentor comments.
      - Goal and task completion stats combined with snapshot data.
+
+  ### Acceptance Criteria (MUS007)
+
+  - Given a session is completed, when a mentor submits feedback (ratings + comments), then the feedback is attached to the session and visible to the mentee (respecting visibility settings) in their progress tracker.
+  - Given multiple completed sessions with feedback, when a mentor or mentee views the progress dashboard, then the aggregated snapshot shows average rating, trend data, recent comments, and areas that need attention.
+  - Given feedback is saved and aggregated, when a mentee visits their profile, then they can see mentor evaluations and comments (public/sanitized view) and a pointer to the original session's details where allowed.
 
 ## 6. Security, Privacy, and Compliance
 - JWT auth with refresh handling on the server; tokens stored HTTP-only.
@@ -129,3 +136,27 @@
 - Add state-machine-driven flows for complex applications to reduce conditional sprawl.
 
 > This document should be your single reference point for onboarding, architecture reviews, and future audits. Keep it versioned with the repo to ensure every contributor shares the same mental model of the Mentoring System.
+
+## 11. Current Status – November 22, 2025
+
+- **Backend**
+  - `mentorFeedbackController.getProgressSnapshotForMentee` now authorizes admins, mentees viewing themselves, and mentors who have at least one session with the mentee, aligning with MUS007 UX.
+  - `profileController.getPublicProfile` embeds the mentee’s `progressSnapshot` when the viewer level is `self`, so dashboards/profile drawers can read a single payload.
+  - Added `backend/src/__tests__/profile-progress.test.js` to exercise the new access rules and profile snapshot injection using `node --test` + `mongodb-memory-server` utilities.
+  - OpenTelemetry tracing bootstrap (`backend/src/tracing.js`) initializes Node auto-instrumentations + OTLP/HTTP exporter; compose files under `devops/tracing/` provide Collector + Jaeger for local debugging.
+
+- **Frontend**
+  - `mentorFeedbackService.ts` exposes `fetchProgressSnapshotForMentee`, powering mentor/admin/mentee detail views.
+  - `MenteeProfileDrawer.tsx` fetches/display mentor evaluations (public + private visibility rules) and leverages the shared snapshot payload; Jest + RTL coverage lives in `src/components/mentor/__tests__/MenteeProfileDrawer.test.tsx`.
+  - `ProgressDashboard.test.tsx` validates loading, empty, and populated states so regression suites cover MUS007 critical paths.
+  - Client tracing bootstrap (`src/tracing.ts`) wires DocumentLoad/Fetch/XHR instrumentation while staying opt-in for tests/builds.
+
+- **Tooling, Evaluation & Observability**
+  - Evaluation scaffolding under `evaluation/` includes an API smoke script, Playwright sample (`frontend-e2e`), and a lightweight agent runner for MUS007 acceptance checks.
+  - Local OTLP Collector + Jaeger (`devops/tracing/docker-compose.yml`) stream traces from both tiers for debugging mentor feedback flows end-to-end.
+  - Frontend unit tests currently pass (`npm test --silent`), while backend dev server requires rerun after today’s merges (last `npm run dev` exit code 1—investigate before deployment).
+
+- **Outstanding Follow-Ups**
+  - Re-run `npm run dev` (frontend + backend) to confirm no regressions after the recent merges; capture logs if failures persist.
+  - Seed scripts (`npm run seed:matching-mentors ...`) recently failed—rerun once tooling issues are resolved.
+  - Consider expanding CI to include evaluation scripts + Playwright scenario to guard MUS007 and mentor snapshot usage.
