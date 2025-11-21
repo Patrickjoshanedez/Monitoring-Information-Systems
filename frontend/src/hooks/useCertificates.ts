@@ -21,11 +21,11 @@ export const useAchievements = () =>
         staleTime: 60_000,
     });
 
-export const useIssueCertificate = () => {
+export const useIssueCertificate = (scope: CertificateScope = 'mentee') => {
     const queryClient = useQueryClient();
     return useMutation((payload: IssueCertificatePayload) => requestCertificateIssue(payload), {
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: certificateQueryKey('mentee') });
+            queryClient.invalidateQueries({ queryKey: certificateQueryKey(scope) });
         },
     });
 };

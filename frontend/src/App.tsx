@@ -25,9 +25,11 @@ import PendingApprovalPage from './pages/PendingApprovalPage';
 import MentorApplicationForm from './pages/applicationPages/MentorApplicationForm';
 import MentorPendingPage from './pages/MentorPendingPage';
 import AdminPendingPage from './pages/AdminPendingPage';
+import AdminRecognitionPage from './pages/admin/AdminRecognitionPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProfilePage from './pages/menteeDashboards/ProfilePage';
+import RecognitionPage from './pages/menteeDashboards/RecognitionPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SetPasswordPage from './features/auth/pages/SetPasswordPage.jsx';
 import ProfileSettings from './features/profile/pages/ProfileSettings.jsx';
@@ -39,12 +41,14 @@ import MenteeMatchSuggestionsPage from './features/matchmaking/pages/MenteeMatch
 
 // Wrapper components for better TypeScript support
 const AdminRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminDashboard />} />;
+const AdminRecognitionRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminRecognitionPage />} />;
 const MentorRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorDashboard />} />;
 const MenteeRoute = () => <ProtectedRoute requiredRole="mentee" children={<MenteeDashboard />} />;
 const MyMentorRoute = () => <ProtectedRoute requiredRole="mentee" children={<MyMentorPage />} />;
 const SessionRoute = () => <ProtectedRoute requiredRole="mentee" children={<SessionPage />} />;
 const ApplyRoute = () => <ProtectedRoute requiredRole="mentee" children={<ApplyPage />} />;
 const AnnouncementsRoute = () => <ProtectedRoute requiredRole="mentee" children={<AnnouncementsPage />} />;
+const RecognitionRoute = () => <ProtectedRoute requiredRole="mentee" children={<RecognitionPage />} />;
 const ApplicationRoute = () => <ProtectedRoute requiredRole="mentee" children={<MenteeApplicationForm />} />;
 const PendingRoute = () => <ProtectedRoute requiredRole="mentee" children={<PendingApprovalPage />} />;
 const MentorApplicationRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorApplicationForm />} />;
@@ -87,6 +91,7 @@ const App = () => {
 
                 {/* Dashboard Routes */}
                 <Route path="/admin/dashboard" element={<AdminRoute />} />
+                <Route path="/admin/recognition" element={<AdminRecognitionRoute />} />
                 <Route path="/mentor/dashboard" element={<MentorRoute />} />
                 <Route path="/mentor/chat" element={<MentorChatRoute />} />
                 <Route path="/mentor/materials/upload" element={<MentorMaterialsUploadRoute />} />
@@ -100,6 +105,7 @@ const App = () => {
                 <Route path="/mentee/session" element={<SessionRoute />} />
                 <Route path="/mentee/apply" element={<ApplyRoute />} />
                 <Route path="/mentee/announcements" element={<AnnouncementsRoute />} />
+                <Route path="/mentee/recognition" element={<RecognitionRoute />} />
                 <Route path="/mentee/matches" element={<MenteeMatchesRoute />} />
 
                 {/* Application Routes */}

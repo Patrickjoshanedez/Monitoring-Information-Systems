@@ -25,6 +25,7 @@ export interface IssueCertificatePayload {
     mentorId?: string;
     statement?: string;
     cohort?: string;
+    menteeId?: string;
 }
 
 export interface AchievementItem {

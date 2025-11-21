@@ -27,7 +27,8 @@ type NavItem = {
 const NAV_MAP: Record<string, NavItem[]> = {
   admin: [
     { label: 'Dashboard', to: '/admin/dashboard', matches: ['/admin/dashboard'], hash: '' },
-    { label: 'Applications', to: '/admin/dashboard#applications', matches: ['/admin/dashboard'], hash: '#applications' }
+    { label: 'Applications', to: '/admin/dashboard#applications', matches: ['/admin/dashboard'], hash: '#applications' },
+    { label: 'Recognition', to: '/admin/recognition', matches: ['/admin/recognition'] }
   ],
   mentor: [
     { label: 'Dashboard', to: '/mentor/dashboard', matches: ['/mentor/dashboard'] },
@@ -41,6 +42,7 @@ const NAV_MAP: Record<string, NavItem[]> = {
     { label: 'My Mentor', to: '/mentee/my-mentor', matches: ['/mentee/my-mentor'] },
     { label: 'Session', to: '/mentee/session', matches: ['/mentee/session'] },
     { label: 'Apply', to: '/mentee/apply', matches: ['/mentee/apply'] },
+    { label: 'Recognition', to: '/mentee/recognition', matches: ['/mentee/recognition'] },
     { label: 'Announcements', to: '/mentee/announcements', matches: ['/mentee/announcements'] },
     { label: 'Chat', to: '/mentee/chat', matches: ['/mentee/chat'] }
   ]
