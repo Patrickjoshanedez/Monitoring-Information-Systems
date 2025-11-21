@@ -42,7 +42,7 @@ const MenteeMatchSuggestionsPage: React.FC = () => {
     acceptMutation.mutate(
       { matchId },
       {
-        onSuccess: () => setToast({ message: 'Accepted! Waiting for mentor confirmation.', variant: 'success' }),
+        onSuccess: (result: any) => setToast({ message: result?.mentorship ? 'Match confirmed! Mentorship established.' : 'Accepted! Waiting for mentor confirmation.', variant: 'success' }),
         onError: (error: unknown) => setToast({ message: (error as Error)?.message || 'Unable to accept match.', variant: 'error' }),
       }
     );

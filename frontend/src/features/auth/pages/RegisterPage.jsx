@@ -15,11 +15,7 @@ const ROLE_OPTIONS = [
 		label: 'Mentor',
 		description: 'Coach mentees, share expertise, and manage session plans.'
 	},
-	{
-		id: 'admin',
-		label: 'Administrator',
-		description: 'Oversee cohorts, review applications, and monitor outcomes.'
-	}
+	// admin account creation removed from public registration
 ];
 
 export default function RegisterPage() {
@@ -63,7 +59,7 @@ export default function RegisterPage() {
  }
  setLoading(true);
  try {
- await register({
+			await register({
  firstname: form.firstname,
  lastname: form.lastname,
  email: form.email,
@@ -71,7 +67,15 @@ export default function RegisterPage() {
  role,
  recaptchaToken
  });
- window.location.href = '/login';
+			// After account creation, immediately redirect to the role-specific application form.
+			if (role === 'mentee') {
+				window.location.href = '/mentee/application';
+			} else if (role === 'mentor') {
+				window.location.href = '/mentor/application';
+			} else {
+				// Fallback to login for any unexpected role
+				window.location.href = '/login';
+			}
  } catch (err) {
  const code = err?.response?.data?.error;
  setError(mapErrorCodeToMessage(code));

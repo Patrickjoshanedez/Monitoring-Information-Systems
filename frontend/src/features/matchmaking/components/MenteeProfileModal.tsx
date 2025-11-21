@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { MatchSuggestion } from '../types';
 
 interface Props {
   suggestion: MatchSuggestion | null;
   open: boolean;
   onClose: () => void;
-  onAccept?: () => void;
+  onAccept?: (note?: string) => void;
   onDecline?: () => void;
   isAccepting?: boolean;
   isDeclining?: boolean;
@@ -14,6 +14,12 @@ interface Props {
 const MenteeProfileModal: React.FC<Props> = ({ suggestion, open, onClose, onAccept, onDecline, isAccepting, isDeclining }) => {
   if (!open || !suggestion) return null;
   const { mentee } = suggestion;
+  const [note, setNote] = useState('');
+
+  useEffect(() => {
+    if (!open) setNote('');
+    if (suggestion) setNote('');
+  }, [open, suggestion]);
 
   return (
     <div className="tw-fixed tw-inset-0 tw-bg-black/40 tw-backdrop-blur-sm tw-flex tw-items-center tw-justify-center tw-z-50" role="dialog" aria-modal="true">
@@ -56,6 +62,11 @@ const MenteeProfileModal: React.FC<Props> = ({ suggestion, open, onClose, onAcce
           </div>
         </section>
 
+        <div className="tw-mt-4">
+          <label className="tw-block tw-text-sm tw-font-medium tw-text-gray-700">Note to mentee (optional)</label>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className="tw-w-full tw-rounded-lg tw-border tw-border-gray-300 tw-px-3 tw-py-2 tw-text-sm" placeholder="Add a short note when accepting (e.g., suggested first meeting time)" />
+        </div>
+
         <footer className="tw-flex tw-justify-end tw-gap-3 tw-mt-6">
           {onDecline && (
             <button
@@ -70,7 +81,7 @@ const MenteeProfileModal: React.FC<Props> = ({ suggestion, open, onClose, onAcce
           {onAccept && (
             <button
               type="button"
-              onClick={onAccept}
+              onClick={() => onAccept?.(note)}
               disabled={isAccepting}
               className="tw-bg-purple-600 tw-text-white tw-rounded-full tw-px-5 tw-py-2 tw-text-sm hover:tw-bg-purple-700 disabled:tw-opacity-50"
             >

@@ -27,7 +27,7 @@ export default function RoleSelectionPage() {
         body: JSON.stringify({ role })
       });
 
-      if (response.ok) {
+        if (response.ok) {
         const data = await response.json();
         // Update user data in localStorage
         const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -45,9 +45,8 @@ export default function RoleSelectionPage() {
           navigate('/mentee/application');
         } else if (role === 'mentor') {
           navigate('/mentor/application');
-        } else if (role === 'admin') {
-          navigate('/admin/pending');
         }
+        
       } else {
         const errorData = await response.json().catch(() => ({}));
         setError(errorData?.message || 'Failed to update role. Please try again.');
@@ -79,14 +78,7 @@ export default function RoleSelectionPage() {
       color: 'tw-from-green-500 tw-to-green-600',
       hoverColor: 'tw-from-green-600 tw-to-green-700'
     },
-    {
-      id: 'admin',
-      title: 'Administrator',
-      description: 'Manage the program: approvals, sessions, analytics, and more.',
-      icon: '⚙️',
-      color: 'tw-from-purple-500 tw-to-purple-600',
-      hoverColor: 'tw-from-purple-600 tw-to-purple-700'
-    }
+    // Admin role removed from public selection; admin accounts are provisioned by program owner.
   ];
 
   return (

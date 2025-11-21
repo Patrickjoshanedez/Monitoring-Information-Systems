@@ -10,8 +10,11 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed:admin": "node src/scripts/createAdmin.js",
+    "seed:matching-mentors": "node src/scripts/createMatchingMentors.js",
+    "seed:matching-mentees": "node src/scripts/createMatchingMentees.js",
     "backfill:feedback": "node src/scripts/backfillFeedbackStats.js",
     "backfill:matches": "node src/scripts/backfill/match-suggestions.js",
+    "find:user": "node src/scripts/findUser.js",
     "test": "node --test"
   },
   "dependencies": {

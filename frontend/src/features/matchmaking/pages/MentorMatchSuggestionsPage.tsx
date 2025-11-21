@@ -35,12 +35,16 @@ const MentorMatchSuggestionsPage: React.FC = () => {
   const acceptMutation = useAcceptMatch(mentorId);
   const declineMutation = useDeclineMatch(mentorId);
 
-  const handleAccept = (matchId: string) => {
+  const handleAccept = (matchId: string, note?: string) => {
     acceptMutation.mutate(
-      { matchId },
+      { matchId, note },
       {
-        onSuccess: () => {
-          setToast({ message: 'Accepted — awaiting mentee confirmation', variant: 'success' });
+        onSuccess: (result: any) => {
+          if (result?.mentorship) {
+            setToast({ message: 'Match confirmed! Mentorship established.', variant: 'success' });
+          } else {
+            setToast({ message: 'Accepted — awaiting mentee confirmation', variant: 'success' });
+          }
         },
         onError: (error: unknown) => {
           setToast({ message: (error as Error)?.message || 'Unable to accept match', variant: 'error' });
@@ -123,7 +127,7 @@ const MentorMatchSuggestionsPage: React.FC = () => {
         suggestion={selected}
         open={Boolean(selected)}
         onClose={() => setSelected(null)}
-        onAccept={selected ? () => handleAccept(selected.id) : undefined}
+        onAccept={selected ? (note?: string) => handleAccept(selected.id, note) : undefined}
         onDecline={selected ? () => handleDecline(selected.id) : undefined}
         isAccepting={acceptMutation.isPending}
         isDeclining={declineMutation.isPending}

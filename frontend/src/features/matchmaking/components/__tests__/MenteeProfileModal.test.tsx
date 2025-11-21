@@ -40,4 +40,24 @@ describe('MenteeProfileModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /close profile/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('accepts with an optional note', () => {
+    const onAccept = jest.fn();
+
+    render(
+      <MenteeProfileModal
+        suggestion={suggestion}
+        open
+        onClose={() => {}}
+        onAccept={onAccept}
+        onDecline={() => {}}
+      />
+    );
+
+    const textarea = screen.getByPlaceholderText(/add a short note/i);
+    fireEvent.change(textarea, { target: { value: 'Let us meet next wednesday 2pm' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /accept match/i }));
+    expect(onAccept).toHaveBeenCalledWith('Let us meet next wednesday 2pm');
+  });
 });

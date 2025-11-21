@@ -16,13 +16,7 @@ const ROLE_OPTIONS = [
         badge: 'Share your expertise',
         accent: 'tw-from-green-500 tw-to-green-600'
     },
-    {
-        id: 'admin',
-        title: 'Administrator',
-        blurb: 'Coordinate cohorts, review applications, and monitor program outcomes centrally.',
-        badge: 'Program oversight',
-        accent: 'tw-from-purple-500 tw-to-purple-600'
-    }
+    // Admin option removed; admin accounts are created via back-office only
 ] as const;
 
 export type RoleSelectionModalProps = {

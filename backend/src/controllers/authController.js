@@ -24,9 +24,13 @@ exports.register = async (req, res) => {
     }
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ error: 'EMAIL_EXISTS' });
-  const resolvedRole = role || 'mentee';
-  // Admins must be explicitly approved by another admin
-  const initialStatus = resolvedRole === 'admin' ? 'pending' : 'not_submitted';
+    const resolvedRole = role || 'mentee';
+    // Prevent public registration for admin accounts; admins must be provisioned via back-office
+    if (resolvedRole === 'admin') {
+      return res.status(403).json({ error: 'ADMIN_REGISTRATION_FORBIDDEN', message: 'Admin accounts can only be created by an administrator.' });
+    }
+    // Admins must be explicitly approved by another admin (disabled for UI flows)
+    const initialStatus = resolvedRole === 'admin' ? 'pending' : 'not_submitted';
     const initialApplicationRole = resolvedRole === 'admin' ? 'admin' : resolvedRole;
 
     const user = new User({
@@ -166,6 +170,11 @@ exports.updateRole = async (req, res) => {
 
     if (!['mentee', 'mentor', 'admin'].includes(role)) {
       return res.status(400).json({ error: 'INVALID_ROLE' });
+    }
+
+    // Prevent non-admin users from setting themselves as admin via this API
+    if (role === 'admin' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'UNAUTHORIZED_ROLE_CHANGE', message: 'Only administrators may assign the admin role.' });
     }
 
     const update = {
