@@ -58,6 +58,7 @@
    - Mentee: assigned mentor view, session schedule, progress/goal tracking, announcements feed.
 3. **Sessions & Goals**
   - Mentors set availability; mentees request/reserve slots; reminders via worker + notifications.
+  - (MUS006) Session management: mentors can set availability slots, schedule sessions, confirm/reschedule/cancel meetings, and record attendance for reporting and tracking. Booking flows create session-level chat threads and drive notifications + audit logs.
   - Session booking paths:
     - Mentor-created sessions (`createMentorSession`) immediately create a `ChatThread` (type `session`) for all participants.
     - Mentees booking a session (`bookSession`) trigger `ensureSessionChatThread` so a shared chat space exists as soon as a booking is created; mentor booking notifications include `chatThreadId` for deep-links.
@@ -88,6 +89,12 @@
      - Overall rating and trend line/table.
      - Recent mentor comments.
      - Goal and task completion stats combined with snapshot data.
+
+  ### Acceptance Criteria (MUS007)
+
+  - Given a session is completed, when a mentor submits feedback (ratings + comments), then the feedback is attached to the session and visible to the mentee (respecting visibility settings) in their progress tracker.
+  - Given multiple completed sessions with feedback, when a mentor or mentee views the progress dashboard, then the aggregated snapshot shows average rating, trend data, recent comments, and areas that need attention.
+  - Given feedback is saved and aggregated, when a mentee visits their profile, then they can see mentor evaluations and comments (public/sanitized view) and a pointer to the original session's details where allowed.
 
 ## 6. Security, Privacy, and Compliance
 - JWT auth with refresh handling on the server; tokens stored HTTP-only.

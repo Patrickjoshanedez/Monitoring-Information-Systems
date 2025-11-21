@@ -38,3 +38,42 @@ export const fetchMenteeProgressSnapshot = async (): Promise<MenteeProgressSnaps
 
     return data.snapshot;
 };
+
+export interface MentorFeedbackCreatePayload {
+    sessionId: string;
+    rating: number;
+    comment?: string | null;
+    visibility?: 'public' | 'private';
+    competencies?: Array<{ skillKey: string; level: number; notes?: string }>;
+}
+
+export interface MentorFeedbackRecord {
+    id: string;
+    sessionId: string;
+    menteeId: string | null;
+    rating: number;
+    competencies: Array<{ skillKey: string; level: number; notes?: string }>;
+    comment: string | null;
+    sanitizedComment: string | null;
+    visibility: 'public' | 'private';
+    editWindowClosesAt?: string | null;
+    createdAt: string;
+    updatedAt?: string;
+}
+
+export const fetchMentorFeedbackForSession = async (sessionId: string) => {
+    const { data } = await apiClient.get<{ feedback: MentorFeedbackRecord | null }>(`/sessions/${sessionId}/mentor-feedback`);
+    return data.feedback;
+};
+
+export const createMentorFeedback = async (payload: MentorFeedbackCreatePayload) => {
+    const { sessionId, ...body } = payload;
+    const { data } = await apiClient.post<{ feedback: MentorFeedbackRecord }>(`/sessions/${sessionId}/mentor-feedback`, body);
+    return data.feedback;
+};
+
+export const updateMentorFeedback = async (payload: MentorFeedbackCreatePayload) => {
+    const { sessionId, ...body } = payload;
+    const { data } = await apiClient.put<{ feedback: MentorFeedbackRecord }>(`/sessions/${sessionId}/mentor-feedback`, body);
+    return data.feedback;
+};

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCompleteMentorSession, useMentorSessions } from '../../shared/hooks/useMentorSessions';
 import type { ApiWarning, MentorSession, SessionParticipant } from '../../shared/services/sessionsService';
 import MentorSessionComposer from './MentorSessionComposer';
+import MentorFeedbackForm from './MentorFeedbackForm';
 
 const formatDate = (value?: string | null) => {
     if (!value) return '—';
@@ -36,6 +37,8 @@ const MentorSessionsManager: React.FC = () => {
     const [attended, setAttended] = useState(true);
     const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [isComposerOpen, setComposerOpen] = useState(false);
+    const [isFeedbackOpen, setFeedbackOpen] = useState(false);
+    const [feedbackSession, setFeedbackSession] = useState<MentorSession | null>(null);
 
     const { data: sessions = [], isLoading, isError, isFetching, refetch } = useMentorSessions();
     const completeSession = useCompleteMentorSession();
@@ -369,6 +372,18 @@ const MentorSessionsManager: React.FC = () => {
                                                 >
                                                     {session.attended ? 'Update' : 'Mark complete'}
                                                 </button>
+                                                {((session.status || (session.attended ? 'completed' : 'upcoming')) === 'completed') && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setFeedbackSession(session);
+                                                            setFeedbackOpen(true);
+                                                        }}
+                                                        className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-200"
+                                                    >
+                                                        Give feedback
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -473,6 +488,17 @@ const MentorSessionsManager: React.FC = () => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {feedbackSession && isFeedbackOpen && (
+                <MentorFeedbackForm
+                    sessionId={feedbackSession.id}
+                    sessionSubject={feedbackSession.subject}
+                    onClose={() => {
+                        setFeedbackOpen(false);
+                        setFeedbackSession(null);
+                    }}
+                />
             )}
         </section>
 
