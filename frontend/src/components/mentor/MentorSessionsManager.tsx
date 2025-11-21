@@ -4,6 +4,7 @@ import { useCompleteMentorSession, useMentorSessions } from '../../shared/hooks/
 import type { ApiWarning, MentorSession, SessionParticipant } from '../../shared/services/sessionsService';
 import MentorSessionComposer from './MentorSessionComposer';
 import MentorFeedbackForm from './MentorFeedbackForm';
+import AttendanceModal from './AttendanceModal';
 
 const formatDate = (value?: string | null) => {
     if (!value) return '—';
@@ -39,6 +40,8 @@ const MentorSessionsManager: React.FC = () => {
     const [isComposerOpen, setComposerOpen] = useState(false);
     const [isFeedbackOpen, setFeedbackOpen] = useState(false);
     const [feedbackSession, setFeedbackSession] = useState<MentorSession | null>(null);
+    const [isAttendanceOpen, setAttendanceOpen] = useState(false);
+    const [attendanceSession, setAttendanceSession] = useState<MentorSession | null>(null);
 
     const { data: sessions = [], isLoading, isError, isFetching, refetch } = useMentorSessions();
     const completeSession = useCompleteMentorSession();
@@ -111,6 +114,11 @@ const MentorSessionsManager: React.FC = () => {
         setTasksCompleted(String(session.tasksCompleted || 0));
         setNotes(session.notes || '');
         setAttended(true);
+    };
+
+    const openAttendanceModal = (session: MentorSession) => {
+        setAttendanceSession(session);
+        setAttendanceOpen(true);
     };
 
     const handleComplete = async (event: React.FormEvent) => {
@@ -372,6 +380,13 @@ const MentorSessionsManager: React.FC = () => {
                                                 >
                                                     {session.attended ? 'Update' : 'Mark complete'}
                                                 </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openAttendanceModal(session)}
+                                                    className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-200"
+                                                >
+                                                    Attendance
+                                                </button>
                                                 {((session.status || (session.attended ? 'completed' : 'upcoming')) === 'completed') && (
                                                     <button
                                                         type="button"
@@ -498,6 +513,18 @@ const MentorSessionsManager: React.FC = () => {
                         setFeedbackOpen(false);
                         setFeedbackSession(null);
                     }}
+                />
+            )}
+
+            {attendanceSession && isAttendanceOpen && (
+                <AttendanceModal
+                    open={isAttendanceOpen}
+                    onClose={() => {
+                        setAttendanceOpen(false);
+                        setAttendanceSession(null);
+                    }}
+                    sessionId={attendanceSession.id}
+                    participants={getParticipantList(attendanceSession)}
                 />
             )}
         </section>
