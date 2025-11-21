@@ -195,6 +195,7 @@ const issueCertificate = async ({
     certificateType = 'completion',
     statement,
     cohort,
+    allowEligibilityOverride = false,
 }) => {
     const mentee = await User.findById(menteeId).select('firstname lastname role profile');
     if (!mentee || mentee.role !== 'mentee') {
@@ -206,10 +207,25 @@ const issueCertificate = async ({
     const mentor = await selectMentor({ menteeId, mentorId });
     const metrics = await computeCompletionMetrics(menteeId);
     const eligibility = validateEligibility(certificateType, metrics);
-    if (!eligibility.eligible) {
+    const eligibilityOverrideApplied = !eligibility.eligible && allowEligibilityOverride;
+
+    if (!eligibility.eligible && !allowEligibilityOverride) {
         const error = new Error(eligibility.reason);
         error.status = 400;
         throw error;
+    }
+
+    if (eligibilityOverrideApplied && requestedBy) {
+        await AuditLog.create({
+            actorId: requestedBy,
+            action: 'certificate.eligibility_override',
+            resourceType: 'certificate',
+            resourceId: menteeId.toString(),
+            metadata: {
+                reason: eligibility.reason,
+                certificateType,
+            },
+        });
     }
 
     const serialNumber = await generateSerialNumber();
@@ -220,6 +236,20 @@ const issueCertificate = async ({
 
     const menteeMeta = buildMenteeMeta(mentee);
     const mentorMeta = buildMentorMeta(mentor);
+
+    const metadata = {
+        signedBy: process.env.CERTIFICATE_SIGNER || mentorMeta.fullName,
+        signerTitle: process.env.CERTIFICATE_SIGNER_TITLE || mentorMeta.title,
+        sealUrl: process.env.CERTIFICATE_SEAL_URL,
+    };
+
+    if (eligibilityOverrideApplied && requestedBy) {
+        metadata.eligibilityOverride = {
+            approvedBy: requestedBy,
+            reason: eligibility.reason,
+            appliedAt: new Date().toISOString(),
+        };
+    }
 
     const certificatePayload = {
         user: mentee._id,
@@ -232,11 +262,7 @@ const issueCertificate = async ({
         verificationCode,
         verificationUrl,
         badgeUrl: process.env.CERTIFICATE_BADGE_URL,
-        metadata: {
-            signedBy: process.env.CERTIFICATE_SIGNER || mentorMeta.fullName,
-            signerTitle: process.env.CERTIFICATE_SIGNER_TITLE || mentorMeta.title,
-            sealUrl: process.env.CERTIFICATE_SEAL_URL,
-        },
+        metadata,
     };
 
     const pdfBuffer = await generateCertificatePDF({

@@ -99,14 +99,16 @@ exports.issueCertificate = async (req, res) => {
 
         const targetMenteeId = req.user.role === 'admin' && menteeOverride ? menteeOverride : req.user.id;
 
+        const isAdmin = req.user.role === 'admin';
         const certificate = await issueCertificate({
             menteeId: targetMenteeId,
             mentorId,
-            requestedBy: req.user.role === 'admin' ? req.user.id : undefined,
+            requestedBy: isAdmin ? req.user.id : undefined,
             programName,
             certificateType,
             statement,
             cohort,
+            allowEligibilityOverride: isAdmin,
         });
 
         return ok(res, {
