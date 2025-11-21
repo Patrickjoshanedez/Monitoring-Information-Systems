@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
 import { register, googleOAuthUrl, facebookOAuthUrl, mapErrorCodeToMessage } from '../services/api.js';
 import RecaptchaField from '../../../components/common/RecaptchaField.jsx';
@@ -19,7 +19,8 @@ const ROLE_OPTIONS = [
 ];
 
 export default function RegisterPage() {
- const [searchParams] = useSearchParams();
+	const [searchParams] = useSearchParams();
+	const navigate = useNavigate();
  const initialRoleParam = searchParams.get('role');
  const isValidRole = ROLE_OPTIONS.some((option) => option.id === initialRoleParam);
  const initialRole = isValidRole ? initialRoleParam : 'mentee';
@@ -58,23 +59,28 @@ export default function RegisterPage() {
  return;
  }
  setLoading(true);
- try {
-			await register({
- firstname: form.firstname,
- lastname: form.lastname,
- email: form.email,
- password: form.password,
- role,
- recaptchaToken
- });
-			// After account creation, immediately redirect to the role-specific application form.
+		try {
+			const result = await register({
+				firstname: form.firstname,
+				lastname: form.lastname,
+				email: form.email,
+				password: form.password,
+				role,
+				recaptchaToken
+			});
+
+			// If backend returned token+user, auto-login and navigate into the application flow
+			if (result?.token && result?.user) {
+				localStorage.setItem('token', result.token);
+				localStorage.setItem('user', JSON.stringify(result.user));
+			}
+
 			if (role === 'mentee') {
-				window.location.href = '/mentee/application';
+				navigate('/mentee/application');
 			} else if (role === 'mentor') {
-				window.location.href = '/mentor/application';
+				navigate('/mentor/application');
 			} else {
-				// Fallback to login for any unexpected role
-				window.location.href = '/login';
+				navigate('/login');
 			}
  } catch (err) {
  const code = err?.response?.data?.error;

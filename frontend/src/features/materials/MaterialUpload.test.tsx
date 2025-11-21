@@ -33,7 +33,8 @@ describe('MaterialUpload', () => {
         const input = screen.getByLabelText(/upload materials/i);
         const file = new File(['example'], 'notes.pdf', { type: 'application/pdf' });
         fireEvent.change(input, { target: { files: [file] } });
-        expect(screen.getByText(/1 file\(s\) selected/i)).toBeInTheDocument();
+        // UI shows the filename for a single selected file
+        expect(screen.getByText(/notes.pdf/i)).toBeInTheDocument();
     });
 
     it('surfaces server error message when upload fails', async () => {

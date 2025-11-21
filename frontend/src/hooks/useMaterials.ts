@@ -1,8 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../shared/config/apiClient';
 
+// Use `importMetaEnv` to allow Jest tests to polyfill environment variables.
+// For Vite builds, `importMetaEnv` is defined as `import.meta.env` in `vite.config.ts`.
+declare const importMetaEnv: any;
 const MATERIAL_UPLOAD_TIMEOUT_MS = (() => {
-    const parsed = Number(import.meta.env.VITE_MATERIAL_UPLOAD_TIMEOUT_MS ?? 60_000);
+    const raw = (globalThis as any)?.process?.env?.VITE_MATERIAL_UPLOAD_TIMEOUT_MS ??
+        (typeof importMetaEnv !== 'undefined' ? importMetaEnv.VITE_MATERIAL_UPLOAD_TIMEOUT_MS : undefined);
+    const parsed = Number(raw ?? 60_000);
     return Number.isFinite(parsed) ? parsed : 60_000;
 })();
 

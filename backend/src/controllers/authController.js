@@ -44,7 +44,21 @@ exports.register = async (req, res) => {
       applicationData: {}
     });
     await user.save();
-    return res.status(201).json({ message: 'REGISTERED' });
+    // create JWT for immediate login after registration
+    const token = createJwt(user);
+    return res.status(201).json({
+      token,
+      role: user.role,
+      user: {
+        id: user._id,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email,
+        role: user.role,
+        applicationStatus: user.applicationStatus,
+        applicationRole: user.applicationRole
+      }
+    });
   } catch (err) {
     return res.status(500).json({ error: 'NETWORK_ERROR' });
   }
