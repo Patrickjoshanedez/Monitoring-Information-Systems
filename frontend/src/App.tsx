@@ -26,6 +26,7 @@ import MentorApplicationForm from './pages/applicationPages/MentorApplicationFor
 import MentorPendingPage from './pages/MentorPendingPage';
 import AdminPendingPage from './pages/AdminPendingPage';
 import AdminRecognitionPage from './pages/admin/AdminRecognitionPage';
+import MatchingPage from './pages/admin/MatchingPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProfilePage from './pages/menteeDashboards/ProfilePage';
@@ -42,6 +43,7 @@ import MenteeMatchSuggestionsPage from './features/matchmaking/pages/MenteeMatch
 // Wrapper components for better TypeScript support
 const AdminRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminDashboard />} />;
 const AdminRecognitionRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminRecognitionPage />} />;
+const AdminMatchingRoute = () => <ProtectedRoute requiredRole="admin" children={<MatchingPage />} />;
 const MentorRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorDashboard />} />;
 const MenteeRoute = () => <ProtectedRoute requiredRole="mentee" children={<MenteeDashboard />} />;
 const MyMentorRoute = () => <ProtectedRoute requiredRole="mentee" children={<MyMentorPage />} />;
@@ -91,6 +93,7 @@ const App = () => {
 
                 {/* Dashboard Routes */}
                 <Route path="/admin/dashboard" element={<AdminRoute />} />
+                <Route path="/admin/matching" element={<AdminMatchingRoute />} />
                 <Route path="/admin/recognition" element={<AdminRecognitionRoute />} />
                 <Route path="/mentor/dashboard" element={<MentorRoute />} />
                 <Route path="/mentor/chat" element={<MentorChatRoute />} />

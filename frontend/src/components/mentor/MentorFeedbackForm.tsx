@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMentorFeedbackForSession, useCreateMentorFeedback, useUpdateMentorFeedback, useMenteeProgressSnapshot } from '../../shared/hooks/useMentorFeedback';
-import type { MentorFeedbackRecord } from '../../shared/services/mentorFeedbackService';
 
 type Props = {
     sessionId: string;
