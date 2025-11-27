@@ -29,10 +29,12 @@ import AdminRecognitionPage from './pages/admin/AdminRecognitionPage';
 import MatchingPage from './pages/admin/MatchingPage';
 import AdminApplicationsPage from './pages/admin/ApplicationsPage';
 import AdminUsersPage from './pages/admin/UsersPage';
+import AdminNotificationsPage from './pages/admin/NotificationsPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProfilePage from './pages/menteeDashboards/ProfilePage';
 import RecognitionPage from './pages/menteeDashboards/RecognitionPage';
+import MentorAnnouncementsPage from './pages/mentorDashboards/AnnouncementsPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import SetPasswordPage from './features/auth/pages/SetPasswordPage.jsx';
 import ProfileSettings from './features/profile/pages/ProfileSettings.jsx';
@@ -48,7 +50,9 @@ const AdminRecognitionRoute = () => <ProtectedRoute requiredRole="admin" childre
 const AdminApplicationsRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminApplicationsPage />} />;
 const AdminMatchingRoute = () => <ProtectedRoute requiredRole="admin" children={<MatchingPage />} />;
 const AdminUsersRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminUsersPage />} />;
+const AdminNotificationsRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminNotificationsPage />} />;
 const MentorRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorDashboard />} />;
+const MentorAnnouncementsRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorAnnouncementsPage />} />;
 const MenteeRoute = () => <ProtectedRoute requiredRole="mentee" children={<MenteeDashboard />} />;
 const MyMentorRoute = () => <ProtectedRoute requiredRole="mentee" children={<MyMentorPage />} />;
 const SessionRoute = () => <ProtectedRoute requiredRole="mentee" children={<SessionPage />} />;
@@ -100,8 +104,10 @@ const App = () => {
                 <Route path="/admin/matching" element={<AdminMatchingRoute />} />
                 <Route path="/admin/applications" element={<AdminApplicationsRoute />} />
                 <Route path="/admin/users" element={<AdminUsersRoute />} />
+                <Route path="/admin/notifications" element={<AdminNotificationsRoute />} />
                 <Route path="/admin/recognition" element={<AdminRecognitionRoute />} />
                 <Route path="/mentor/dashboard" element={<MentorRoute />} />
+                <Route path="/mentor/announcements" element={<MentorAnnouncementsRoute />} />
                 <Route path="/mentor/chat" element={<MentorChatRoute />} />
                 <Route path="/mentor/materials/upload" element={<MentorMaterialsUploadRoute />} />
                 <Route path="/mentor/sessions" element={<MentorSessionsRoute />} />

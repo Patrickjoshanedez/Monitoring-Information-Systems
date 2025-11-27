@@ -13,6 +13,7 @@ const adminNotificationLogSchema = new mongoose.Schema(
             email: { type: Boolean, default: false },
         },
         metadata: { type: Object, default: {} },
+        announcement: { type: mongoose.Schema.Types.ObjectId, ref: 'Announcement' },
         createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     },
     { timestamps: true }

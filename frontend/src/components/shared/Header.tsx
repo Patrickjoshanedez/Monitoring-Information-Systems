@@ -30,6 +30,7 @@ const NAV_MAP: Record<string, NavItem[]> = {
     { label: 'Matching', to: '/admin/matching', matches: ['/admin/matching'] },
     { label: 'Applications', to: '/admin/applications', matches: ['/admin/applications'] },
     { label: 'Users', to: '/admin/users', matches: ['/admin/users'] },
+    { label: 'Notifications', to: '/admin/notifications', matches: ['/admin/notifications'] },
     { label: 'Recognition', to: '/admin/recognition', matches: ['/admin/recognition'] }
   ],
   mentor: [
@@ -37,6 +38,7 @@ const NAV_MAP: Record<string, NavItem[]> = {
     { label: 'Sessions', to: '/mentor/sessions', matches: ['/mentor/sessions'] },
     { label: 'Availability', to: '/mentor/availability', matches: ['/mentor/availability'] },
     { label: 'Upload', to: '/mentor/materials/upload', matches: ['/mentor/materials/upload'] },
+    { label: 'Announcements', to: '/mentor/announcements', matches: ['/mentor/announcements'] },
     { label: 'Chat', to: '/mentor/chat', matches: ['/mentor/chat'] }
   ],
   mentee: [

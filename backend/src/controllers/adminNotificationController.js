@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const Announcement = require('../models/Announcement');
 const AdminNotificationLog = require('../models/AdminNotificationLog');
 const { sendNotification } = require('../utils/notificationService');
 const { ok, fail } = require('../utils/responses');
@@ -8,6 +9,7 @@ const { Types } = mongoose;
 const VALID_ROLES = new Set(['mentee', 'mentor', 'admin']);
 const DEFAULT_TYPE = 'ADMIN_ANNOUNCEMENT';
 const MAX_RECIPIENTS = 10000;
+const ANNOUNCEMENT_DEFAULT_CATEGORY = 'General';
 
 const normalizeArray = (value) => {
     if (Array.isArray(value)) {
@@ -56,6 +58,49 @@ const resolveAudience = async ({ scope, roles, userIds, emails }) => {
     throw new Error('Unsupported audience scope.');
 };
 
+const resolveAnnouncementAudience = (scope, roles) => {
+    if (scope === 'all') {
+        return 'all';
+    }
+    if (scope === 'roles') {
+        const normalizedRoles = normalizeArray(roles).filter((role) => role === 'mentor' || role === 'mentee');
+        if (!normalizedRoles.length) {
+            return null;
+        }
+        const unique = new Set(normalizedRoles);
+        if (unique.has('mentor') && unique.has('mentee')) {
+            return 'all';
+        }
+        if (unique.has('mentee')) {
+            return 'mentees';
+        }
+        if (unique.has('mentor')) {
+            return 'mentors';
+        }
+    }
+    return null;
+};
+
+const createAnnouncementDoc = async ({ title, message, publishOptions, audience, createdBy }) => {
+    const sanitizedSummary = publishOptions.summary ? String(publishOptions.summary).trim() : undefined;
+    const sanitizedBody = publishOptions.body ? String(publishOptions.body).trim() : message;
+    const sanitizedCategory = publishOptions.category ? String(publishOptions.category).trim() : ANNOUNCEMENT_DEFAULT_CATEGORY;
+    const publishedAt = publishOptions.publishedAt ? new Date(publishOptions.publishedAt) : new Date();
+
+    const doc = await Announcement.create({
+        title: publishOptions.title ? String(publishOptions.title).trim() : title,
+        body: sanitizedBody,
+        summary: sanitizedSummary,
+        category: sanitizedCategory || ANNOUNCEMENT_DEFAULT_CATEGORY,
+        isFeatured: !!publishOptions.isFeatured,
+        audience,
+        publishedAt,
+        createdBy,
+    });
+
+    return doc;
+};
+
 const dispatchNotifications = async ({ users, type, title, message, data, channels }) => {
     const operations = users.map((user) =>
         sendNotification({
@@ -77,7 +122,15 @@ const dispatchNotifications = async ({ users, type, title, message, data, channe
 
 exports.sendAdminNotification = async (req, res) => {
     try {
-        const { title, message, type = DEFAULT_TYPE, data = {}, audience = {}, channels = {} } = req.body || {};
+        const {
+            title,
+            message,
+            type = DEFAULT_TYPE,
+            data = {},
+            audience = {},
+            channels = {},
+            publishOptions = {},
+        } = req.body || {};
         const trimmedTitle = typeof title === 'string' ? title.trim() : '';
         const trimmedMessage = typeof message === 'string' ? message.trim() : '';
 
@@ -123,6 +176,26 @@ exports.sendAdminNotification = async (req, res) => {
             channels: deliveryChannels,
         });
 
+        let announcementDoc = null;
+        if (publishOptions?.publishToAnnouncements) {
+            const announcementAudience = resolveAnnouncementAudience(scope, audience.roles);
+            if (!announcementAudience) {
+                return fail(
+                    res,
+                    400,
+                    'INVALID_ANNOUNCEMENT_AUDIENCE',
+                    'Announcements feed publishing is limited to mentor and mentee audiences.'
+                );
+            }
+            announcementDoc = await createAnnouncementDoc({
+                title: trimmedTitle,
+                message: trimmedMessage,
+                publishOptions,
+                audience: announcementAudience,
+                createdBy: req.user._id,
+            });
+        }
+
         await AdminNotificationLog.create({
             title: trimmedTitle,
             message: trimmedMessage,
@@ -135,7 +208,11 @@ exports.sendAdminNotification = async (req, res) => {
             },
             recipientCount: users.length,
             channels: deliveryChannels,
-            metadata: { failures },
+            metadata: {
+                failures,
+                announcementAudience: announcementDoc?.audience,
+            },
+            announcement: announcementDoc?._id,
             createdBy: req.user._id,
         });
 
@@ -144,6 +221,7 @@ exports.sendAdminNotification = async (req, res) => {
             recipients: users.length,
             delivered,
             failures,
+            announcementId: announcementDoc?._id,
         });
     } catch (error) {
         return fail(res, 500, 'ADMIN_NOTIFICATION_FAILED', error.message || 'Failed to send notification.');
@@ -156,6 +234,7 @@ exports.listAdminNotificationLogs = async (_req, res) => {
             .sort({ createdAt: -1 })
             .limit(50)
             .populate('createdBy', 'firstname lastname email profile.displayName')
+            .populate('announcement', 'audience category title')
             .lean();
 
         const serialized = logs.map((log) => ({
@@ -176,6 +255,14 @@ exports.listAdminNotificationLogs = async (_req, res) => {
                           `${log.createdBy.firstname || ''} ${log.createdBy.lastname || ''}`.trim() ||
                           log.createdBy.email,
                       email: log.createdBy.email,
+                  }
+                : null,
+            announcement: log.announcement
+                ? {
+                      id: log.announcement._id,
+                      audience: log.announcement.audience,
+                      category: log.announcement.category,
+                      title: log.announcement.title,
                   }
                 : null,
         }));
