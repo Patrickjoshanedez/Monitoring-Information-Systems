@@ -27,6 +27,8 @@ import MentorPendingPage from './pages/MentorPendingPage';
 import AdminPendingPage from './pages/AdminPendingPage';
 import AdminRecognitionPage from './pages/admin/AdminRecognitionPage';
 import MatchingPage from './pages/admin/MatchingPage';
+import AdminApplicationsPage from './pages/admin/ApplicationsPage';
+import AdminUsersPage from './pages/admin/UsersPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProfilePage from './pages/menteeDashboards/ProfilePage';
@@ -43,7 +45,9 @@ import MenteeMatchSuggestionsPage from './features/matchmaking/pages/MenteeMatch
 // Wrapper components for better TypeScript support
 const AdminRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminDashboard />} />;
 const AdminRecognitionRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminRecognitionPage />} />;
+const AdminApplicationsRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminApplicationsPage />} />;
 const AdminMatchingRoute = () => <ProtectedRoute requiredRole="admin" children={<MatchingPage />} />;
+const AdminUsersRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminUsersPage />} />;
 const MentorRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorDashboard />} />;
 const MenteeRoute = () => <ProtectedRoute requiredRole="mentee" children={<MenteeDashboard />} />;
 const MyMentorRoute = () => <ProtectedRoute requiredRole="mentee" children={<MyMentorPage />} />;
@@ -94,6 +98,8 @@ const App = () => {
                 {/* Dashboard Routes */}
                 <Route path="/admin/dashboard" element={<AdminRoute />} />
                 <Route path="/admin/matching" element={<AdminMatchingRoute />} />
+                <Route path="/admin/applications" element={<AdminApplicationsRoute />} />
+                <Route path="/admin/users" element={<AdminUsersRoute />} />
                 <Route path="/admin/recognition" element={<AdminRecognitionRoute />} />
                 <Route path="/mentor/dashboard" element={<MentorRoute />} />
                 <Route path="/mentor/chat" element={<MentorChatRoute />} />

@@ -6,13 +6,30 @@ const {
 	getPairingDetail,
 	updatePairing,
 } = require('../controllers/adminMatchingController');
+const {
+	listAdminUsers,
+	getAdminUserDetail,
+	handleAdminUserAction,
+	listAdminSessions,
+} = require('../controllers/adminUserController');
 
 const router = express.Router();
 
-router.get('/admin/mentors/capacity', auth, listMentorCapacities);
-router.patch('/admin/mentors/:mentorId/capacity', auth, overrideMentorCapacity);
-router.get('/admin/matching/pairings', auth, listPairings);
-router.get('/admin/matching/pairings/:pairingId', auth, getPairingDetail);
-router.patch('/admin/matching/pairings/:pairingId', auth, updatePairing);
+const ensureAdmin = (req, res, next) => {
+	if (!req.user || req.user.role !== 'admin') {
+		return res.status(403).json({ success: false, error: 'FORBIDDEN', message: 'Admin access required' });
+	}
+	return next();
+};
+
+router.get('/admin/mentors/capacity', auth, ensureAdmin, listMentorCapacities);
+router.patch('/admin/mentors/:mentorId/capacity', auth, ensureAdmin, overrideMentorCapacity);
+router.get('/admin/matching/pairings', auth, ensureAdmin, listPairings);
+router.get('/admin/matching/pairings/:pairingId', auth, ensureAdmin, getPairingDetail);
+router.patch('/admin/matching/pairings/:pairingId', auth, ensureAdmin, updatePairing);
+router.get('/admin/users', auth, ensureAdmin, listAdminUsers);
+router.get('/admin/users/:userId', auth, ensureAdmin, getAdminUserDetail);
+router.post('/admin/users/:userId/actions', auth, ensureAdmin, handleAdminUserAction);
+router.get('/admin/sessions', auth, ensureAdmin, listAdminSessions);
 
 module.exports = router;

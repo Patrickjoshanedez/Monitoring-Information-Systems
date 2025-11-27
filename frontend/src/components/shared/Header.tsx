@@ -27,7 +27,9 @@ type NavItem = {
 const NAV_MAP: Record<string, NavItem[]> = {
   admin: [
     { label: 'Dashboard', to: '/admin/dashboard', matches: ['/admin/dashboard'], hash: '' },
-    { label: 'Applications', to: '/admin/dashboard#applications', matches: ['/admin/dashboard'], hash: '#applications' },
+    { label: 'Matching', to: '/admin/matching', matches: ['/admin/matching'] },
+    { label: 'Applications', to: '/admin/applications', matches: ['/admin/applications'] },
+    { label: 'Users', to: '/admin/users', matches: ['/admin/users'] },
     { label: 'Recognition', to: '/admin/recognition', matches: ['/admin/recognition'] }
   ],
   mentor: [

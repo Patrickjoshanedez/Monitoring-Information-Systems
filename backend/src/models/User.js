@@ -8,6 +8,13 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String },
     role: { type: String, enum: ['mentee', 'mentor', 'admin'], default: null },
+    accountStatus: {
+      type: String,
+      enum: ['active', 'deactivated', 'suspended'],
+      default: 'active',
+      index: true,
+    },
+    deletedAt: { type: Date },
     googleId: { type: String },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Date },
@@ -176,6 +183,7 @@ const userSchema = new mongoose.Schema(
 // Indexes for common queries
 // Optimize mentor directory lookups and general auth by role/status and email
 userSchema.index({ role: 1, applicationStatus: 1 });
+userSchema.index({ accountStatus: 1, deletedAt: 1 });
 userSchema.index({ role: 1, 'feedbackStats.averageRating': -1 });
 userSchema.index({ ratingAvg: -1 });
 
