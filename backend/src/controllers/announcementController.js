@@ -1,7 +1,11 @@
+const mongoose = require('mongoose');
 const Announcement = require('../models/Announcement');
 const User = require('../models/User');
 const { sendNotification } = require('../utils/notificationService');
 const { fail, ok } = require('../utils/responses');
+
+const { Types } = mongoose;
+const ALLOWED_AUDIENCES = new Set(['all', 'mentors', 'mentees']);
 
 const formatAnnouncement = (doc) => ({
   id: doc._id.toString(),
@@ -61,6 +65,9 @@ const queueAnnouncementBroadcast = (announcement) => {
 exports.listAnnouncements = async (req, res) => {
   try {
     const allowedAudiences = ['all'];
+    if (req.user?.role === 'admin') {
+      allowedAudiences.push('mentors', 'mentees');
+    }
     if (req.user?.role === 'mentee') allowedAudiences.push('mentees');
     if (req.user?.role === 'mentor') allowedAudiences.push('mentors');
 
@@ -114,5 +121,102 @@ exports.createAnnouncement = async (req, res) => {
   } catch (error) {
     console.error('createAnnouncement error:', error);
     return fail(res, 500, 'ANNOUNCEMENT_CREATE_FAILED', 'Unable to create announcement.');
+  }
+};
+
+exports.updateAnnouncement = async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return fail(res, 403, 'FORBIDDEN', 'Only admins can update announcements.');
+    }
+
+    const { id } = req.params;
+    if (!Types.ObjectId.isValid(id)) {
+      return fail(res, 400, 'INVALID_ANNOUNCEMENT_ID', 'Announcement id is invalid.');
+    }
+
+    const payload = req.body || {};
+    const updates = {};
+
+    if (payload.title !== undefined) {
+      const title = typeof payload.title === 'string' ? payload.title.trim() : '';
+      if (!title) {
+        return fail(res, 400, 'INVALID_ANNOUNCEMENT', 'Title cannot be empty.');
+      }
+      updates.title = title;
+    }
+
+    if (payload.body !== undefined) {
+      const body = typeof payload.body === 'string' ? payload.body.trim() : '';
+      if (!body) {
+        return fail(res, 400, 'INVALID_ANNOUNCEMENT', 'Body cannot be empty.');
+      }
+      updates.body = body;
+    }
+
+    if (payload.summary !== undefined) {
+      updates.summary = typeof payload.summary === 'string' ? payload.summary.trim() : undefined;
+    }
+
+    if (payload.category !== undefined) {
+      updates.category = typeof payload.category === 'string' ? payload.category.trim() : undefined;
+    }
+
+    if (payload.isFeatured !== undefined) {
+      updates.isFeatured = !!payload.isFeatured;
+    }
+
+    if (payload.audience !== undefined) {
+      const normalizedAudience = typeof payload.audience === 'string' ? payload.audience.trim() : '';
+      if (!ALLOWED_AUDIENCES.has(normalizedAudience)) {
+        return fail(res, 400, 'INVALID_AUDIENCE', 'Audience must be all, mentors, or mentees.');
+      }
+      updates.audience = normalizedAudience;
+    }
+
+    if (payload.publishedAt !== undefined) {
+      const publishedAt = new Date(payload.publishedAt);
+      if (Number.isNaN(publishedAt.getTime())) {
+        return fail(res, 400, 'INVALID_PUBLISHED_AT', 'Published date is invalid.');
+      }
+      updates.publishedAt = publishedAt;
+    }
+
+    if (!Object.keys(updates).length) {
+      return fail(res, 400, 'NO_UPDATES', 'Provide at least one field to update.');
+    }
+
+    const announcement = await Announcement.findByIdAndUpdate(id, updates, { new: true });
+    if (!announcement) {
+      return fail(res, 404, 'ANNOUNCEMENT_NOT_FOUND', 'Announcement not found.');
+    }
+
+    return ok(res, { announcement: formatAnnouncement(announcement) });
+  } catch (error) {
+    console.error('updateAnnouncement error:', error);
+    return fail(res, 500, 'ANNOUNCEMENT_UPDATE_FAILED', 'Unable to update announcement.');
+  }
+};
+
+exports.deleteAnnouncement = async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return fail(res, 403, 'FORBIDDEN', 'Only admins can delete announcements.');
+    }
+
+    const { id } = req.params;
+    if (!Types.ObjectId.isValid(id)) {
+      return fail(res, 400, 'INVALID_ANNOUNCEMENT_ID', 'Announcement id is invalid.');
+    }
+
+    const deleted = await Announcement.findByIdAndDelete(id);
+    if (!deleted) {
+      return fail(res, 404, 'ANNOUNCEMENT_NOT_FOUND', 'Announcement not found.');
+    }
+
+    return ok(res, { message: 'Announcement deleted.' });
+  } catch (error) {
+    console.error('deleteAnnouncement error:', error);
+    return fail(res, 500, 'ANNOUNCEMENT_DELETE_FAILED', 'Unable to delete announcement.');
   }
 };

@@ -29,7 +29,7 @@ import AdminRecognitionPage from './pages/admin/AdminRecognitionPage';
 import MatchingPage from './pages/admin/MatchingPage';
 import AdminApplicationsPage from './pages/admin/ApplicationsPage';
 import AdminUsersPage from './pages/admin/UsersPage';
-import AdminNotificationsPage from './pages/admin/NotificationsPage';
+import AdminAnnouncementsPage from './pages/admin/AnnouncementsPage';
 import RoleSelectionPage from './pages/RoleSelectionPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProfilePage from './pages/menteeDashboards/ProfilePage';
@@ -50,7 +50,7 @@ const AdminRecognitionRoute = () => <ProtectedRoute requiredRole="admin" childre
 const AdminApplicationsRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminApplicationsPage />} />;
 const AdminMatchingRoute = () => <ProtectedRoute requiredRole="admin" children={<MatchingPage />} />;
 const AdminUsersRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminUsersPage />} />;
-const AdminNotificationsRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminNotificationsPage />} />;
+const AdminAnnouncementsRoute = () => <ProtectedRoute requiredRole="admin" children={<AdminAnnouncementsPage />} />;
 const MentorRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorDashboard />} />;
 const MentorAnnouncementsRoute = () => <ProtectedRoute requiredRole="mentor" children={<MentorAnnouncementsPage />} />;
 const MenteeRoute = () => <ProtectedRoute requiredRole="mentee" children={<MenteeDashboard />} />;
@@ -104,7 +104,7 @@ const App = () => {
                 <Route path="/admin/matching" element={<AdminMatchingRoute />} />
                 <Route path="/admin/applications" element={<AdminApplicationsRoute />} />
                 <Route path="/admin/users" element={<AdminUsersRoute />} />
-                <Route path="/admin/notifications" element={<AdminNotificationsRoute />} />
+                <Route path="/admin/announcements" element={<AdminAnnouncementsRoute />} />
                 <Route path="/admin/recognition" element={<AdminRecognitionRoute />} />
                 <Route path="/mentor/dashboard" element={<MentorRoute />} />
                 <Route path="/mentor/announcements" element={<MentorAnnouncementsRoute />} />

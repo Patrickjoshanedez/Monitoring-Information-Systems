@@ -11,6 +11,19 @@ const DEFAULT_TYPE = 'ADMIN_ANNOUNCEMENT';
 const MAX_RECIPIENTS = 10000;
 const ANNOUNCEMENT_DEFAULT_CATEGORY = 'General';
 
+const resolveAdminActorId = (authUser) => {
+    if (!authUser) {
+        return null;
+    }
+    if (authUser._id && Types.ObjectId.isValid(authUser._id)) {
+        return authUser._id;
+    }
+    if (authUser.id && Types.ObjectId.isValid(authUser.id)) {
+        return authUser.id;
+    }
+    return null;
+};
+
 const normalizeArray = (value) => {
     if (Array.isArray(value)) {
         return value.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
@@ -131,6 +144,7 @@ exports.sendAdminNotification = async (req, res) => {
             channels = {},
             publishOptions = {},
         } = req.body || {};
+        const adminActorId = resolveAdminActorId(req.user);
         const trimmedTitle = typeof title === 'string' ? title.trim() : '';
         const trimmedMessage = typeof message === 'string' ? message.trim() : '';
 
@@ -159,6 +173,10 @@ exports.sendAdminNotification = async (req, res) => {
                 'AUDIENCE_TOO_LARGE',
                 `Audience too large (${users.length}). Narrow down recipients before sending.`
             );
+        }
+
+        if (!adminActorId) {
+            return fail(res, 401, 'ADMIN_CONTEXT_MISSING', 'Unable to resolve the admin identity for this action.');
         }
 
         const payloadData = data && typeof data === 'object' ? data : {};
@@ -192,7 +210,7 @@ exports.sendAdminNotification = async (req, res) => {
                 message: trimmedMessage,
                 publishOptions,
                 audience: announcementAudience,
-                createdBy: req.user._id,
+                createdBy: adminActorId,
             });
         }
 
@@ -213,7 +231,7 @@ exports.sendAdminNotification = async (req, res) => {
                 announcementAudience: announcementDoc?.audience,
             },
             announcement: announcementDoc?._id,
-            createdBy: req.user._id,
+            createdBy: adminActorId,
         });
 
         return ok(res, {

@@ -18,6 +18,19 @@ const toNumber = (value, fallback, { min = 1, max = 100 } = {}) => {
 
 const sanitizeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const resolveAdminId = (authUser) => {
+    if (!authUser) {
+        return null;
+    }
+    if (authUser._id && Types.ObjectId.isValid(authUser._id)) {
+        return authUser._id;
+    }
+    if (authUser.id && Types.ObjectId.isValid(authUser.id)) {
+        return authUser.id;
+    }
+    return null;
+};
+
 const buildUserSummary = (user) => ({
     id: user._id,
     firstname: user.firstname || '',
@@ -214,12 +227,16 @@ const handleAdminUserAction = async (req, res) => {
     try {
         const { userId } = req.params;
         const { action, reason } = req.body || {};
+        const adminId = resolveAdminId(req.user);
 
         if (!Types.ObjectId.isValid(userId)) {
             return fail(res, 400, 'INVALID_USER_ID', 'Invalid user id supplied');
         }
         if (!ADMIN_ACTIONS.has(action)) {
             return fail(res, 400, 'INVALID_ACTION', 'Unsupported admin action requested');
+        }
+        if (!adminId) {
+            return fail(res, 401, 'ADMIN_CONTEXT_MISSING', 'Unable to resolve the admin identity for this action.');
         }
 
         const user = await User.findById(userId).select(
@@ -229,12 +246,12 @@ const handleAdminUserAction = async (req, res) => {
             return fail(res, 404, 'USER_NOT_FOUND', 'User not found');
         }
 
-        applyUserAction(user, action, req.user._id);
+        applyUserAction(user, action, adminId);
         await user.save();
 
         const logEntry = await AdminUserAction.create({
             userId: user._id,
-            adminId: req.user._id,
+            adminId,
             action,
             reason,
             metadata: {

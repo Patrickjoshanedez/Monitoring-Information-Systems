@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { AnnouncementDto, fetchAnnouncements } from '../services/announcementsService';
 
-const ANNOUNCEMENTS_QUERY_KEY = ['announcements'];
+export const ANNOUNCEMENTS_QUERY_KEY = ['announcements'] as const;
 
 export const useAnnouncements = () => {
     const query = useQuery<AnnouncementDto[]>({

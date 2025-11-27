@@ -30,7 +30,7 @@ const NAV_MAP: Record<string, NavItem[]> = {
     { label: 'Matching', to: '/admin/matching', matches: ['/admin/matching'] },
     { label: 'Applications', to: '/admin/applications', matches: ['/admin/applications'] },
     { label: 'Users', to: '/admin/users', matches: ['/admin/users'] },
-    { label: 'Notifications', to: '/admin/notifications', matches: ['/admin/notifications'] },
+    { label: 'Announcements', to: '/admin/announcements', matches: ['/admin/announcements'] },
     { label: 'Recognition', to: '/admin/recognition', matches: ['/admin/recognition'] }
   ],
   mentor: [
