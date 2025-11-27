@@ -12,6 +12,10 @@ const {
 	handleAdminUserAction,
 	listAdminSessions,
 } = require('../controllers/adminUserController');
+const {
+	sendAdminNotification,
+	listAdminNotificationLogs,
+} = require('../controllers/adminNotificationController');
 
 const router = express.Router();
 
@@ -31,5 +35,7 @@ router.get('/admin/users', auth, ensureAdmin, listAdminUsers);
 router.get('/admin/users/:userId', auth, ensureAdmin, getAdminUserDetail);
 router.post('/admin/users/:userId/actions', auth, ensureAdmin, handleAdminUserAction);
 router.get('/admin/sessions', auth, ensureAdmin, listAdminSessions);
+router.post('/admin/notifications', auth, ensureAdmin, sendAdminNotification);
+router.get('/admin/notifications/logs', auth, ensureAdmin, listAdminNotificationLogs);
 
 module.exports = router;
