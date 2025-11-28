@@ -72,6 +72,7 @@ app.use('/api', require('./routes/feedbackRoutes'));
 app.use('/api', require('./routes/certificateRoutes'));
 app.use('/api', require('./routes/integrationRoutes'));
 app.use('/api', require('./routes/matchRoutes'));
+app.use('/api', require('./routes/reportRoutes'));
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
@@ -167,8 +168,11 @@ const start = async () => {
     }
   };
 
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  // Only handle signals in production
+  if (process.env.NODE_ENV === 'production') {
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+  }
 
   const port = process.env.PORT || 4000;
   app.listen(port, () => {

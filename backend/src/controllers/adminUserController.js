@@ -2,10 +2,13 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Session = require('../models/Session');
 const AdminUserAction = require('../models/AdminUserAction');
+const AuditLog = require('../models/AuditLog');
 const { ok, fail } = require('../utils/responses');
 
 const { Types } = mongoose;
 const ADMIN_ACTIONS = new Set(['approve', 'reject', 'deactivate', 'reactivate', 'delete']);
+const SESSION_STATUS_VALUES = new Set(['pending', 'confirmed', 'rescheduled', 'cancelled', 'completed']);
+const DEFAULT_TRACKED_SESSION_STATUSES = ['confirmed', 'completed', 'cancelled'];
 
 const toBoolean = (value) => value === true || value === 'true' || value === 1 || value === '1';
 const toNumber = (value, fallback, { min = 1, max = 100 } = {}) => {
@@ -288,12 +291,71 @@ const formatParticipant = (user) => {
     };
 };
 
+const summarizeAttendance = (entries = []) => {
+    const summary = {
+        total: 0,
+        present: 0,
+        late: 0,
+        absent: 0,
+        lastRecordedAt: null,
+    };
+    entries.forEach((entry) => {
+        summary.total += 1;
+        if (entry && typeof entry === 'object') {
+            if (entry.status === 'present') {
+                summary.present += 1;
+            } else if (entry.status === 'late') {
+                summary.late += 1;
+            } else if (entry.status === 'absent') {
+                summary.absent += 1;
+            }
+            if (entry.recordedAt) {
+                const recordedDate = new Date(entry.recordedAt);
+                if (!summary.lastRecordedAt || recordedDate > summary.lastRecordedAt) {
+                    summary.lastRecordedAt = recordedDate;
+                }
+            }
+        }
+    });
+    return summary;
+};
+
+const formatAdminSessionRow = (session) => {
+    if (!session) {
+        return null;
+    }
+    const attendanceSummary = summarizeAttendance(session.attendance || []);
+    return {
+        id: session._id,
+        subject: session.subject,
+        date: session.date,
+        status: session.status,
+        isGroup: session.isGroup,
+        mentor: formatParticipant(session.mentor),
+        mentee: formatParticipant(session.mentee),
+        attendanceSummary: {
+            ...attendanceSummary,
+            lastRecordedAt: attendanceSummary.lastRecordedAt ? attendanceSummary.lastRecordedAt.toISOString() : null,
+        },
+        adminReview: session.adminReview
+            ? {
+                  flagged: !!session.adminReview.flagged,
+                  reason: session.adminReview.reason || null,
+                  notes: session.adminReview.notes || null,
+                  flaggedAt: session.adminReview.flaggedAt || null,
+                  flaggedBy: session.adminReview.flaggedBy || null,
+                  updatedAt: session.adminReview.updatedAt || null,
+                  updatedBy: session.adminReview.updatedBy || null,
+              }
+            : { flagged: false },
+        completedAt: session.completedAt || null,
+        durationMinutes: session.durationMinutes,
+    };
+};
+
 const listAdminSessions = async (req, res) => {
     try {
-        const { mentor, mentee, limit = 5, page = 1, sort = 'newest' } = req.query;
-        if (!mentor && !mentee) {
-            return fail(res, 400, 'INVALID_FILTER', 'Provide a mentor or mentee filter');
-        }
+        const { mentor, mentee, limit = 10, page = 1, sort = 'newest', status = 'all' } = req.query;
 
         const query = {};
         if (mentor) {
@@ -309,8 +371,17 @@ const listAdminSessions = async (req, res) => {
             query.mentee = mentee;
         }
 
+        if (status && status !== 'all') {
+            if (!SESSION_STATUS_VALUES.has(status)) {
+                return fail(res, 400, 'INVALID_STATUS', 'Unsupported session status filter.');
+            }
+            query.status = status;
+        } else {
+            query.status = { $in: DEFAULT_TRACKED_SESSION_STATUSES };
+        }
+
         const pageNumber = toNumber(page, 1, { min: 1, max: 1000 });
-        const pageLimit = toNumber(limit, 5, { min: 1, max: 50 });
+        const pageLimit = toNumber(limit, 10, { min: 5, max: 100 });
         const skip = (pageNumber - 1) * pageLimit;
         const sortOrder = sort === 'oldest' ? 1 : -1;
 
@@ -321,6 +392,10 @@ const listAdminSessions = async (req, res) => {
             mentor: 1,
             mentee: 1,
             isGroup: 1,
+            attendance: 1,
+            adminReview: 1,
+            completedAt: 1,
+            durationMinutes: 1,
         };
 
         const [sessions, total] = await Promise.all([
@@ -335,15 +410,7 @@ const listAdminSessions = async (req, res) => {
             Session.countDocuments(query),
         ]);
 
-        const normalized = sessions.map((session) => ({
-            id: session._id,
-            subject: session.subject,
-            date: session.date,
-            status: session.status,
-            isGroup: session.isGroup,
-            mentor: formatParticipant(session.mentor),
-            mentee: formatParticipant(session.mentee),
-        }));
+        const normalized = sessions.map((session) => formatAdminSessionRow(session)).filter(Boolean);
 
         return ok(
             res,
@@ -355,9 +422,122 @@ const listAdminSessions = async (req, res) => {
     }
 };
 
+const updateAdminSessionReview = async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+        const { status, flagged, reason, notes } = req.body || {};
+        const adminId = resolveAdminId(req.user);
+
+        if (!Types.ObjectId.isValid(sessionId)) {
+            return fail(res, 400, 'INVALID_SESSION_ID', 'Invalid session identifier.');
+        }
+        if (!adminId) {
+            return fail(res, 401, 'ADMIN_CONTEXT_MISSING', 'Unable to resolve the admin identity for this action.');
+        }
+        if (!status && typeof flagged === 'undefined' && typeof reason === 'undefined' && typeof notes === 'undefined') {
+            return fail(res, 400, 'NO_CHANGES', 'Provide at least one field to update.');
+        }
+        if (status && !SESSION_STATUS_VALUES.has(status)) {
+            return fail(res, 400, 'INVALID_STATUS', 'Unsupported session status update.');
+        }
+
+        const session = await Session.findById(sessionId)
+            .populate('mentor', 'firstname lastname email profile.displayName')
+            .populate('mentee', 'firstname lastname email profile.displayName');
+        if (!session) {
+            return fail(res, 404, 'SESSION_NOT_FOUND', 'Session not found.');
+        }
+
+        const metadata = {};
+        let hasChanges = false;
+
+        if (status && session.status !== status) {
+            metadata.statusBefore = session.status;
+            metadata.statusAfter = status;
+            session.status = status;
+            hasChanges = true;
+            if (status === 'cancelled') {
+                session.statusMeta = session.statusMeta || {};
+                session.statusMeta.cancellationReason = reason ? reason.toString().trim() : session.statusMeta.cancellationReason;
+                session.statusMeta.cancellationBy = adminId;
+                session.statusMeta.cancelledAt = new Date();
+            }
+            if (status === 'completed' && !session.completedAt) {
+                session.completedAt = new Date();
+            }
+            if (status === 'confirmed') {
+                session.completedAt = null;
+            }
+        }
+
+        const review = session.adminReview || {};
+        const normalizedReason = typeof reason === 'string' ? reason.trim() : reason;
+        const normalizedNotes = typeof notes === 'string' ? notes.trim() : notes;
+
+        if (typeof flagged === 'boolean') {
+            if (flagged && !normalizedReason && !review.reason) {
+                return fail(res, 400, 'FLAG_REASON_REQUIRED', 'Provide a reason when flagging a session.');
+            }
+            review.flagged = flagged;
+            review.flaggedAt = flagged ? new Date() : null;
+            review.flaggedBy = flagged ? adminId : null;
+            metadata.flagged = flagged;
+            hasChanges = true;
+        }
+        if (typeof normalizedReason !== 'undefined') {
+            review.reason = normalizedReason || null;
+            hasChanges = true;
+        }
+        if (typeof normalizedNotes !== 'undefined') {
+            review.notes = normalizedNotes || null;
+            hasChanges = true;
+        }
+
+        if (!hasChanges) {
+            return fail(res, 400, 'NO_CHANGES', 'No updates detected for this session.');
+        }
+
+        review.updatedAt = new Date();
+        review.updatedBy = adminId;
+        session.adminReview = review;
+
+        await session.save();
+
+        await AuditLog.create({
+            actorId: adminId,
+            action: 'admin.session.update',
+            resourceType: 'session',
+            resourceId: session._id.toString(),
+            metadata,
+        });
+
+        const refreshed = await Session.findById(session._id)
+            .select({
+                subject: 1,
+                date: 1,
+                status: 1,
+                mentor: 1,
+                mentee: 1,
+                isGroup: 1,
+                attendance: 1,
+                adminReview: 1,
+                completedAt: 1,
+                durationMinutes: 1,
+            })
+            .populate('mentor', 'firstname lastname email profile.displayName')
+            .populate('mentee', 'firstname lastname email profile.displayName')
+            .lean();
+
+        return ok(res, { session: formatAdminSessionRow(refreshed) });
+    } catch (error) {
+        return fail(res, 500, 'ADMIN_SESSION_UPDATE_FAILED', error.message || 'Failed to update session.');
+    }
+};
+
 module.exports = {
     listAdminUsers,
     getAdminUserDetail,
     handleAdminUserAction,
     listAdminSessions,
+    updateAdminSessionReview,
 };

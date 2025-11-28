@@ -11,11 +11,18 @@ const {
 	getAdminUserDetail,
 	handleAdminUserAction,
 	listAdminSessions,
+	updateAdminSessionReview,
 } = require('../controllers/adminUserController');
 const {
 	sendAdminNotification,
 	listAdminNotificationLogs,
 } = require('../controllers/adminNotificationController');
+const {
+	listMentorFeedback,
+	getMentorFeedbackSummary,
+	exportMentorFeedbackCsv,
+	updateMentorFeedbackModeration,
+} = require('../controllers/adminFeedbackController');
 
 const router = express.Router();
 
@@ -35,7 +42,12 @@ router.get('/admin/users', auth, ensureAdmin, listAdminUsers);
 router.get('/admin/users/:userId', auth, ensureAdmin, getAdminUserDetail);
 router.post('/admin/users/:userId/actions', auth, ensureAdmin, handleAdminUserAction);
 router.get('/admin/sessions', auth, ensureAdmin, listAdminSessions);
+router.patch('/admin/sessions/:sessionId/review', auth, ensureAdmin, updateAdminSessionReview);
 router.post('/admin/notifications', auth, ensureAdmin, sendAdminNotification);
 router.get('/admin/notifications/logs', auth, ensureAdmin, listAdminNotificationLogs);
+router.get('/admin/feedback/mentor', auth, ensureAdmin, listMentorFeedback);
+router.get('/admin/feedback/mentor/summary', auth, ensureAdmin, getMentorFeedbackSummary);
+router.get('/admin/feedback/mentor/export', auth, ensureAdmin, exportMentorFeedbackCsv);
+router.patch('/admin/feedback/mentor/:feedbackId/moderation', auth, ensureAdmin, updateMentorFeedbackModeration);
 
 module.exports = router;

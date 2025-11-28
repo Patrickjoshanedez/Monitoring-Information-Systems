@@ -16,7 +16,7 @@ const feedbackAuditLogSchema = new mongoose.Schema(
         },
         action: {
             type: String,
-            enum: ['create', 'update', 'view'],
+            enum: ['create', 'update', 'view', 'moderate'],
             required: true,
         },
         ip: {

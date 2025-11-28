@@ -28,6 +28,8 @@ const NAV_MAP: Record<string, NavItem[]> = {
   admin: [
     { label: 'Dashboard', to: '/admin/dashboard', matches: ['/admin/dashboard'], hash: '' },
     { label: 'Matching', to: '/admin/matching', matches: ['/admin/matching'] },
+    { label: 'Sessions', to: '/admin/sessions', matches: ['/admin/sessions'] },
+    { label: 'Feedback', to: '/admin/feedback', matches: ['/admin/feedback'] },
     { label: 'Applications', to: '/admin/applications', matches: ['/admin/applications'] },
     { label: 'Users', to: '/admin/users', matches: ['/admin/users'] },
     { label: 'Announcements', to: '/admin/announcements', matches: ['/admin/announcements'] },
