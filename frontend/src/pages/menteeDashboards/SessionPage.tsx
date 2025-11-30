@@ -14,22 +14,26 @@ const SessionPage: React.FC = () => {
         {/* Quick actions */}
         <SessionActionsPanel />
 
-        {/* Certificates & achievements */}
-        <RecognitionPanel />
+        <div className="tw-mt-6 lg:tw-grid lg:tw-grid-cols-[1.618fr_1fr] lg:tw-gap-6 tw-items-start">
+          <div className="tw-space-y-6">
+            {/* Upcoming Sessions */}
+            <UpcomingSessionsTable />
 
-        {/* Progress snapshot (mentor feedback + goals) */}
-        <div className="tw-mt-6">
-          <ProgressDashboard />
+            {/* Pending feedback */}
+            <PendingFeedbackList />
+
+            {/* Session History */}
+            <SessionHistoryTable />
+          </div>
+
+          <aside className="tw-mt-6 lg:tw-mt-0 tw-space-y-6">
+            {/* Progress snapshot (mentor feedback + goals) */}
+            <ProgressDashboard />
+
+            {/* Certificates & achievements */}
+            <RecognitionPanel />
+          </aside>
         </div>
-
-        {/* Upcoming Sessions */}
-        <UpcomingSessionsTable />
-
-        {/* Pending feedback */}
-        <PendingFeedbackList />
-
-        {/* Session History */}
-        <SessionHistoryTable />
       </div>
     </DashboardLayout>
   );

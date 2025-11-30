@@ -18,12 +18,12 @@ export type ProfilePayload = {
   displayName?: string;
   photoUrl?: string;
   bio?: string;
-  education?: { program?: string; yearLevel?: string; major?: string };
+  education?: { program?: string; yearLevel?: string; major?: string; role?: 'student' | 'instructor' };
   coursesNeeded?: string[];
   interests?: string[];
   learningGoals?: string;
   timezone?: string;
-  contactPreferences?: Array<'email' | 'in_app' | 'sms'>;
+  contactPreferences?: Array<'email' | 'in_app'>;
   privacy?: Partial<{
     bio: 'public' | 'mentors' | 'private';
     education: 'public' | 'mentors' | 'private';

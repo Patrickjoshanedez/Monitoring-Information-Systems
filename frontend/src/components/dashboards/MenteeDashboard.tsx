@@ -1,8 +1,6 @@
 import React, { Suspense } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
 import WelcomeBanner from '../mentee/WelcomeBanner';
-import IconTileRow from '../mentee/IconTileRow';
-import StatsPanel from '../mentee/StatsPanel';
 import MentorDirectorySection from '../mentee/MentorDirectorySection';
 import MenteeRequestsTable from '../mentee/MenteeRequestsTable';
 import PeopleBehind from '../mentee/PeopleBehind';
@@ -19,12 +17,6 @@ const MenteeDashboard: React.FC = () => {
 
   {/* Mentor Match Notification */}
   <MatchNotificationBanner />
-
-        {/* Icon Tiles */}
-        <IconTileRow />
-
-        {/* Stats Panel */}
-        <StatsPanel />
 
         {/* Mentor Directory */}
         <MentorDirectorySection />

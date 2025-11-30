@@ -54,6 +54,10 @@ const userSchema = new mongoose.Schema(
       availabilityDays: [{ type: String }],
       availabilityHoursPerWeek: { type: Number },
       meetingFormats: [{ type: String }],
+      educationRole: { type: String, enum: ['student', 'instructor'] },
+      educationProgram: { type: String },
+      educationYearLevel: { type: String },
+      educationMajor: { type: String },
       supportingDocumentUrl: { type: String }
     },
     applicationSubmittedAt: { type: Date },
@@ -79,22 +83,23 @@ const userSchema = new mongoose.Schema(
       education: {
         program: { type: String, trim: true },
         yearLevel: { type: String, trim: true },
-        major: { type: String, trim: true }
+        major: { type: String, trim: true },
+        role: { type: String, enum: ['student', 'instructor'], default: 'student' }
       },
       coursesNeeded: [{ type: String, trim: true }],
       interests: [{ type: String, trim: true }],
       learningGoals: { type: String, trim: true },
       timezone: { type: String, trim: true },
-      contactPreferences: [{ type: String, enum: ['email', 'in_app', 'sms'] }],
+      contactPreferences: [{ type: String, enum: ['email', 'in_app'] }],
       privacy: {
-        bio: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
-        education: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
+        bio: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
+        education: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
           expertiseAreas: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
           skills: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
-          availabilitySlots: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
-        interests: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
-        learningGoals: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
-        coursesNeeded: { type: String, enum: ['public', 'mentors', 'private'], default: 'mentors' },
+          availabilitySlots: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
+        interests: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
+        learningGoals: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
+        coursesNeeded: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
         contact: { type: String, enum: ['public', 'mentors', 'private'], default: 'private' },
         photo: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' },
         displayName: { type: String, enum: ['public', 'mentors', 'private'], default: 'public' }

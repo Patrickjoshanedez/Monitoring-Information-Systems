@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
+const { DateTime } = require('luxon');
 const User = require('../models/User');
+const Availability = require('../models/Availability');
 const MentorshipRequest = require('../models/MentorshipRequest');
 // Notification handlers moved to notificationController for compactness
 const { sendNotification } = require('../utils/notificationService');
@@ -41,7 +43,145 @@ const buildAvailability = (applicationData = {}) => {
 
 const { getFullName, personFromUser } = require('../utils/person');
 
-const normalizeMentor = (user) => {
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MAX_AVAILABILITY_LABELS = 3;
+
+const toLuxonWeekday = (dayOfWeek) => {
+  const parsed = Number(dayOfWeek);
+  if (Number.isNaN(parsed)) return null;
+  return parsed === 0 ? 7 : parsed;
+};
+
+const addLabel = (summary, label) => {
+  if (!label) return;
+  if (!Array.isArray(summary.labels)) {
+    summary.labels = [];
+  }
+  if (summary.labels.includes(label)) return;
+  if (summary.labels.length >= MAX_AVAILABILITY_LABELS) return;
+  summary.labels.push(label);
+};
+
+const pickSooner = (current, candidate) => {
+  if (!candidate) return current;
+  if (!current) return candidate;
+  return candidate.getTime() < current.getTime() ? candidate : current;
+};
+
+const computeNextRecurringInstance = (rule, fallbackTimezone) => {
+  if (!rule?.startTime || !rule?.endTime) {
+    return null;
+  }
+
+  const timezone = rule.timezone || fallbackTimezone || 'UTC';
+  const [startHour, startMinute] = rule.startTime.split(':').map(Number);
+  if (!Number.isFinite(startHour) || !Number.isFinite(startMinute)) {
+    return null;
+  }
+
+  const now = DateTime.now().setZone(timezone);
+  const targetWeekday = toLuxonWeekday(rule.dayOfWeek);
+  if (!targetWeekday) {
+    return null;
+  }
+
+  let daysAhead = targetWeekday - now.weekday;
+  if (daysAhead < 0) {
+    daysAhead += 7;
+  }
+
+  let candidate = now
+    .startOf('day')
+    .plus({ days: daysAhead })
+    .set({ hour: startHour, minute: startMinute, second: 0, millisecond: 0 });
+
+  if (candidate <= now) {
+    candidate = candidate.plus({ days: 7 });
+  }
+
+  return candidate.toUTC().toJSDate();
+};
+
+const computeNextOneOffInstance = (slot) => {
+  if (!slot?.start) {
+    return null;
+  }
+  const start = slot.start instanceof Date ? slot.start : new Date(slot.start);
+  if (Number.isNaN(start.getTime())) {
+    return null;
+  }
+  const now = new Date();
+  if (start <= now) {
+    return null;
+  }
+  return start;
+};
+
+const formatRecurringLabel = (rule, fallbackTimezone) => {
+  const dayName = DAY_NAMES[Number(rule?.dayOfWeek)] || 'Schedule';
+  if (!rule?.startTime || !rule?.endTime) {
+    return null;
+  }
+  const timezone = rule.timezone || fallbackTimezone || 'UTC';
+  return `${dayName} ${rule.startTime}–${rule.endTime} (${timezone})`;
+};
+
+const formatOneOffLabel = (slot, fallbackTimezone) => {
+  if (!slot?.start || !slot?.end) {
+    return null;
+  }
+  const timezone = slot.timezone || fallbackTimezone || 'UTC';
+  const start = DateTime.fromJSDate(slot.start instanceof Date ? slot.start : new Date(slot.start), { zone: timezone });
+  const end = DateTime.fromJSDate(slot.end instanceof Date ? slot.end : new Date(slot.end), { zone: timezone });
+  if (!start.isValid || !end.isValid) {
+    return null;
+  }
+  return `${start.toFormat('ccc MMM d, h:mm a')} – ${end.toFormat('h:mm a')} (${timezone})`;
+};
+
+const summarizeAvailabilityDocs = (summary, doc) => {
+  const timezone = doc.timezone || 'UTC';
+  if (doc.type === 'recurring' && Array.isArray(doc.recurring)) {
+    doc.recurring.forEach((rule) => {
+      addLabel(summary, formatRecurringLabel(rule, timezone));
+      const nextSlot = computeNextRecurringInstance(rule, timezone);
+      summary.nextAvailableSlot = pickSooner(summary.nextAvailableSlot, nextSlot);
+    });
+  } else if (doc.type === 'oneoff' && Array.isArray(doc.oneOff)) {
+    doc.oneOff.forEach((slot) => {
+      addLabel(summary, formatOneOffLabel(slot, timezone));
+      const nextSlot = computeNextOneOffInstance(slot);
+      summary.nextAvailableSlot = pickSooner(summary.nextAvailableSlot, nextSlot);
+    });
+  }
+
+  return summary;
+};
+
+const buildAvailabilitySummaries = async (mentorIds = []) => {
+  if (!Array.isArray(mentorIds) || mentorIds.length === 0) {
+    return new Map();
+  }
+
+  const availabilityDocs = await Availability.find({ mentor: { $in: mentorIds }, active: true })
+    .select('mentor type timezone recurring oneOff updatedAt')
+    .lean();
+
+  const summaryMap = new Map();
+  availabilityDocs.forEach((doc) => {
+    if (!doc?.mentor) {
+      return;
+    }
+    const mentorId = doc.mentor.toString();
+    const existing = summaryMap.get(mentorId) || { labels: [], nextAvailableSlot: null };
+    const updated = summarizeAvailabilityDocs(existing, doc);
+    summaryMap.set(mentorId, updated);
+  });
+
+  return summaryMap;
+};
+
+const normalizeMentor = (user, availabilitySummary) => {
   const data = user.applicationData || {};
   const fullName = getFullName(user) || 'Mentor';
 
@@ -54,10 +194,14 @@ const normalizeMentor = (user) => {
     languages.push('English');
   }
 
-  const availability = buildAvailability(data);
+  const fallbackAvailability = buildAvailability(data);
   const rating = typeof data.averageRating === 'number' ? data.averageRating : 4.5;
   const reviewCount = typeof data.reviewCount === 'number' ? data.reviewCount : 0;
   const experienceYears = typeof data.yearsOfExperience === 'number' ? data.yearsOfExperience : undefined;
+  const derivedAvailability = availabilitySummary?.labels?.length ? availabilitySummary.labels : fallbackAvailability;
+  const nextAvailableSlotFromSummary = availabilitySummary?.nextAvailableSlot
+    ? availabilitySummary.nextAvailableSlot.toISOString()
+    : null;
 
   return {
     id: user._id.toString(),
@@ -67,8 +211,8 @@ const normalizeMentor = (user) => {
     reviewCount,
     subjects,
     languages,
-    availability,
-    nextAvailableSlot: data.nextAvailableSlot || null,
+    availability: derivedAvailability,
+    nextAvailableSlot: nextAvailableSlotFromSummary || data.nextAvailableSlot || null,
     experienceYears,
     bioSnippet: data.professionalSummary || data.mentoringGoals || data.achievements || '',
   };
@@ -192,7 +336,12 @@ exports.listMentors = async (req, res) => {
       .select('firstname lastname email applicationData role applicationStatus')
       .lean();
 
-    const normalizedMentors = mentorsFromDb.map(normalizeMentor);
+    const mentorIds = mentorsFromDb.map((mentor) => mentor._id);
+    const availabilitySummaries = await buildAvailabilitySummaries(mentorIds);
+
+    const normalizedMentors = mentorsFromDb.map((mentor) =>
+      normalizeMentor(mentor, availabilitySummaries.get(mentor._id.toString()))
+    );
     const filteredMentors = normalizedMentors.filter((mentor) => matchesFilters(mentor, filters));
 
     const total = filteredMentors.length;

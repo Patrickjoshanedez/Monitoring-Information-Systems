@@ -101,25 +101,32 @@ const ProgressDashboard: React.FC<{ menteeId?: string | null }> = ({ menteeId })
           <div className="tw-text-xs tw-text-gray-500">No mentor feedback yet.</div>
         )}
         {monthlyTrend.length > 0 && (
-          <div className="tw-overflow-x-auto">
-            <table className="tw-w-full tw-text-sm tw-border tw-border-gray-200 tw-rounded">
-              <thead className="tw-bg-gray-50">
-                <tr>
-                  <Th>Month</Th>
-                  <Th>Avg Rating</Th>
-                  <Th>Feedback Count</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthlyTrend.map((trend: SnapshotTrendPoint) => (
-                  <tr key={trend.month} className="tw-border-t tw-border-gray-200">
-                    <Td>{formatMonthLabel(trend.month)}</Td>
-                    <Td>{trend.avg.toFixed(2)}</Td>
-                    <Td>{trend.count}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="tw-space-y-2">
+            {monthlyTrend.map((trend: SnapshotTrendPoint) => {
+              const clamped = Math.max(0, Math.min(5, trend.avg));
+              const widthPercent = (clamped / 5) * 100;
+              return (
+                <div key={trend.month} className="tw-flex tw-items-center tw-gap-3">
+                  <div className="tw-w-20 tw-text-xs tw-font-medium tw-text-gray-600">
+                    {formatMonthLabel(trend.month)}
+                  </div>
+                  <div className="tw-flex-1 tw-flex tw-items-center tw-gap-2">
+                    <div className="tw-relative tw-h-2 tw-w-full tw-rounded-full tw-bg-gray-100">
+                      <div
+                        className="tw-absolute tw-left-0 tw-top-0 tw-h-2 tw-rounded-full tw-bg-blue-500"
+                        style={{ width: `${widthPercent}%` }}
+                      />
+                    </div>
+                    <div className="tw-flex tw-flex-col tw-items-end tw-min-w-[4.5rem] tw-text-[11px] tw-text-gray-600">
+                      <span className="tw-font-semibold tw-text-gray-900">
+                        {trend.avg.toFixed(2)}/5
+                      </span>
+                      <span className="tw-text-[10px] tw-text-gray-500">{trend.count} fb</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
@@ -201,9 +208,9 @@ const ProgressDashboard: React.FC<{ menteeId?: string | null }> = ({ menteeId })
 };
 
 const Stat: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
-  <div className="tw-bg-gray-50 tw-rounded tw-p-4 tw-flex tw-flex-col tw-gap-1">
-    <div className="tw-text-xs tw-font-medium tw-text-gray-500">{label}</div>
-    <div className="tw-text-lg tw-font-semibold tw-text-gray-900">{value}</div>
+  <div className="tw-bg-gradient-to-br tw-from-white tw-to-gray-50 tw-rounded-xl tw-p-4 tw-border tw-border-gray-100 tw-flex tw-flex-col tw-gap-1">
+    <div className="tw-text-[11px] tw-font-medium tw-text-gray-500 tw-uppercase">{label}</div>
+    <div className="tw-text-xl tw-font-semibold tw-text-gray-900">{value}</div>
   </div>
 );
 

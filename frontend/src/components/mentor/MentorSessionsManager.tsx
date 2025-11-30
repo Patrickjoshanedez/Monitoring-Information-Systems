@@ -68,7 +68,7 @@ const MentorSessionsManager: React.FC = () => {
             setBanner({ type: 'error', message: 'Chat will be ready once the session syncs. Try again shortly.' });
             return;
         }
-        navigate(`/chat?threadId=${threadId}`);
+        navigate(`/mentor/chat?threadId=${threadId}`);
     };
 
     const stats = useMemo(() => {

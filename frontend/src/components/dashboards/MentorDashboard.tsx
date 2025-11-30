@@ -3,7 +3,6 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import OverviewMetrics from '../mentor/OverviewMetrics';
 import MentorRequestsTable from '../mentor/MentorRequestsTable';
 import MentorDashboardSuggestions from '../../features/matchmaking/components/MentorDashboardSuggestions';
-import QuickActions from '../mentor/QuickActions';
 
 const MentorDashboard: React.FC = () => {
   const storedUser = React.useMemo(() => {
@@ -25,9 +24,6 @@ const MentorDashboard: React.FC = () => {
             Track incoming mentorship requests, manage your sessions, and navigate quick tools.
           </p>
         </header>
-
-        {/* Quick action shortcuts */}
-        <QuickActions />
 
         {/* Metrics Overview (placeholder – extend with real data hook later) */}
         <section aria-labelledby="mentor-overview-heading" className="tw-space-y-4">

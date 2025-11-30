@@ -216,7 +216,7 @@ const FALLBACK_MENTORS: MentorProfile[] = [
 const cleanFilters = (filters: MentorFilters) =>
   Object.fromEntries(
     Object.entries(filters)
-      .filter(([, value]) => value !== undefined && value !== null && value !== '' && value !== 'any')
+      .filter(([key, value]) => key !== 'minRating' && value !== undefined && value !== null && value !== '' && value !== 'any')
       .map(([key, value]) => [key, typeof value === 'string' ? value.trim() : value])
   );
 
@@ -281,12 +281,16 @@ export const fetchMentorDirectory = async (filters: MentorFilters = {}): Promise
   try {
     const { data } = await apiClient.get('/mentors', { params });
     if (data?.success) {
+      const mentorsFromApi: MentorProfile[] = Array.isArray(data.mentors) ? data.mentors : [];
+      const filteredMentors = matchesFilters ? mentorsFromApi.filter((mentor) => matchesFilters(mentor, filters)) : mentorsFromApi;
       return {
-        mentors: Array.isArray(data.mentors) ? data.mentors : [],
+        mentors: filteredMentors,
         meta: {
           source: 'api',
-          message: data?.meta?.message || 'Mentors loaded from the MongoDB database.',
-          total: data?.meta?.total ?? (Array.isArray(data.mentors) ? data.mentors.length : 0),
+          message:
+            data?.meta?.message ||
+            (filters.minRating ? 'Mentors loaded from the API with local rating filters applied.' : 'Mentors loaded from the MongoDB database.'),
+          total: data?.meta?.total ?? mentorsFromApi.length,
           available: data?.meta?.available,
         },
       };

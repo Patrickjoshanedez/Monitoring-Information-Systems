@@ -180,6 +180,10 @@ const submitMentorApplication = async (req, res) => {
       meetingFormats,
       yearsOfExperience,
       motivation,
+      educationRole,
+      educationProgram,
+      educationYearLevel,
+      educationMajor,
       recaptchaToken
     } = req.body;
 
@@ -200,11 +204,41 @@ const submitMentorApplication = async (req, res) => {
     const parsedExperience = parseNumericField(yearsOfExperience);
     const parsedHours = parseNumericField(availabilityHoursPerWeek);
 
+    const normalizedEducationRole = typeof educationRole === 'string' ? educationRole.trim().toLowerCase() : '';
+    const validEducationRoles = ['student', 'instructor'];
+    const trimmedEducationProgram = typeof educationProgram === 'string' ? educationProgram.trim() : '';
+    const trimmedEducationYear = typeof educationYearLevel === 'string' ? educationYearLevel.trim() : '';
+    const trimmedEducationMajor = typeof educationMajor === 'string' ? educationMajor.trim() : '';
+
     if (!currentRole || !normalizedExpertise.length || !normalizedTopics.length || !normalizedAvailabilityDays.length) {
       return res.status(400).json({
         success: false,
         error: 'MISSING_FIELDS',
         message: 'Required mentor application fields are missing'
+      });
+    }
+
+    if (!validEducationRoles.includes(normalizedEducationRole)) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_EDUCATION_ROLE',
+        message: 'Please specify whether you are applying as a student or instructor mentor.'
+      });
+    }
+
+    if (!trimmedEducationProgram) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_EDUCATION_PROGRAM',
+        message: 'Program or department is required.'
+      });
+    }
+
+    if (normalizedEducationRole === 'student' && !trimmedEducationYear) {
+      return res.status(400).json({
+        success: false,
+        error: 'INVALID_EDUCATION_YEAR',
+        message: 'Year level is required for student mentors.'
       });
     }
 
@@ -273,11 +307,19 @@ const submitMentorApplication = async (req, res) => {
           availabilityHoursPerWeek: parsedHours,
           meetingFormats: normalizedMeetingFormats,
           motivation: motivation || '',
+          educationRole: normalizedEducationRole,
+          educationProgram: trimmedEducationProgram,
+          educationYearLevel: trimmedEducationYear,
+          educationMajor: trimmedEducationMajor,
           supportingDocumentUrl
         },
         applicationSubmittedAt: new Date(),
         applicationReviewedAt: undefined,
-        applicationReviewedBy: undefined
+        applicationReviewedBy: undefined,
+        'profile.education.role': normalizedEducationRole,
+        'profile.education.program': trimmedEducationProgram,
+        'profile.education.yearLevel': trimmedEducationYear,
+        'profile.education.major': trimmedEducationMajor
       },
       { new: true }
     );

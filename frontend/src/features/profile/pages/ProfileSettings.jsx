@@ -107,6 +107,52 @@ const PrivacySelect = ({ label, value, onChange }) => (
   </div>
 );
 
+const RoleToggle = ({ value, onChange }) => {
+  const options = [
+    { value: 'student', title: 'Student', description: 'Currently enrolled mentee or peer mentor.' },
+    { value: 'instructor', title: 'Instructor', description: 'Faculty or teaching assistant mentoring students.' },
+  ];
+
+  return (
+    <div className="tw-grid tw-grid-cols-1 sm:tw-grid-cols-2 tw-gap-3" role="radiogroup" aria-label="Education role">
+      {options.map((option) => {
+        const active = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            role="radio"
+            aria-checked={active}
+            className={`tw-rounded-xl tw-border tw-px-4 tw-py-3 tw-text-left tw-transition tw-duration-150 ${
+              active
+                ? 'tw-border-purple-500 tw-bg-purple-50 tw-text-purple-700'
+                : 'tw-border-gray-200 tw-bg-white tw-text-gray-700 hover:tw-border-gray-300'
+            }`}
+          >
+            <span className="tw-block tw-font-semibold">{option.title}</span>
+            <span className="tw-block tw-text-sm tw-text-gray-600">{option.description}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+const sanitizeContactChannels = (channels) => {
+  const allowed = ['in_app', 'email'];
+  if (!Array.isArray(channels)) {
+    return ['in_app'];
+  }
+  const filtered = [];
+  channels.forEach((channel) => {
+    if (allowed.includes(channel) && !filtered.includes(channel)) {
+      filtered.push(channel);
+    }
+  });
+  return filtered.length ? filtered : ['in_app'];
+};
+
 const ChipInput = ({ label, values, onChange, placeholder }) => {
   const [input, setInput] = useState('');
   const addChip = () => {
@@ -153,7 +199,7 @@ export default function ProfileSettings() {
     displayName: '',
     photoUrl: '',
     bio: '',
-    education: { program: '', yearLevel: '', major: '' },
+    education: { program: '', yearLevel: '', major: '', role: 'student' },
     coursesNeeded: [],
     interests: [],
     learningGoals: '',
@@ -263,10 +309,15 @@ export default function ProfileSettings() {
         setForm((prev) => ({
           ...prev,
           ...prof,
-          education: { ...(prev.education || {}), ...(prof.education || {}) },
+          education: {
+            role: prof.education?.role || prev.education?.role || 'student',
+            program: prof.education?.program || '',
+            yearLevel: prof.education?.yearLevel || '',
+            major: prof.education?.major || '',
+          },
           coursesNeeded: prof.coursesNeeded || [],
           interests: prof.interests || [],
-          contactPreferences: prof.contactPreferences || ['in_app'],
+          contactPreferences: sanitizeContactChannels(prof.contactPreferences),
           privacy: { ...prev.privacy, ...(prof.privacy || {}) }
         }));
         mergeStoredUser(me);
@@ -400,17 +451,41 @@ export default function ProfileSettings() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    const selectedRole = form.education?.role;
+    const trimmedProgram = form.education?.program?.trim();
+    const trimmedYear = form.education?.yearLevel?.trim();
+
+    if (!selectedRole) {
+      setError('Please specify whether you are a student or an instructor.');
+      return;
+    }
+
+    if (!trimmedProgram) {
+      setError('Program / Department is required.');
+      return;
+    }
+
+    if (selectedRole === 'student' && !trimmedYear) {
+      setError('Year level is required for students.');
+      return;
+    }
+
     try {
       const payload = {
         displayName: form.displayName,
         photoUrl: form.photoUrl,
         bio: form.bio,
-        education: form.education,
+        education: {
+          ...form.education,
+          program: trimmedProgram,
+          yearLevel: form.education?.yearLevel?.trim() || '',
+          major: form.education?.major?.trim() || '',
+        },
         coursesNeeded: form.coursesNeeded,
         interests: form.interests,
         learningGoals: form.learningGoals,
         timezone: form.timezone,
-        contactPreferences: form.contactPreferences,
+        contactPreferences: sanitizeContactChannels(form.contactPreferences),
         privacy: form.privacy,
       };
       const updatedAccount = await updateMyProfile(payload);
@@ -418,10 +493,15 @@ export default function ProfileSettings() {
       setForm((prev) => ({
         ...prev,
         ...nextProfile,
-        education: { ...(prev.education || {}), ...(nextProfile.education || {}) },
+        education: {
+          role: nextProfile.education?.role || prev.education?.role || 'student',
+          program: nextProfile.education?.program || '',
+          yearLevel: nextProfile.education?.yearLevel || '',
+          major: nextProfile.education?.major || '',
+        },
         coursesNeeded: nextProfile.coursesNeeded || [],
         interests: nextProfile.interests || [],
-        contactPreferences: nextProfile.contactPreferences || ['in_app'],
+        contactPreferences: sanitizeContactChannels(nextProfile.contactPreferences),
         privacy: { ...prev.privacy, ...(nextProfile.privacy || {}) },
         photoUrl: nextProfile.photoUrl || prev.photoUrl,
       }));
@@ -452,6 +532,9 @@ export default function ProfileSettings() {
       </DashboardLayout>
     );
   }
+
+  const educationRole = form.education?.role || 'student';
+  const isInstructor = educationRole === 'instructor';
 
   return (
     <DashboardLayout>
@@ -493,20 +576,60 @@ export default function ProfileSettings() {
               <label className="tw-text-sm tw-font-medium tw-text-gray-700">Education</label>
               <PrivacySelect label="Visibility" value={form.privacy?.education || 'mentors'} onChange={(v) => setForm({ ...form, privacy: { ...form.privacy, education: v } })} />
             </div>
-            <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-3">
-              <input className="tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2" placeholder="Program" value={form.education?.program || ''} onChange={(e) => setForm({ ...form, education: { ...form.education, program: e.target.value } })} />
-              <input className="tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2" placeholder="Year level" value={form.education?.yearLevel || ''} onChange={(e) => setForm({ ...form, education: { ...form.education, yearLevel: e.target.value } })} />
-              <input className="tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2" placeholder="Major" value={form.education?.major || ''} onChange={(e) => setForm({ ...form, education: { ...form.education, major: e.target.value } })} />
+            <div className="tw-space-y-4">
+              <RoleToggle value={educationRole} onChange={(role) => setForm({ ...form, education: { ...form.education, role } })} />
+              <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-3">
+                <div>
+                  <label className="tw-block tw-text-xs tw-font-medium tw-text-gray-600 tw-mb-1">
+                    {isInstructor ? 'Program / Department' : 'Program'}
+                    <span className="tw-text-red-500">*</span>
+                  </label>
+                  <input
+                    className="tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2 tw-w-full"
+                    placeholder={isInstructor ? 'e.g., BSIT Faculty' : 'e.g., BSIT'}
+                    value={form.education?.program || ''}
+                    onChange={(e) => setForm({ ...form, education: { ...form.education, program: e.target.value } })}
+                  />
+                </div>
+                <div>
+                  <label className="tw-block tw-text-xs tw-font-medium tw-text-gray-600 tw-mb-1">
+                    {isInstructor ? 'Teaching year / department note' : 'Year level'}
+                    {!isInstructor && <span className="tw-text-red-500">*</span>}
+                  </label>
+                  <input
+                    className="tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2 tw-w-full"
+                    placeholder={isInstructor ? 'e.g., 3rd year sections' : 'e.g., 3rd year'}
+                    value={form.education?.yearLevel || ''}
+                    onChange={(e) => setForm({ ...form, education: { ...form.education, yearLevel: e.target.value } })}
+                  />
+                </div>
+                <div>
+                  <label className="tw-block tw-text-xs tw-font-medium tw-text-gray-600 tw-mb-1">
+                    {isInstructor ? 'Specialization / track' : 'Major'}
+                  </label>
+                  <input
+                    className="tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2 tw-w-full"
+                    placeholder={isInstructor ? 'e.g., Advanced Databases' : 'e.g., Network Security'}
+                    value={form.education?.major || ''}
+                    onChange={(e) => setForm({ ...form, education: { ...form.education, major: e.target.value } })}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Courses Needed */}
           <div className="tw-bg-white tw-rounded-lg tw-border tw-border-gray-200 tw-p-4 tw-space-y-2">
             <div className="tw-flex tw-justify-between tw-items-center">
-              <label className="tw-text-sm tw-font-medium tw-text-gray-700">Courses I need help with</label>
+              <label className="tw-text-sm tw-font-medium tw-text-gray-700">{isInstructor ? 'Courses I can help with' : 'Courses I need help with'}</label>
               <PrivacySelect label="Visibility" value={form.privacy?.coursesNeeded || 'mentors'} onChange={(v) => setForm({ ...form, privacy: { ...form.privacy, coursesNeeded: v } })} />
             </div>
-            <ChipInput label="Add course" values={form.coursesNeeded || []} onChange={(vals) => setForm({ ...form, coursesNeeded: vals })} placeholder="e.g., Data Structures" />
+            <ChipInput
+              label="Add course"
+              values={form.coursesNeeded || []}
+              onChange={(vals) => setForm({ ...form, coursesNeeded: vals })}
+              placeholder={isInstructor ? 'e.g., Algorithms (mentor)' : 'e.g., Data Structures'}
+            />
           </div>
 
           {/* Interests */}
@@ -539,7 +662,7 @@ export default function ProfileSettings() {
                 <PrivacySelect label="Visibility" value={form.privacy?.contact || 'private'} onChange={(v) => setForm({ ...form, privacy: { ...form.privacy, contact: v } })} />
               </div>
               <div className="tw-flex tw-gap-4 tw-mt-2">
-                {['in_app', 'email', 'sms'].map((opt) => (
+                {['in_app', 'email'].map((opt) => (
                   <label key={opt} className="tw-inline-flex tw-items-center tw-gap-2">
                     <input type="checkbox" checked={(form.contactPreferences || []).includes(opt)} onChange={(e) => {
                       const set = new Set(form.contactPreferences || []);

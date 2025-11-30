@@ -41,6 +41,10 @@ export default function MentorApplicationForm() {
     email: '',
     currentRole: '',
     organization: '',
+    educationRole: 'student',
+    educationProgram: '',
+    educationYearLevel: '',
+    educationMajor: '',
     yearsOfExperience: '',
     mentoringGoals: '',
     professionalSummary: '',
@@ -69,7 +73,11 @@ export default function MentorApplicationForm() {
         ...prev,
         firstname: userData.firstname,
         lastname: userData.lastname,
-        email: userData.email
+        email: userData.email,
+        educationRole: userData.profile?.education?.role || prev.educationRole || 'student',
+        educationProgram: userData.profile?.education?.program || prev.educationProgram,
+        educationYearLevel: userData.profile?.education?.yearLevel || prev.educationYearLevel,
+        educationMajor: userData.profile?.education?.major || prev.educationMajor,
       }));
     }
   }, []);
@@ -98,6 +106,25 @@ export default function MentorApplicationForm() {
       setRecaptchaError('Please complete the verification step.');
       return;
     }
+    const trimmedProgram = form.educationProgram.trim();
+    const trimmedYear = form.educationYearLevel.trim();
+    const hasRole = form.educationRole === 'student' || form.educationRole === 'instructor';
+
+    if (!hasRole) {
+      setError('Please indicate whether you are a student or an instructor.');
+      return;
+    }
+
+    if (!trimmedProgram) {
+      setError('Program / Department is required.');
+      return;
+    }
+
+    if (form.educationRole === 'student' && !trimmedYear) {
+      setError('Year level is required for students.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -109,6 +136,10 @@ export default function MentorApplicationForm() {
         },
         body: JSON.stringify({
           ...form,
+          educationRole: form.educationRole,
+          educationProgram: trimmedProgram,
+          educationYearLevel: trimmedYear,
+          educationMajor: form.educationMajor.trim(),
           yearsOfExperience: form.yearsOfExperience ? Number(form.yearsOfExperience) : undefined,
           availabilityHoursPerWeek: form.availabilityHoursPerWeek ? Number(form.availabilityHoursPerWeek) : undefined,
           recaptchaToken
@@ -221,6 +252,78 @@ export default function MentorApplicationForm() {
                       onChange={handleInputChange}
                       className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors"
                       required
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="tw-space-y-6">
+                <h2 className="tw-text-2xl tw-font-semibold tw-text-gray-800 tw-border-b tw-border-gray-200 tw-pb-2">
+                  Academic / Teaching Background
+                </h2>
+                <p className="tw-text-gray-600">Tell us whether you currently mentor as a student peer or an instructor. This keeps your profile consistent.</p>
+                <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4" role="radiogroup" aria-label="Education role">
+                  {['student', 'instructor'].map((role) => {
+                    const selected = form.educationRole === role;
+                    return (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, educationRole: role }))}
+                        role="radio"
+                        aria-checked={selected}
+                        className={`tw-rounded-xl tw-border tw-p-4 tw-text-left tw-transition ${selected ? 'tw-border-purple-500 tw-bg-purple-50 tw-text-purple-700' : 'tw-border-gray-200 tw-bg-white tw-text-gray-700 hover:tw-border-gray-300'}`}
+                      >
+                        <span className="tw-block tw-font-semibold">{role === 'student' ? 'Student mentor' : 'Instructor / Faculty'}</span>
+                        <span className="tw-text-sm tw-text-gray-600">
+                          {role === 'student'
+                            ? 'Currently enrolled student offering peer mentorship.'
+                            : 'Faculty member, instructor, or teaching assistant mentoring students.'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-6">
+                  <div>
+                    <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 tw-mb-2">
+                      {form.educationRole === 'instructor' ? 'Program / Department *' : 'Program *'}
+                    </label>
+                    <input
+                      type="text"
+                      name="educationProgram"
+                      value={form.educationProgram}
+                      onChange={handleInputChange}
+                      placeholder={form.educationRole === 'instructor' ? 'e.g., BSIT Faculty' : 'e.g., BSIT'}
+                      className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 tw-mb-2">
+                      {form.educationRole === 'instructor' ? 'Teaching year / department note' : 'Year level *'}
+                    </label>
+                    <input
+                      type="text"
+                      name="educationYearLevel"
+                      value={form.educationYearLevel}
+                      onChange={handleInputChange}
+                      placeholder={form.educationRole === 'instructor' ? 'e.g., 3rd year sections' : 'e.g., 3rd year'}
+                      className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors"
+                      required={form.educationRole === 'student'}
+                    />
+                  </div>
+                  <div>
+                    <label className="tw-block tw-text-sm tw-font-medium tw-text-purple-600 tw-mb-2">
+                      {form.educationRole === 'instructor' ? 'Specialization / track (Optional)' : 'Major (Optional)'}
+                    </label>
+                    <input
+                      type="text"
+                      name="educationMajor"
+                      value={form.educationMajor}
+                      onChange={handleInputChange}
+                      placeholder={form.educationRole === 'instructor' ? 'e.g., Advanced Databases' : 'e.g., Network Security'}
+                      className="tw-w-full tw-px-4 tw-py-3 tw-border-2 tw-border-gray-300 focus:tw-border-purple-500 tw-rounded-xl tw-outline-none tw-transition-colors"
                     />
                   </div>
                 </div>

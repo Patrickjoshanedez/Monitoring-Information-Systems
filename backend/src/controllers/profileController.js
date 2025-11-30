@@ -96,19 +96,38 @@ exports.updateMyProfile = async (req, res) => {
   try {
     const { profile } = req.body || {};
     const allowedTop = ['displayName', 'photoUrl', 'bio', 'education', 'coursesNeeded', 'interests', 'learningGoals', 'timezone', 'contactPreferences', 'privacy', 'expertiseAreas', 'skills', 'availabilitySlots'];
-    const allowedEducation = ['program', 'yearLevel', 'major'];
+    const allowedEducation = ['program', 'yearLevel', 'major', 'role'];
     const clean = {};
 
     if (profile) {
       const picked = pick(profile, allowedTop);
       if (picked.education) {
         picked.education = pick(picked.education, allowedEducation);
+        if (picked.education.role && !['student', 'instructor'].includes(picked.education.role)) {
+          delete picked.education.role;
+        }
+        if (picked.education.program) picked.education.program = picked.education.program.trim();
+        if (picked.education.yearLevel) picked.education.yearLevel = picked.education.yearLevel.trim();
+        if (picked.education.major) picked.education.major = picked.education.major.trim();
       }
       picked.coursesNeeded = sanitizeStringArray(picked.coursesNeeded, { max: 50 });
       picked.interests = sanitizeStringArray(picked.interests, { max: 50 });
       picked.expertiseAreas = sanitizeStringArray(picked.expertiseAreas, { max: 50 });
       picked.skills = sanitizeStringArray(picked.skills, { max: 100 });
-      if (!Array.isArray(picked.contactPreferences)) picked.contactPreferences = [];
+      if (picked.contactPreferences !== undefined) {
+        if (Array.isArray(picked.contactPreferences)) {
+          const allowedChannels = ['in_app', 'email'];
+          const filtered = [];
+          for (const channel of picked.contactPreferences) {
+            if (allowedChannels.includes(channel) && !filtered.includes(channel)) {
+              filtered.push(channel);
+            }
+          }
+          picked.contactPreferences = filtered.length ? filtered : ['in_app'];
+        } else {
+          picked.contactPreferences = ['in_app'];
+        }
+      }
       if (picked.availabilitySlots) picked.availabilitySlots = sanitizeAvailability(picked.availabilitySlots);
       clean.profile = picked;
     }

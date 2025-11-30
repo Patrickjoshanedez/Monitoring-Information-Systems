@@ -48,11 +48,12 @@ Stores all system accounts (admins, mentors, mentees), their application data, p
 - `profile.availabilitySlots[]` – Simple availability snapshot:
 	- `day` (String, enum: `mon`–`sun`)
 	- `start`, `end` (String, `HH:mm` 24h format)
-- `profile.education` – For mentees:
+- `profile.education` – For mentees/mentors:
 	- `program`, `yearLevel`, `major` (String)
+	- `role` (String enum: `student`, `instructor`, `professional`, default `student`) – Allows mentors who serve as instructors to note their teaching status.
 - `profile.coursesNeeded` (String[]), `interests` (String[]), `learningGoals` (String), `timezone` (String).
 - `profile.contactPreferences` (String[], enum: `email`, `in_app`, `sms`).
-- `profile.privacy` – Per-field privacy settings (String enums: `public`, `mentors`, `private`) for `bio`, `education`, `expertiseAreas`, `skills`, `availabilitySlots`, `interests`, `learningGoals`, `coursesNeeded`, `contact`, `photo`, `displayName`.
+- `profile.privacy` – Per-field privacy settings (String enums: `public`, `mentors`, `private`) for `bio`, `education`, `expertiseAreas`, `skills`, `availabilitySlots`, `interests`, `learningGoals`, `coursesNeeded`, `contact`, `photo`, `displayName`. Mentor-facing fields now default to `public` (contact details remain `private`) so mentees can view profiles without extra toggles.
 
 **Settings and Metrics**
 
