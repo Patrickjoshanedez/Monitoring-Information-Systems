@@ -36,6 +36,7 @@ Stores all system accounts (admins, mentors, mentees), their application data, p
 	- `mentoringGoals`, `professionalSummary`, `achievements` (String) – Narrative fields.
 	- `corUrl`, `supportingDocumentUrl`, `linkedinUrl`, `portfolioUrl` (String) – Document and link fields.
 	- `availabilityDays` (String[]), `availabilityHoursPerWeek` (Number), `meetingFormats` (String[]) – Scheduling preferences.
+	- `educationRole`, `educationProgram`, `educationYearLevel`, `educationMajor` (String) – Mentor toggle that mirrors the profile’s education block.
 - `applicationSubmittedAt`, `applicationReviewedAt` (Date) – Audit timestamps.
 - `applicationReviewedBy` (ObjectId → `User`) – Admin reviewer.
 
@@ -50,9 +51,9 @@ Stores all system accounts (admins, mentors, mentees), their application data, p
 	- `start`, `end` (String, `HH:mm` 24h format)
 - `profile.education` – For mentees/mentors:
 	- `program`, `yearLevel`, `major` (String)
-	- `role` (String enum: `student`, `instructor`, `professional`, default `student`) – Allows mentors who serve as instructors to note their teaching status.
+	- `role` (String enum: `student`, `instructor`, default `student`) – Determines whether the profile represents an active student mentee or an instructor mentor.
 - `profile.coursesNeeded` (String[]), `interests` (String[]), `learningGoals` (String), `timezone` (String).
-- `profile.contactPreferences` (String[], enum: `email`, `in_app`, `sms`).
+- `profile.contactPreferences` (String[], enum: `email`, `in_app`).
 - `profile.privacy` – Per-field privacy settings (String enums: `public`, `mentors`, `private`) for `bio`, `education`, `expertiseAreas`, `skills`, `availabilitySlots`, `interests`, `learningGoals`, `coursesNeeded`, `contact`, `photo`, `displayName`. Mentor-facing fields now default to `public` (contact details remain `private`) so mentees can view profiles without extra toggles.
 
 **Settings and Metrics**

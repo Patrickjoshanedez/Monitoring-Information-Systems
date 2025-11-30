@@ -38,3 +38,6 @@ AMIS is more than just a digitization tool; it is a catalyst for educational imp
 *   **For the Organization**: Reduces the administrative workload on ComSoc officers and ensures data integrity.
 *   **For the Students**: Promotes personalized learning and provides a consistent support structure.
 *   **For the Department**: Creates a secure, efficient digital ecosystem that aligns with the standards of a modern IT institution.
+
+### Operational Notes
+*   **Google Calendar Sync Health**: Mentors can confirm their integration from **Profile → Calendar integration**. A "Connected" pill with the message *"Waiting for your first synced session"* simply means OAuth succeeded but no sessions have been pushed yet. The panel now shows the connection timestamp plus guidance so admins can distinguish between connection issues and the expected "first sync pending" state. Use the **Refresh status** button after a session is confirmed to pull the latest sync time.

@@ -163,7 +163,9 @@ const userSchema = new mongoose.Schema(
         accountEmail: { type: String, trim: true },
         grantedScopes: [{ type: String }],
         syncEnabled: { type: Boolean, default: false },
+        connectedAt: { type: Date },
         lastSyncedAt: { type: Date },
+        hasSynced: { type: Boolean, default: false },
         lastError: {
           code: { type: String },
           message: { type: String },

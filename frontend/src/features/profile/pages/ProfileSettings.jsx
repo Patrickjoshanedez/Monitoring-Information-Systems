@@ -81,9 +81,9 @@ const formatOffsetLabel = (minutes) => {
   return `${minutes} minute${minutes > 1 ? 's' : ''}`;
 };
 
-const formatDateTime = (value) => {
+const formatDateTime = (value, emptyLabel = 'Not synced yet') => {
   if (!value) {
-    return 'Not synced yet';
+    return emptyLabel;
   }
   try {
     return new Intl.DateTimeFormat('en-US', {
@@ -219,6 +219,8 @@ export default function ProfileSettings() {
     connected: false,
     accountEmail: '',
     lastSyncedAt: null,
+    connectedAt: null,
+    hasSynced: false,
     lastError: null,
     featureDisabled: false,
     message: '',
@@ -275,6 +277,8 @@ export default function ProfileSettings() {
         connected: !!integration?.connected,
         accountEmail: integration?.accountEmail || '',
         lastSyncedAt: integration?.lastSyncedAt || null,
+        connectedAt: integration?.connectedAt || null,
+        hasSynced: !!integration?.hasSynced,
         lastError: integration?.lastError || null,
         featureDisabled: !!integration?.featureDisabled,
         message: integration?.message || '',
@@ -287,6 +291,8 @@ export default function ProfileSettings() {
           connected: false,
           accountEmail: '',
           lastSyncedAt: null,
+          connectedAt: null,
+          hasSynced: false,
           lastError: null,
           featureDisabled: true,
           message: calendarError?.response?.data?.message || 'Google Calendar integration is not available yet.',
@@ -713,8 +719,18 @@ export default function ProfileSettings() {
                           </p>
                           <p className="tw-text-gray-700">
                             <span className="tw-text-gray-500">Last sync:&nbsp;</span>
-                            {formatDateTime(calendarStatus.lastSyncedAt)}
+                            {calendarStatus.hasSynced && calendarStatus.lastSyncedAt
+                              ? formatDateTime(calendarStatus.lastSyncedAt)
+                              : calendarStatus.connected
+                                ? 'Waiting for your first synced session'
+                                : 'Not synced yet'}
                           </p>
+                          {calendarStatus.connected && !calendarStatus.hasSynced && (
+                            <p className="tw-text-xs tw-text-gray-500">
+                              Connected on {formatDateTime(calendarStatus.connectedAt, 'Just now')}. Your sessions will appear
+                              after the next confirmed booking.
+                            </p>
+                          )}
                         </div>
                         <div className="tw-flex tw-flex-wrap tw-gap-2">
                           <button

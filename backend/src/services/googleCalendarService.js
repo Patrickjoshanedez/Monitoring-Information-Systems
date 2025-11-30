@@ -71,16 +71,23 @@ const serializeStatus = (user) => {
       accountEmail: user.email,
       calendarId: 'primary',
       lastSyncedAt: null,
+      connectedAt: null,
+      hasSynced: false,
       lastError: null,
       featureDisabled: false,
     };
   }
+
+  const connectedAt = googleIntegration.connectedAt || googleIntegration.createdAt || googleIntegration.updatedAt || null;
+  const hasSynced = Boolean(googleIntegration.hasSynced || googleIntegration.lastSyncedAt);
 
   return {
     connected: googleIntegration.syncEnabled !== false,
     accountEmail: googleIntegration.accountEmail || user.email,
     calendarId: googleIntegration.calendarId || 'primary',
     lastSyncedAt: googleIntegration.lastSyncedAt || null,
+    connectedAt,
+    hasSynced,
     lastError: googleIntegration.lastError || null,
     featureDisabled: false,
     message: googleIntegration.syncEnabled === false ? 'Sync paused. Reconnect to resume automatic invites.' : undefined,
@@ -120,7 +127,9 @@ const persistIntegration = async (userId, data) => {
         'calendarIntegrations.google': {
           ...data,
           syncEnabled: data.syncEnabled !== false,
+          connectedAt: data.connectedAt || now,
           lastSyncedAt: null,
+          hasSynced: false,
           lastError: null,
           createdAt: data.createdAt || now,
           updatedAt: now,
@@ -223,6 +232,7 @@ const clearIntegrationError = async (userId) => {
       $set: {
         'calendarIntegrations.google.lastError': null,
         'calendarIntegrations.google.lastSyncedAt': new Date(),
+        'calendarIntegrations.google.hasSynced': true,
         'calendarIntegrations.google.updatedAt': new Date(),
       },
     }

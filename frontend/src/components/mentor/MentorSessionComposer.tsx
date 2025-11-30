@@ -9,10 +9,25 @@ interface MentorSessionComposerProps {
     onCreated?: (session: MentorSession, warnings?: ApiWarning[]) => void;
 }
 
+const formatSessionTimeInput = (rawValue: string) => {
+    const digits = rawValue.replace(/\D/g, '').slice(0, 4);
+    if (!digits) {
+        return '';
+    }
+    if (digits.length <= 2) {
+        return digits;
+    }
+    const hours = digits.slice(0, digits.length - 2);
+    const minutes = digits.slice(-2);
+    return `${hours}:${minutes}`;
+};
+
 const MentorSessionComposer: React.FC<MentorSessionComposerProps> = ({ isOpen, onClose, onCreated }) => {
     const [subject, setSubject] = useState('');
     const [room, setRoom] = useState('');
-    const [scheduledAt, setScheduledAt] = useState('');
+    const [sessionDate, setSessionDate] = useState('');
+    const [sessionTime, setSessionTime] = useState('');
+    const [timePeriod, setTimePeriod] = useState<'AM' | 'PM'>('AM');
     const [durationMinutes, setDurationMinutes] = useState('60');
     const [capacity, setCapacity] = useState('5');
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -30,7 +45,9 @@ const MentorSessionComposer: React.FC<MentorSessionComposerProps> = ({ isOpen, o
 
         setSubject('');
         setRoom('');
-        setScheduledAt('');
+        setSessionDate('');
+        setSessionTime('');
+        setTimePeriod('AM');
         setDurationMinutes('60');
         setCapacity('5');
         setSelectedIds([]);
@@ -78,8 +95,30 @@ const MentorSessionComposer: React.FC<MentorSessionComposerProps> = ({ isOpen, o
             setFormError('Please provide a room or meeting link.');
             return;
         }
-        if (!scheduledAt) {
-            setFormError('Select a date and time.');
+        if (!sessionDate) {
+            setFormError('Pick a session date.');
+            return;
+        }
+        if (!sessionTime) {
+            setFormError('Enter a session start time.');
+            return;
+        }
+        const digitsOnlyTime = sessionTime.replace(/\D/g, '');
+        if (digitsOnlyTime.length < 3 || digitsOnlyTime.length > 4) {
+            setFormError('Enter time as HHMM before selecting AM/PM.');
+            return;
+        }
+        const hourDigitsLength = digitsOnlyTime.length - 2;
+        const hourPartString = digitsOnlyTime.slice(0, hourDigitsLength);
+        const minutePart = digitsOnlyTime.slice(-2);
+        const hourPart = Number(hourPartString);
+        if (!hourPart || hourPart < 1 || hourPart > 12) {
+            setFormError('Hour must be between 01 and 12.');
+            return;
+        }
+        const minuteNumber = Number(minutePart);
+        if (Number.isNaN(minuteNumber) || minuteNumber > 59) {
+            setFormError('Minutes must be between 00 and 59.');
             return;
         }
         if (!selectedIds.length) {
@@ -87,7 +126,12 @@ const MentorSessionComposer: React.FC<MentorSessionComposerProps> = ({ isOpen, o
             return;
         }
 
-        const scheduledDate = new Date(scheduledAt);
+        let hours24 = hourPart % 12;
+        if (timePeriod === 'PM') {
+            hours24 += 12;
+        }
+        const dateTimeString = `${sessionDate}T${String(hours24).padStart(2, '0')}:${minutePart}`;
+        const scheduledDate = new Date(dateTimeString);
         if (Number.isNaN(scheduledDate.getTime())) {
             setFormError('Choose a valid date and time.');
             return;
@@ -165,16 +209,44 @@ const MentorSessionComposer: React.FC<MentorSessionComposerProps> = ({ isOpen, o
                         <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-2 tw-gap-4">
                             <div>
                                 <label htmlFor="mentor-session-date" className="tw-text-sm tw-font-medium tw-text-gray-700">
-                                    Date & time
+                                    Date
                                 </label>
                                 <input
                                     id="mentor-session-date"
-                                    type="datetime-local"
-                                    value={scheduledAt}
-                                    onChange={(event) => setScheduledAt(event.target.value)}
+                                    type="date"
+                                    value={sessionDate}
+                                    onChange={(event) => setSessionDate(event.target.value)}
                                     className="tw-mt-1 tw-w-full tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2 focus:tw-ring-2 focus:tw-ring-primary focus:tw-border-transparent"
                                     required
                                 />
+                            </div>
+                            <div>
+                                <label htmlFor="mentor-session-time" className="tw-text-sm tw-font-medium tw-text-gray-700">
+                                    Start time
+                                </label>
+                                <div className="tw-mt-1 tw-flex tw-border tw-border-gray-300 tw-rounded-lg tw-overflow-hidden focus-within:tw-ring-2 focus-within:tw-ring-primary">
+                                    <select
+                                        aria-label="AM or PM"
+                                        value={timePeriod}
+                                        onChange={(event) => setTimePeriod(event.target.value === 'PM' ? 'PM' : 'AM')}
+                                        className="tw-bg-gray-50 tw-text-sm tw-text-gray-700 tw-px-3 tw-py-2 focus:tw-outline-none"
+                                    >
+                                        <option value="AM">AM</option>
+                                        <option value="PM">PM</option>
+                                    </select>
+                                    <input
+                                        id="mentor-session-time"
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder="HHMM"
+                                        value={sessionTime}
+                                        onChange={(event) => setSessionTime(formatSessionTimeInput(event.target.value))}
+                                        className="tw-flex-1 tw-border-0 tw-px-3 tw-py-2 focus:tw-outline-none"
+                                        maxLength={5}
+                                        required
+                                    />
+                                </div>
+                                <p className="tw-mt-1 tw-text-xs tw-text-gray-500">Pick AM/PM then type HHMM (e.g., AM 0130). We’ll add the colon automatically.</p>
                             </div>
                             <div>
                                 <label htmlFor="mentor-session-duration" className="tw-text-sm tw-font-medium tw-text-gray-700">

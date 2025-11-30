@@ -4,7 +4,9 @@ export interface GoogleCalendarIntegrationStatus {
     connected: boolean;
     accountEmail?: string;
     calendarId?: string;
-    lastSyncedAt?: string;
+    lastSyncedAt?: string | null;
+    connectedAt?: string | null;
+    hasSynced?: boolean;
     lastError?: { code?: string; message?: string; occurredAt?: string | Date } | null;
     featureDisabled?: boolean;
     message?: string;
