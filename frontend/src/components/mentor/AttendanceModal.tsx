@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { AxiosError } from 'axios';
 import type { SessionParticipant } from '../../shared/services/sessionsService';
 import type { AttendancePayload, AttendanceEntryPayload } from '../../shared/services/sessionsService';
 import { useRecordSessionAttendance } from '../../shared/hooks/useSessionLifecycle';
@@ -30,6 +31,7 @@ const AttendanceRow: React.FC<{
                     onChange={(e) => onChange(e.target.value)}
                     className="tw-px-3 tw-py-2 tw-border tw-border-gray-200 tw-rounded-lg tw-text-sm focus:tw-outline-none focus:tw-ring-2 focus:tw-ring-primary"
                 >
+                    <option value="">Select status</option>
                     <option value="present">Present</option>
                     <option value="absent">Absent</option>
                     <option value="late">Late</option>
@@ -42,41 +44,59 @@ const AttendanceRow: React.FC<{
 const AttendanceModal: React.FC<Props> = ({ open, onClose, sessionId, participants }) => {
     const [localEntries, setLocalEntries] = useState<Record<string, string>>({});
     const [notesMap, setNotesMap] = useState<Record<string, string>>({});
+    const [validationError, setValidationError] = useState<string | null>(null);
 
     const recordAttendance = useRecordSessionAttendance();
 
     useEffect(() => {
         if (open && participants) {
-            // initial state: default present for all
             const init: Record<string, string> = {};
-            participants.forEach((p) => (init[p.id ?? ''] = 'present'));
+            participants.forEach((p) => {
+                if (p.id) {
+                    init[p.id] = '';
+                }
+            });
             setLocalEntries(init);
             setNotesMap({});
+            setValidationError(null);
         }
     }, [open, participants]);
 
     const setStatus = (id: string, value: string) => {
+        if (!id) return;
         setLocalEntries((s) => ({ ...s, [id]: value }));
+        setValidationError(null);
     };
 
     const setNote = (id: string, value: string) => {
+        if (!id) return;
         setNotesMap((s) => ({ ...s, [id]: value }));
     };
 
     const handleSubmit = async (ev?: React.FormEvent) => {
         ev?.preventDefault();
+        const missingStatus = participants.some((p) => p.id && !localEntries[p.id]);
+        if (missingStatus) {
+            setValidationError('Please select attendance for each participant.');
+            return;
+        }
+
         const attendance: AttendanceEntryPayload[] = participants
-            .map((p) => ({ userId: p.id ?? '', status: (localEntries[p.id ?? ''] || 'present') as any, note: notesMap[p.id ?? ''] }))
+            .map((p) => ({
+                userId: p.id ?? '',
+                status: (localEntries[p.id ?? ''] || 'present') as any,
+                note: notesMap[p.id ?? ''],
+            }))
             .filter((e) => e.userId);
 
         try {
             await recordAttendance.mutateAsync({ sessionId, payload: { attendance } as AttendancePayload });
+            setValidationError(null);
             onClose();
         } catch (err) {
-            // show error inline; fallback to console
-            // keep UI simple — MentorSessionsManager will display banner on success
-            // eslint-disable-next-line no-console
-            console.error('attendance save failed', err);
+            const apiError = err as AxiosError<{ message?: string }>;
+            const apiMessage = apiError?.response?.data?.message;
+            setValidationError(apiMessage || 'Unable to save attendance. Please try again.');
         }
     };
 
@@ -94,7 +114,7 @@ const AttendanceModal: React.FC<Props> = ({ open, onClose, sessionId, participan
                     {participants.length === 0 && <div className="tw-text-sm tw-text-gray-500">No participants available</div>}
                     {participants.map((p) => (
                         <div key={`${sessionId}-${p.id}`}>
-                            <AttendanceRow participant={p} value={localEntries[p.id ?? ''] ?? 'present'} onChange={(val) => setStatus(p.id ?? '', val)} />
+                            <AttendanceRow participant={p} value={localEntries[p.id ?? ''] ?? ''} onChange={(val) => setStatus(p.id ?? '', val)} />
                             <textarea
                                 value={notesMap[p.id ?? ''] ?? ''}
                                 onChange={(e) => setNote(p.id ?? '', e.target.value)}
@@ -106,6 +126,12 @@ const AttendanceModal: React.FC<Props> = ({ open, onClose, sessionId, participan
                         </div>
                     ))}
                 </div>
+
+                {validationError && (
+                    <div className="tw-mb-3 tw-text-sm tw-text-red-600" role="alert">
+                        {validationError}
+                    </div>
+                )}
 
                 <div className="tw-flex tw-justify-end tw-gap-3">
                     <button type="button" onClick={onClose} className="tw-px-4 tw-py-2 tw-text-sm tw-border tw-rounded-lg tw-border-gray-200 hover:tw-bg-gray-50">Cancel</button>

@@ -100,6 +100,8 @@ const formatThread = (threadDoc, viewerId) => {
   const mentee = normalizeUserDoc(threadDoc.mentee);
   const participants = normalizeParticipants(threadDoc);
   const session = formatSessionSummary(threadDoc.session);
+  const archivedFor = (threadDoc.archivedFor || []).map((entry) => entry.toString());
+  const isArchived = archivedFor.includes(viewerId);
 
   const isMentorViewer = mentor?.id === viewerId;
   const directCounterpart = isMentorViewer ? mentee : mentor;
@@ -128,6 +130,7 @@ const formatThread = (threadDoc, viewerId) => {
     lastSender: threadDoc.lastSender ? threadDoc.lastSender.toString() : null,
     unreadCount: unreadCount || 0,
     counterpart,
+    archived: isArchived,
   };
 };
 
@@ -188,6 +191,7 @@ exports.listThreads = async (req, res) => {
     }
 
     const userId = req.user.id;
+    const includeArchived = String(req.query.includeArchived || '').toLowerCase() === 'true';
     const filter = {
       $or: [
         { mentor: userId },
@@ -205,7 +209,8 @@ exports.listThreads = async (req, res) => {
       .populate('session', 'subject date room');
 
     const formatted = threads.map((thread) => formatThread(thread, userId));
-    return ok(res, { threads: formatted }, { count: formatted.length });
+    const visibleThreads = includeArchived ? formatted : formatted.filter((thread) => !thread.archived);
+    return ok(res, { threads: visibleThreads }, { count: visibleThreads.length });
   } catch (error) {
     return fail(res, 500, 'CHAT_THREADS_FETCH_FAILED', error.message);
   }
@@ -476,6 +481,73 @@ exports.markThreadRead = async (req, res) => {
     return ok(res, { cleared: true });
   } catch (error) {
     return fail(res, 500, 'CHAT_MARK_READ_FAILED', error.message);
+  }
+};
+
+exports.archiveThread = async (req, res) => {
+  try {
+    const { threadId } = req.params;
+    const access = await loadThreadForUser(threadId, req.user.id);
+    if (access.error) {
+      const { status, code, message } = access.error;
+      return fail(res, status, code, message);
+    }
+
+    const thread = access.thread;
+    const viewerId = req.user.id;
+    const alreadyArchived = (thread.archivedFor || []).some((entry) => entry.toString() === viewerId);
+    if (!alreadyArchived) {
+      thread.archivedFor = [...(thread.archivedFor || []), new mongoose.Types.ObjectId(viewerId)];
+      await thread.save();
+    }
+
+    return ok(res, { thread: formatThread(thread, viewerId) });
+  } catch (error) {
+    return fail(res, 500, 'CHAT_ARCHIVE_FAILED', error.message);
+  }
+};
+
+exports.unarchiveThread = async (req, res) => {
+  try {
+    const { threadId } = req.params;
+    const access = await loadThreadForUser(threadId, req.user.id);
+    if (access.error) {
+      const { status, code, message } = access.error;
+      return fail(res, status, code, message);
+    }
+
+    const thread = access.thread;
+    const viewerId = req.user.id;
+    thread.archivedFor = (thread.archivedFor || []).filter((entry) => entry.toString() !== viewerId);
+    await thread.save();
+
+    return ok(res, { thread: formatThread(thread, viewerId) });
+  } catch (error) {
+    return fail(res, 500, 'CHAT_UNARCHIVE_FAILED', error.message);
+  }
+};
+
+exports.deleteThread = async (req, res) => {
+  try {
+    const role = normalizeRole(req.user?.role);
+    if (role !== 'mentor') {
+      return fail(res, 403, 'CHAT_DELETE_FORBIDDEN', 'Only mentors can delete conversations.');
+    }
+
+    const { threadId } = req.params;
+    const access = await loadThreadForUser(threadId, req.user.id);
+    if (access.error) {
+      const { status, code, message } = access.error;
+      return fail(res, status, code, message);
+    }
+
+    const thread = access.thread;
+    await ChatMessage.deleteMany({ thread: thread._id });
+    await thread.deleteOne();
+
+    return ok(res, { deleted: true });
+  } catch (error) {
+    return fail(res, 500, 'CHAT_DELETE_FAILED', error.message);
   }
 };
 

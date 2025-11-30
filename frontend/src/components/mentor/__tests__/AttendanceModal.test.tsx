@@ -35,6 +35,9 @@ describe('AttendanceModal', () => {
         expect(screen.getByText('Alice')).toBeInTheDocument();
         expect(screen.getByText('Bob')).toBeInTheDocument();
 
+        const aliceSelect = screen.getByLabelText('attendance-p1') as HTMLSelectElement;
+        fireEvent.change(aliceSelect, { target: { value: 'present' } });
+
         // change Bob to absent
         const bobSelect = screen.getByLabelText('attendance-p2') as HTMLSelectElement;
         fireEvent.change(bobSelect, { target: { value: 'absent' } });

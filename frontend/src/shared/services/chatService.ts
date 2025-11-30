@@ -30,11 +30,16 @@ export interface ChatThread {
   lastMessageAt: string | Date | null;
   lastSender: string | null;
   unreadCount: number;
+  archived: boolean;
 }
 
 export interface ListThreadsResponse {
   threads: ChatThread[];
   count: number;
+}
+
+export interface ListThreadsOptions {
+  includeArchived?: boolean;
 }
 
 export interface ChatMessage {
@@ -56,8 +61,12 @@ export interface CreateThreadPayload {
   participantEmail?: string;
 }
 
-export const listThreads = async (): Promise<ListThreadsResponse> => {
-  const { data } = await apiClient.get('/chat/threads');
+export const listThreads = async (options: ListThreadsOptions = {}): Promise<ListThreadsResponse> => {
+  const params: Record<string, unknown> = {};
+  if (options.includeArchived) {
+    params.includeArchived = true;
+  }
+  const { data } = await apiClient.get('/chat/threads', { params });
   const threads: ChatThread[] = data?.threads ?? [];
   const count = data?.meta?.count ?? threads.length;
   return { threads, count };
@@ -87,4 +96,16 @@ export const sendMessage = async (threadId: string, body: string): Promise<ChatM
 
 export const markThreadRead = async (threadId: string): Promise<void> => {
   await apiClient.post(`/chat/threads/${threadId}/read`);
+};
+
+export const archiveThread = async (threadId: string): Promise<void> => {
+  await apiClient.post(`/chat/threads/${threadId}/archive`);
+};
+
+export const unarchiveThread = async (threadId: string): Promise<void> => {
+  await apiClient.post(`/chat/threads/${threadId}/unarchive`);
+};
+
+export const deleteThread = async (threadId: string): Promise<void> => {
+  await apiClient.delete(`/chat/threads/${threadId}`);
 };

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { buildPreviewUrl, useDeleteMaterial, useMentorMaterials, type MaterialItem } from '../../hooks/useMaterials';
+import { useDeleteMaterial, useMentorMaterials, type MaterialItem } from '../../hooks/useMaterials';
 import { useToast } from '../../hooks/useToast';
 
 interface MentorMaterialsListProps {
@@ -64,7 +64,7 @@ const MentorMaterialsList: React.FC<MentorMaterialsListProps> = ({ sessionId }) 
             <div className="tw-flex tw-flex-col lg:tw-flex-row lg:tw-items-center lg:tw-justify-between tw-gap-3">
                 <div>
                     <h2 className="tw-text-xl tw-font-semibold tw-text-gray-900">Uploaded files</h2>
-                    <p className="tw-text-sm tw-text-gray-600">Review, preview, or delete materials previously shared with mentees.</p>
+                    <p className="tw-text-sm tw-text-gray-600">Review, download, or delete materials previously shared with mentees.</p>
                 </div>
                 <div className="tw-flex tw-flex-col sm:tw-flex-row tw-gap-2 tw-w-full sm:tw-w-auto">
                     <div className="tw-relative tw-flex-1">
@@ -151,15 +151,6 @@ const MentorMaterialsList: React.FC<MentorMaterialsListProps> = ({ sessionId }) 
                                     <td className="tw-px-4 tw-py-3 tw-text-sm tw-text-gray-600">{formatDateTime(material.createdAt)}</td>
                                     <td className="tw-px-4 tw-py-3">
                                         <div className="tw-flex tw-items-center tw-justify-end tw-gap-2">
-                                            <a
-                                                href={buildPreviewUrl(material.id)}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                onClick={() => showToast({ message: 'Opening preview in a new tab…', variant: 'info', durationMs: 2500 })}
-                                                className="tw-text-xs tw-font-semibold tw-text-purple-600 hover:tw-text-purple-800"
-                                            >
-                                                Preview
-                                            </a>
                                             {material.googleDriveDownloadLink ? (
                                                 <a
                                                     href={material.googleDriveDownloadLink}

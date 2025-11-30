@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCompleteMentorSession, useMentorSessions } from '../../shared/hooks/useMentorSessions';
-import type { ApiWarning, MentorSession, SessionParticipant } from '../../shared/services/sessionsService';
+import type { ApiWarning, AttendanceStatus, MentorSession, SessionParticipant } from '../../shared/services/sessionsService';
 import MentorSessionComposer from './MentorSessionComposer';
 import MentorFeedbackForm from './MentorFeedbackForm';
 import AttendanceModal from './AttendanceModal';
@@ -13,6 +13,9 @@ const formatDate = (value?: string | null) => {
     if (Number.isNaN(date.getTime())) return '—';
     return date.toLocaleString();
 };
+
+export const ATTENDANCE_LOCKOUT_MESSAGE =
+    'Attendance opens at the scheduled start time. Please try again once the session begins.';
 
 const getParticipantList = (session: MentorSession): SessionParticipant[] => {
     if (session.participants && session.participants.length > 0) {
@@ -27,6 +30,58 @@ const getParticipantList = (session: MentorSession): SessionParticipant[] => {
 const getPrimaryParticipantName = (session: MentorSession) => {
     const participants = getParticipantList(session);
     return participants[0]?.name || '';
+};
+
+const attendanceStyleMap: Record<AttendanceStatus, { label: string; classes: string }> = {
+    present: { label: 'Present', classes: 'tw-bg-green-50 tw-text-green-700' },
+    late: { label: 'Late', classes: 'tw-bg-amber-50 tw-text-amber-700' },
+    absent: { label: 'Absent', classes: 'tw-bg-red-50 tw-text-red-700' },
+};
+
+const deriveAttendanceBadge = (session: MentorSession) => {
+    const participants = getParticipantList(session);
+    const primary = participants[0];
+    const normalized = (primary?.status || '').toString().toLowerCase();
+    const validStatus = (['present', 'absent', 'late'] as AttendanceStatus[]).includes(normalized as AttendanceStatus)
+        ? (normalized as AttendanceStatus)
+        : undefined;
+
+    let finalStatus: AttendanceStatus | undefined = validStatus;
+    if (!finalStatus && (session.status === 'completed' || session.status === 'overdue')) {
+        finalStatus = session.attended ? 'present' : 'absent';
+    }
+
+    if (!finalStatus) {
+        return {
+            label: 'Not recorded',
+            classes: 'tw-bg-gray-100 tw-text-gray-600',
+            participantName: primary?.name,
+        };
+    }
+
+    const style = attendanceStyleMap[finalStatus];
+    return {
+        label: style.label,
+        classes: style.classes,
+        participantName: primary?.name,
+    };
+};
+
+const canRecordAttendance = (session: MentorSession | null): boolean => {
+    if (!session) {
+        return false;
+    }
+
+    if (session.status === 'completed' || session.status === 'overdue') {
+        return true;
+    }
+
+    const startTime = Date.parse(session.date);
+    if (Number.isNaN(startTime)) {
+        return false;
+    }
+
+    return Date.now() >= startTime;
 };
 
 const MentorSessionsManager: React.FC = () => {
@@ -124,6 +179,11 @@ const MentorSessionsManager: React.FC = () => {
     };
 
     const openAttendanceModal = (session: MentorSession) => {
+        if (!canRecordAttendance(session)) {
+            setBanner({ type: 'error', message: ATTENDANCE_LOCKOUT_MESSAGE });
+            return;
+        }
+
         setAttendanceSession(session);
         setAttendanceOpen(true);
     };
@@ -152,6 +212,7 @@ const MentorSessionsManager: React.FC = () => {
     };
 
     const showEmpty = !isLoading && filteredSessions.length === 0;
+    const attendanceReady = selectedSession ? canRecordAttendance(selectedSession) : false;
 
     return (
         <>
@@ -346,22 +407,13 @@ const MentorSessionsManager: React.FC = () => {
                                             </span>
                                         </td>
                                         <td className="tw-px-6 tw-py-4 tw-align-top">
-                                            {/* Attendance for primary participant */}
                                             {(() => {
-                                                const primary = participants[0];
-                                                const status = (primary?.status as string | undefined) || (session.attended ? 'present' : 'absent');
-                                                if (!status) return null;
-                                                const label = status === 'present' ? 'Present' : status === 'late' ? 'Late' : 'Absent';
-                                                const classes =
-                                                    status === 'present'
-                                                        ? 'tw-bg-green-50 tw-text-green-700'
-                                                        : status === 'late'
-                                                        ? 'tw-bg-amber-50 tw-text-amber-700'
-                                                        : 'tw-bg-red-50 tw-text-red-700';
-
+                                                const badge = deriveAttendanceBadge(session);
                                                 return (
-                                                    <span className={`tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-rounded-full tw-px-3 tw-py-1 ${classes}`}>
-                                                        {label}
+                                                    <span
+                                                        className={`tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-rounded-full tw-px-3 tw-py-1 ${badge.classes}`}
+                                                    >
+                                                        {badge.label}
                                                     </span>
                                                 );
                                             })()}
@@ -470,17 +522,15 @@ const MentorSessionsManager: React.FC = () => {
                                                 <div className="tw-mt-4">
                                                     <div className="tw-text-xs tw-text-gray-500 tw-mb-2">Attendance</div>
                                                     {(() => {
-                                                        const primary = getParticipantList(selectedSession)[0];
-                                                        const status = (primary?.status as string | undefined) || (selectedSession.attended ? 'present' : 'absent');
-                                                        const label = status === 'present' ? 'Present' : status === 'late' ? 'Late' : 'Absent';
-                                                        const classes = status === 'present' ? 'tw-bg-green-50 tw-text-green-700' : status === 'late' ? 'tw-bg-amber-50 tw-text-amber-700' : 'tw-bg-red-50 tw-text-red-700';
-
+                                                        const badge = deriveAttendanceBadge(selectedSession);
                                                         return (
                                                             <div className="tw-flex tw-items-center tw-gap-2">
-                                                                <span className={`tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-rounded-full tw-px-3 tw-py-1 ${classes}`}>
-                                                                    {label}
+                                                                <span className={`tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-rounded-full tw-px-3 tw-py-1 ${badge.classes}`}>
+                                                                    {badge.label}
                                                                 </span>
-                                                                <span className="tw-text-xs tw-text-gray-500">{primary?.name}</span>
+                                                                {badge.participantName ? (
+                                                                    <span className="tw-text-xs tw-text-gray-500">{badge.participantName}</span>
+                                                                ) : null}
                                                             </div>
                                                         );
                                                     })()}
@@ -507,10 +557,20 @@ const MentorSessionsManager: React.FC = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => openAttendanceModal(selectedSession)}
-                                                        className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50"
+                                                        aria-disabled={!attendanceReady}
+                                                        title={attendanceReady ? undefined : 'Attendance opens at the session start time.'}
+                                                        className={`tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-2 hover:tw-bg-gray-50 ${
+                                                            attendanceReady ? '' : 'tw-opacity-60 tw-cursor-not-allowed'
+                                                        }`}
                                                     >
                                                         Attendance
                                                     </button>
+
+                                                    {!attendanceReady && (
+                                                        <p className="tw-text-[11px] tw-text-gray-500 tw-text-center tw-leading-4">
+                                                            Attendance unlocks once the scheduled start time arrives.
+                                                        </p>
+                                                    )}
 
                                                     {((selectedSession.status || (selectedSession.attended ? 'completed' : 'upcoming')) === 'completed') && (
                                                         <button

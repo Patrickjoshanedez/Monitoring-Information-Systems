@@ -9,6 +9,14 @@ interface ChatThreadListProps {
   isCreating: boolean;
   errorMessage?: string | null;
   isLoading?: boolean;
+  canManage?: boolean;
+  showArchived?: boolean;
+  onToggleArchived?: (value: boolean) => void;
+  onArchiveThread?: (threadId: string) => void;
+  onUnarchiveThread?: (threadId: string) => void;
+  onDeleteThread?: (threadId: string) => void;
+  actionDisabled?: boolean;
+  actionErrorMessage?: string | null;
 }
 
 const formatTimestamp = (input: string | Date | null) => {
@@ -31,6 +39,14 @@ export const ChatThreadList: React.FC<ChatThreadListProps> = ({
   isCreating,
   errorMessage,
   isLoading = false,
+  canManage = false,
+  showArchived = false,
+  onToggleArchived,
+  onArchiveThread,
+  onUnarchiveThread,
+  onDeleteThread,
+  actionDisabled = false,
+  actionErrorMessage = null,
 }) => {
   const [email, setEmail] = useState('');
   const sortedThreads = useMemo(() => {
@@ -40,6 +56,10 @@ export const ChatThreadList: React.FC<ChatThreadListProps> = ({
       return bTime - aTime;
     });
   }, [threads]);
+
+  const filteredThreads = useMemo(() => {
+    return sortedThreads.filter((thread) => (showArchived ? thread.archived : !thread.archived));
+  }, [sortedThreads, showArchived]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -84,6 +104,20 @@ export const ChatThreadList: React.FC<ChatThreadListProps> = ({
             {isCreating ? 'Starting…' : 'Start conversation'}
           </button>
         </form>
+        {canManage && onToggleArchived ? (
+          <label className="tw-mt-4 tw-flex tw-items-center tw-gap-2 tw-text-sm tw-text-gray-700">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(event) => onToggleArchived(event.target.checked)}
+              className="tw-h-4 tw-w-4 tw-rounded tw-border tw-border-gray-300"
+            />
+            Show archived chats
+          </label>
+        ) : null}
+        {actionErrorMessage ? (
+          <p className="tw-mt-2 tw-text-xs tw-text-red-600" role="alert">{actionErrorMessage}</p>
+        ) : null}
       </div>
       <div className="tw-flex-1 tw-overflow-y-auto tw-relative">
         {isLoading ? (
@@ -91,11 +125,13 @@ export const ChatThreadList: React.FC<ChatThreadListProps> = ({
             <div className="tw-animate-spin tw-rounded-full tw-h-6 tw-w-6 tw-border-b-2 tw-border-blue-500" aria-label="Loading conversations" />
           </div>
         ) : null}
-        {sortedThreads.length === 0 ? (
-          <div className="tw-p-6 tw-text-center tw-text-sm tw-text-gray-500">No conversations yet. Start one above.</div>
+        {filteredThreads.length === 0 ? (
+          <div className="tw-p-6 tw-text-center tw-text-sm tw-text-gray-500">
+            {showArchived ? 'No archived conversations.' : 'No conversations yet. Start one above.'}
+          </div>
         ) : (
           <ul>
-            {sortedThreads.map((thread) => {
+            {filteredThreads.map((thread) => {
               const isActive = thread.id === activeThreadId;
               const counterpart = thread.counterpart ?? thread.mentor ?? thread.mentee;
               const threadTitle = thread.title || counterpart?.name || 'Conversation';
@@ -105,6 +141,7 @@ export const ChatThreadList: React.FC<ChatThreadListProps> = ({
               const previewText = thread.type === 'session'
                 ? `${thread.participants.length} participant${thread.participants.length === 1 ? '' : 's'}`
                 : thread.lastMessage || 'Start chatting…';
+              const counterpartLabel = counterpart?.name && counterpart?.name !== threadTitle ? counterpart.name : null;
               const participantNames = thread.type === 'session'
                 ? thread.participants.map((participant) => participant.name).join(', ')
                 : '';
@@ -126,10 +163,18 @@ export const ChatThreadList: React.FC<ChatThreadListProps> = ({
                               Session
                             </span>
                           ) : null}
+                          {thread.archived ? (
+                            <span className="tw-ml-2 tw-inline-flex tw-items-center tw-rounded-full tw-bg-gray-100 tw-text-gray-600 tw-text-[11px] tw-font-semibold tw-px-2 tw-py-0.5">
+                              Archived
+                            </span>
+                          ) : null}
                         </span>
                         <span className="tw-text-xs tw-text-gray-500">{timestamp}</span>
                       </div>
                       <p className="tw-text-sm tw-text-gray-600 tw-truncate">{previewText}</p>
+                      {counterpartLabel ? (
+                        <p className="tw-text-xs tw-text-gray-500 tw-truncate">{counterpartLabel}</p>
+                      ) : null}
                       {thread.type === 'session' && participantNames ? (
                         <p className="tw-text-xs tw-text-gray-500 tw-mt-1 tw-truncate">
                           {thread.session?.room ? `${thread.session.room} · ` : ''}
@@ -143,6 +188,36 @@ export const ChatThreadList: React.FC<ChatThreadListProps> = ({
                       </span>
                     ) : null}
                   </button>
+                  {canManage ? (
+                    <div className="tw-flex tw-gap-2 tw-pl-4 tw-pr-4 tw-pb-3">
+                      <button
+                        type="button"
+                        className="tw-text-xs tw-font-medium tw-text-gray-600 hover:tw-text-gray-900 tw-transition-colors"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (thread.archived) {
+                            onUnarchiveThread?.(thread.id);
+                          } else {
+                            onArchiveThread?.(thread.id);
+                          }
+                        }}
+                        disabled={actionDisabled}
+                      >
+                        {thread.archived ? 'Unarchive' : 'Archive'}
+                      </button>
+                      <button
+                        type="button"
+                        className="tw-text-xs tw-font-medium tw-text-red-600 hover:tw-text-red-700 tw-transition-colors"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteThread?.(thread.id);
+                        }}
+                        disabled={actionDisabled}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
                 </li>
               );
             })}

@@ -16,6 +16,22 @@ interface ChatWindowProps {
   error?: string | null;
 }
 
+const formatMessageTimestamp = (value: string | Date) => {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  } catch {
+    return date.toLocaleString();
+  }
+};
+
 const ChatWindow: React.FC<ChatWindowProps> = ({
   counterpart,
   threadTitle,
@@ -58,6 +74,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     }
     return parts.join(' · ');
   }, [session]);
+
+  const participantNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    participants?.forEach((participant) => {
+      if (participant.id) {
+        map.set(participant.id, participant.name);
+      }
+    });
+    if (counterpart?.id) {
+      map.set(counterpart.id, counterpart.name);
+    }
+    return map;
+  }, [participants, counterpart]);
 
   useEffect(() => {
     if (endRef.current) {
@@ -135,6 +164,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
         {orderedMessages.map((message) => {
           const isOwn = currentUserId ? message.senderId === currentUserId : false;
+          const senderName = isOwn ? 'You' : participantNameById.get(message.senderId) || 'Participant';
+          const timestampLabel = formatMessageTimestamp(message.createdAt);
           return (
             <div key={message.id} className="tw-flex tw-flex-col">
               <div
@@ -146,8 +177,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               >
                 <p className="tw-whitespace-pre-wrap tw-break-words">{message.body}</p>
               </div>
-              <span className={`tw-text-xs tw-text-gray-400 ${isOwn ? 'tw-self-end tw-pr-2' : 'tw-self-start tw-pl-2'}`}>
-                {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              <span className={`tw-text-[11px] tw-text-gray-500 tw-flex tw-items-center tw-gap-1 ${
+                isOwn ? 'tw-self-end tw-pr-2' : 'tw-self-start tw-pl-2'
+              }`}>
+                {!isOwn ? <span className="tw-font-medium tw-text-gray-600">{senderName}</span> : <span className="tw-text-gray-500">You</span>}
+                <span aria-label="Message timestamp">• {timestampLabel}</span>
               </span>
             </div>
           );

@@ -132,4 +132,3 @@ export const useDeleteMaterial = () => {
     });
 };
 
-export const buildPreviewUrl = (materialId: string) => `/api/materials/${materialId}/preview`;

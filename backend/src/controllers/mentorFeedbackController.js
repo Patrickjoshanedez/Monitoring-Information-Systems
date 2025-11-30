@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const MentorFeedback = require('../models/MentorFeedback');
 const Session = require('../models/Session');
+const Mentorship = require('../models/Mentorship');
 const FeedbackAuditLog = require('../models/FeedbackAuditLog');
 const { ok, fail } = require('../utils/responses');
 const logger = require('../utils/logger');
@@ -281,6 +282,23 @@ const ensureSessionForMentor = async ({ sessionId, mentorId }) => {
     return { ok: true, session, editWindowClosesAt };
 };
 
+const mentorCanAccessMentee = async ({ mentorId, menteeId }) => {
+    const activeStatuses = ['active', 'paused'];
+    const mentorship = await Mentorship.findOne({ mentorId, menteeId, status: { $in: activeStatuses } })
+        .select('_id')
+        .lean();
+    if (mentorship) {
+        return true;
+    }
+
+    const sessionExists = await Session.exists({
+        mentor: mentorId,
+        $or: [{ mentee: menteeId }, { 'participants.user': menteeId }],
+    });
+
+    return Boolean(sessionExists);
+};
+
 const maybeNotifyMentee = async ({ feedbackDoc, sessionDoc }) => {
     if (!feedbackDoc?.menteeId) {
         return;
@@ -501,13 +519,22 @@ exports.getOwnProgressSnapshot = async (req, res) => {
 };
 
 exports.getProgressSnapshotForMentee = async (req, res) => {
-    if (req.user.role !== 'admin') {
-        return fail(res, 403, 'FORBIDDEN', 'Admin access required.');
-    }
-
     const { menteeId } = req.params;
     if (!isValidObjectId(menteeId)) {
         return fail(res, 400, 'INVALID_ID', 'Invalid mentee id.');
+    }
+
+    const isAdmin = req.user.role === 'admin';
+    const isMentor = req.user.role === 'mentor';
+    if (!isAdmin && !isMentor) {
+        return fail(res, 403, 'FORBIDDEN', 'You are not allowed to view this progress snapshot.');
+    }
+
+    if (isMentor) {
+        const allowed = await mentorCanAccessMentee({ mentorId: req.user.id, menteeId });
+        if (!allowed) {
+            return fail(res, 403, 'MENTOR_NO_ACCESS', 'You can only view progress for your mentees.');
+        }
     }
 
     try {

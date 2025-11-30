@@ -14,7 +14,7 @@ export const useChatThreads = () => {
 
   const threadsQuery = useQuery<ListThreadsResponse, AxiosError>({
     queryKey: CHAT_THREADS_QUERY_KEY,
-    queryFn: listThreads,
+    queryFn: () => listThreads({ includeArchived: true }),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });

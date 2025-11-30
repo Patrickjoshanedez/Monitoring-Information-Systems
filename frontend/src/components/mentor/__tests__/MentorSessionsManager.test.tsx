@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import MentorSessionsManager from '../MentorSessionsManager';
+import MentorSessionsManager, { ATTENDANCE_LOCKOUT_MESSAGE } from '../MentorSessionsManager';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useMentorSessions, useCompleteMentorSession } from '../../../shared/hooks/useMentorSessions';
@@ -124,5 +124,32 @@ describe('MentorSessionsManager', () => {
 
         // Mentor feedback modal should appear with title
         expect(screen.getByText('Mentor feedback')).toBeInTheDocument();
+    });
+
+    it('prevents attendance submissions before the session ends', () => {
+        const upcoming = baseSession({ id: 's2', subject: 'Upcoming UX Jam', date: '2099-01-12T10:00:00.000Z', attended: false, status: 'upcoming' });
+        const hookValue = { data: [upcoming], isLoading: false, isError: false, refetch: jest.fn(), isFetching: false };
+        mockUseMentorSessions.mockReturnValueOnce(hookValue);
+
+        const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+        render(
+            <QueryClientProvider client={qc}>
+                <MemoryRouter>
+                    <MentorSessionsManager />
+                </MemoryRouter>
+            </QueryClientProvider>
+        );
+
+        const table = screen.getByRole('table');
+        const row = within(table).getByText('Upcoming UX Jam').closest('tr');
+        expect(row).toBeTruthy();
+        const viewBtn = within(row as HTMLElement).getByRole('button', { name: /view details/i });
+        fireEvent.click(viewBtn);
+
+        const attendanceBtn = screen.getByRole('button', { name: /attendance/i });
+        fireEvent.click(attendanceBtn);
+
+        expect(screen.getAllByText(ATTENDANCE_LOCKOUT_MESSAGE)[0]).toBeInTheDocument();
+        expect(screen.queryByText(/Record attendance/i)).not.toBeInTheDocument();
     });
 });

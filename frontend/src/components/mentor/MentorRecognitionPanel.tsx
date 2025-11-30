@@ -173,54 +173,57 @@ const MentorRecognitionPanel: React.FC = () => {
                             ? `${certificate.certificateType.charAt(0).toUpperCase()}${certificate.certificateType.slice(1)}`
                             : 'Certificate';
                         return (
-                            <article key={certificate.id} className="tw-border tw-border-gray-100 tw-rounded-2xl tw-p-5 tw-flex tw-flex-col tw-gap-4">
-                                <div className="tw-flex tw-justify-between tw-gap-3 tw-items-start">
-                                    <div>
-                                        <p className="tw-text-xs tw-font-semibold tw-text-gray-500 tw-uppercase">Mentee</p>
-                                        <p className="tw-text-lg tw-font-bold tw-text-gray-900">{certificate.menteeName || 'Unassigned'}</p>
+                            <article key={certificate.id} className="tw-border tw-border-gray-100 tw-rounded-xl tw-p-4 tw-flex tw-flex-col tw-gap-3">
+                                <div className="tw-flex tw-items-center tw-justify-between tw-gap-3">
+                                    <div className="tw-space-y-0.5">
+                                        <p className="tw-text-[11px] tw-font-semibold tw-text-gray-500 tw-uppercase">Mentee</p>
+                                        <p className="tw-text-base tw-font-semibold tw-text-gray-900">{certificate.menteeName || 'Unassigned'}</p>
                                         {certificate.menteeStudentId ? (
                                             <p className="tw-text-xs tw-text-gray-500">ID {certificate.menteeStudentId}</p>
                                         ) : null}
                                     </div>
-                                    <span className={`tw-inline-flex tw-items-center tw-gap-1 tw-text-xs tw-font-semibold tw-rounded-full tw-px-3 tw-py-1 ${status.bg} ${status.text}`}>
+                                    <span className={`tw-inline-flex tw-items-center tw-gap-1 tw-text-[11px] tw-font-semibold tw-rounded-full tw-px-2.5 tw-py-0.5 ${status.bg} ${status.text}`}>
                                         <span aria-hidden="true">●</span>
                                         {status.label}
                                     </span>
                                 </div>
-                                <div className="tw-grid tw-grid-cols-2 tw-gap-3">
+                                <div className="tw-flex tw-flex-wrap tw-gap-x-6 tw-gap-y-1">
                                     <div>
-                                        <p className="tw-text-xs tw-font-semibold tw-text-gray-500 tw-uppercase">Program</p>
+                                        <p className="tw-text-[11px] tw-font-semibold tw-text-gray-500 tw-uppercase">Program</p>
                                         <p className="tw-text-sm tw-font-medium tw-text-gray-900">{certificate.programName}</p>
-                                        <p className="tw-text-xs tw-text-gray-500">
-                                            {typeLabel} certificate
-                                        </p>
                                     </div>
                                     <div>
-                                        <p className="tw-text-xs tw-font-semibold tw-text-gray-500 tw-uppercase">Issued</p>
+                                        <p className="tw-text-[11px] tw-font-semibold tw-text-gray-500 tw-uppercase">Issued</p>
                                         <p className="tw-text-sm tw-font-medium tw-text-gray-900">{formatDate(certificate.issuedAt)}</p>
-                                        <p className="tw-text-xs tw-text-gray-500">Serial {certificate.serialNumber}</p>
                                     </div>
                                 </div>
-                                <div className="tw-flex tw-flex-wrap tw-gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleDownload(certificate.id)}
-                                        className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-4 tw-py-2 hover:tw-bg-gray-50 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-200"
-                                    >
-                                        Download PDF
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleCopyVerification(certificate)}
-                                        className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-bg-gray-900 tw-text-white tw-text-sm tw-font-semibold tw-px-4 tw-py-2 hover:tw-bg-black/90 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-900"
-                                    >
-                                        Copy verification link
-                                    </button>
+                                <p className="tw-text-xs tw-text-gray-500">
+                                    {typeLabel} • Serial {certificate.serialNumber}
+                                </p>
+                                <div className="tw-flex tw-flex-wrap tw-items-center tw-justify-between tw-gap-3">
                                     {certificate.reissueCount ? (
-                                        <span className="tw-inline-flex tw-items-center tw-gap-1 tw-rounded-full tw-bg-blue-50 tw-text-blue-700 tw-text-xs tw-font-semibold tw-px-3 tw-py-1">
+                                        <span className="tw-inline-flex tw-items-center tw-gap-1 tw-rounded-full tw-bg-blue-50 tw-text-blue-700 tw-text-[11px] tw-font-semibold tw-px-2.5 tw-py-0.5">
                                             Reissued {certificate.reissueCount}×
                                         </span>
-                                    ) : null}
+                                    ) : (
+                                        <span className="tw-text-xs tw-text-gray-400">&nbsp;</span>
+                                    )}
+                                    <div className="tw-flex tw-flex-wrap tw-gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDownload(certificate.id)}
+                                            className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-200 tw-bg-white tw-text-sm tw-font-semibold tw-text-gray-700 tw-px-3 tw-py-1.5 hover:tw-bg-gray-50 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-200"
+                                        >
+                                            Download PDF
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleCopyVerification(certificate)}
+                                            className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-bg-gray-900 tw-text-white tw-text-sm tw-font-semibold tw-px-3 tw-py-1.5 hover:tw-bg-black/90 focus:tw-ring-2 focus:tw-ring-offset-2 focus:tw-ring-gray-900"
+                                        >
+                                            Copy link
+                                        </button>
+                                    </div>
                                 </div>
                             </article>
                         );

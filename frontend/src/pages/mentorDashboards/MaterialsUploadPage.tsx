@@ -94,7 +94,7 @@ const MaterialsUploadPage: React.FC = () => {
                     <div className="tw-flex tw-flex-col md:tw-flex-row md:tw-items-center md:tw-justify-between tw-gap-3">
                         <div>
                             <h2 className="tw-text-xl tw-font-semibold tw-text-gray-900">Manage files</h2>
-                            <p className="tw-text-sm tw-text-gray-600">Preview, download, or remove shared materials.</p>
+                            <p className="tw-text-sm tw-text-gray-600">Download or remove shared materials.</p>
                         </div>
                         <div className="tw-flex tw-gap-2 tw-items-center">
                             <label htmlFor="materials-filter" className="tw-text-xs tw-font-medium tw-text-gray-600">

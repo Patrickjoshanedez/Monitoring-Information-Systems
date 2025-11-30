@@ -22,6 +22,10 @@ const chatThreadSchema = new mongoose.Schema(
     lastMessageAt: { type: Date },
     mentorUnreadCount: { type: Number, default: 0, min: 0 },
     menteeUnreadCount: { type: Number, default: 0, min: 0 },
+    archivedFor: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      default: [],
+    },
   },
   { timestamps: true }
 );
@@ -43,6 +47,7 @@ chatThreadSchema.index(
 chatThreadSchema.index({ participants: 1, updatedAt: -1 });
 chatThreadSchema.index({ mentor: 1, updatedAt: -1 });
 chatThreadSchema.index({ mentee: 1, updatedAt: -1 });
+chatThreadSchema.index({ archivedFor: 1 });
 
 chatThreadSchema.pre('save', function syncParticipantStates(next) {
   const rawIds = Array.isArray(this.participants) ? this.participants : [];
