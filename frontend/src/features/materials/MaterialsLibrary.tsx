@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { buildPreviewUrl, useMenteeMaterials } from '../../hooks/useMaterials';
+import { useMenteeMaterials } from '../../hooks/useMaterials';
 import { useToast } from '../../hooks/useToast';
 
 const formatBytes = (bytes: number): string => {
@@ -40,13 +40,6 @@ const MaterialsLibrary: React.FC = () => {
 
     const materials = data?.materials ?? [];
     const sessions = useMemo(() => data?.sessions ?? [], [data]);
-
-    const handlePreview = useCallback(
-        (title: string) => {
-            showToast({ message: `Opening ${title} in a new tab.`, variant: 'info' });
-        },
-        [showToast]
-    );
 
     const handleDownload = useCallback(
         (url: string | undefined, title: string) => {
@@ -163,15 +156,6 @@ const MaterialsLibrary: React.FC = () => {
                                 </p>
                             </div>
                             <div className="tw-flex tw-items-center tw-gap-3">
-                                <a
-                                    href={buildPreviewUrl(material.id)}
-                                    onClick={() => handlePreview(material.title)}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-purple-600 tw-text-purple-600 hover:tw-bg-purple-50 tw-px-4 tw-py-2 tw-text-sm tw-font-medium tw-transition-colors"
-                                >
-                                    Preview
-                                </a>
                                 <button
                                     type="button"
                                     onClick={() => handleDownload(material.googleDriveDownloadLink, material.title)}

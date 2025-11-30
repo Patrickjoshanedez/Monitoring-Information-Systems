@@ -115,10 +115,43 @@ export default function MenteeApplicationForm() {
     'Database Management',
     'Networking'
   ];
-
-  const programmingLanguages = [
-    'C', 'Java', 'Python', 'JavaScript', 'C++', 'Ruby', 'Go', 'PHP', 'Swift', 'Kotlin'
-  ];
+  
+  const majorTechnologyOptions = {
+    'Computer Programming': [
+      'C',
+      'C++',
+      'Java',
+      'Python',
+      'C#',
+      'Go'
+    ],
+    'Web Development': [
+      'HTML & CSS',
+      'JavaScript',
+      'TypeScript',
+      'React',
+      'Vue',
+      'Node.js',
+      'Express',
+      'PHP',
+      'Laravel'
+    ],
+    'Database Management': [
+      'SQL',
+      'MySQL',
+      'PostgreSQL',
+      'MongoDB',
+      'SQLite',
+      'Oracle Database'
+    ],
+    'Networking': [
+      'Cisco IOS commands',
+      'MikroTik RouterOS',
+      'Linux networking tools',
+      'Firewall configuration',
+      'Network troubleshooting tools'
+    ]
+  };
 
   const yearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
 
@@ -258,17 +291,25 @@ export default function MenteeApplicationForm() {
                   {/* Specific Skills */}
                   <div>
                       <label className={labelClassName}>
-                      Specific Skills
+                      Interested Skills
                     </label>
-                    <input
-                      type="text"
+                    <select
                       name="specificSkills"
                       value={form.specificSkills}
                       onChange={handleInputChange}
-                      placeholder="e.g., React, Node.js, Python"
-                        className={inputClassName}
+                      className={inputClassName}
                       required
-                    />
+                    >
+                      <option value="">Select your interested skill</option>
+                      <option value="Web Development">Web Development</option>
+                      <option value="Mobile Development">Mobile Development</option>
+                      <option value="Data Analysis">Data Analysis</option>
+                      <option value="Database Management">Database Management</option>
+                      <option value="Networking">Networking</option>
+                      <option value="Cybersecurity">Cybersecurity</option>
+                      <option value="Game Development">Game Development</option>
+                      <option value="UI/UX Design">UI/UX Design</option>
+                    </select>
                   </div>
 
                   {/* COR Upload */}
@@ -323,7 +364,9 @@ export default function MenteeApplicationForm() {
               {/* Programming Language */}
               <div className="tw-space-y-6">
                 <div>
-                  <p className={`${mutedTextClassName} tw-mb-4`}>Choose a programming language.</p>
+                  <p className={`${mutedTextClassName} tw-mb-4`}>
+                    Choose a preferred technology / programming language based on your selected major.
+                  </p>
                   <select
                     name="programmingLanguage"
                     value={form.programmingLanguage}
@@ -331,9 +374,9 @@ export default function MenteeApplicationForm() {
                     className={inputClassName}
                     required
                   >
-                    <option value="">Select Programming Language</option>
-                    {programmingLanguages.map(lang => (
-                      <option key={lang} value={lang}>{lang}</option>
+                    <option value="">Select technology / programming language</option>
+                    {(majorTechnologyOptions[form.major] || []).map((tech) => (
+                      <option key={tech} value={tech}>{tech}</option>
                     ))}
                   </select>
                 </div>
