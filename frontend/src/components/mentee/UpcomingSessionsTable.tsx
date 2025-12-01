@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMenteeSessions } from '../../shared/hooks/useMenteeSessions';
 import type { MenteeSession } from '../../shared/services/sessionsService';
+import { useToast } from '../../hooks/useToast';
 
 type SortKey = 'subject' | 'mentor' | 'date' | 'duration';
 
@@ -42,8 +43,7 @@ const formatRange = (session: MenteeSession) => {
 const UpcomingSessionsTable: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('date');
-  const [detailToast, setDetailToast] = useState<{ session: MenteeSession; issuedAt: number } | null>(null);
-  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { showToast } = useToast();
 
   const { data: sessions = [], isLoading, isError, refetch, isFetching } = useMenteeSessions();
 
@@ -83,18 +83,15 @@ const UpcomingSessionsTable: React.FC = () => {
   const activeSessions = useMemo(() => sortedSessions.filter((session) => isSessionActive(session)), [sortedSessions]);
 
   const showDetailsToast = (session: MenteeSession) => {
-    setDetailToast({ session, issuedAt: Date.now() });
-    if (toastTimeoutRef.current) {
-      clearTimeout(toastTimeoutRef.current);
-    }
-    toastTimeoutRef.current = setTimeout(() => setDetailToast(null), 6000);
+    const subject = session.subject || 'Untitled session';
+    const mentorName = session.mentor?.name || 'your mentor';
+    const schedule = formatRange(session);
+    showToast({
+      message: `${subject} with ${mentorName} · ${schedule}`,
+      variant: 'info',
+      durationMs: 6000
+    });
   };
-
-  useEffect(() => () => {
-    if (toastTimeoutRef.current) {
-      clearTimeout(toastTimeoutRef.current);
-    }
-  }, []);
 
   const showEmpty = !isLoading && sortedSessions.length === 0;
 
@@ -241,29 +238,6 @@ const UpcomingSessionsTable: React.FC = () => {
           </tbody>
         </table>
       </div>
-      {detailToast && (
-        <div className="tw-fixed tw-left-1/2 tw-bottom-8 -tw-translate-x-1/2 tw-z-40" role="status" aria-live="polite">
-          <div className="tw-w-[320px] tw-rounded-2xl tw-border tw-border-gray-200 tw-bg-white tw-shadow-2xl tw-p-4 tw-space-y-2">
-            <div className="tw-flex tw-justify-between tw-items-start">
-              <div>
-                <p className="tw-text-xs tw-font-semibold tw-text-primary tw-uppercase">Session preview</p>
-                <p className="tw-text-base tw-font-semibold tw-text-gray-900">{detailToast.session.subject || 'Untitled session'}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDetailToast(null)}
-                className="tw-text-gray-400 hover:tw-text-gray-600"
-                aria-label="Dismiss session preview"
-              >
-                ×
-              </button>
-            </div>
-            <p className="tw-text-sm tw-text-gray-600">Mentor: {detailToast.session.mentor?.name || '—'}</p>
-            <p className="tw-text-sm tw-text-gray-600">{formatRange(detailToast.session)}</p>
-            <p className="tw-text-xs tw-text-gray-400">Only mentors can mark sessions complete. Message them if updates are needed.</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
