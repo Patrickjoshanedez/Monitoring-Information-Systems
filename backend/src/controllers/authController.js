@@ -10,6 +10,8 @@ const LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutes
 const createJwt = (user) =>
   jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
+const ACCOUNT_DEACTIVATED_MESSAGE = 'Your account has been deactivated. Only an administrator can reactivate it.';
+
 exports.register = async (req, res) => {
   try {
     const { firstname, lastname, email, password, role, recaptchaToken } = req.body;
@@ -56,7 +58,8 @@ exports.register = async (req, res) => {
         email: user.email,
         role: user.role,
         applicationStatus: user.applicationStatus,
-        applicationRole: user.applicationRole
+        applicationRole: user.applicationRole,
+        accountStatus: user.accountStatus || 'active'
       }
     });
   } catch (err) {
@@ -78,6 +81,13 @@ exports.login = async (req, res) => {
     }
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
+
+    if (user.accountStatus && user.accountStatus !== 'active') {
+      return res.status(403).json({
+        error: 'ACCOUNT_DEACTIVATED',
+        message: ACCOUNT_DEACTIVATED_MESSAGE
+      });
+    }
 
     if (user.lockUntil && user.lockUntil > Date.now()) {
       return res.status(403).json({ error: 'ACCOUNT_LOCKED' });
@@ -109,7 +119,8 @@ exports.login = async (req, res) => {
         email: user.email,
         role: user.role || null,
         applicationStatus: user.applicationStatus,
-        applicationRole: user.applicationRole
+        applicationRole: user.applicationRole,
+        accountStatus: user.accountStatus || 'active'
       }
     });
   } catch (err) {
@@ -165,15 +176,21 @@ exports.resetPassword = async (req, res) => {
 };
 
 exports.googleAuthCallback = (req, res) => {
-  const token = createJwt(req.user);
   const redirectBase = process.env.CLIENT_URL || 'http://localhost:5173';
+  if (req.user?.accountStatus && req.user.accountStatus !== 'active') {
+    return res.redirect(`${redirectBase}/login?error=ACCOUNT_DEACTIVATED`);
+  }
+  const token = createJwt(req.user);
   return res.redirect(`${redirectBase}/oauth/callback?token=${token}`);
 };
 
 // Facebook OAuth handlers
 exports.facebookAuthCallback = (req, res) => {
-  const token = createJwt(req.user);
   const redirectBase = process.env.CLIENT_URL || 'http://localhost:5173';
+  if (req.user?.accountStatus && req.user.accountStatus !== 'active') {
+    return res.redirect(`${redirectBase}/login?error=ACCOUNT_DEACTIVATED`);
+  }
+  const token = createJwt(req.user);
   return res.redirect(`${redirectBase}/oauth/callback?token=${token}`);
 };
 
@@ -228,7 +245,8 @@ exports.updateRole = async (req, res) => {
         email: user.email,
         role: user.role,
         applicationStatus: user.applicationStatus,
-        applicationRole: user.applicationRole
+        applicationRole: user.applicationRole,
+        accountStatus: user.accountStatus || 'active'
       }
     });
   } catch (err) {
@@ -241,7 +259,7 @@ exports.profile = async (req, res) => {
     const userId = req.user && req.user.id;
     if (!userId) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
     // Select password only to compute passwordSet; do not return it to client
-  const user = await User.findById(userId).select('firstname lastname email role applicationStatus applicationRole applicationData profile password');
+  const user = await User.findById(userId).select('firstname lastname email role applicationStatus applicationRole applicationData profile password accountStatus');
     if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
 
     return res.json({
@@ -254,6 +272,7 @@ exports.profile = async (req, res) => {
       applicationRole: user.applicationRole || null,
       applicationData: user.applicationData || {},
       profile: user.profile || {},
+      accountStatus: user.accountStatus || 'active',
       passwordSet: Boolean(user.password)
     });
   } catch (err) {
@@ -286,7 +305,7 @@ exports.updateProfile = async (req, res) => {
       update.applicationData = { ...(sanitized || {}) };
     }
 
-    const user = await User.findByIdAndUpdate(userId, { $set: update }, { new: true }).select('firstname lastname email role applicationStatus applicationRole applicationData');
+    const user = await User.findByIdAndUpdate(userId, { $set: update }, { new: true }).select('firstname lastname email role applicationStatus applicationRole applicationData accountStatus');
     if (!user) return res.status(404).json({ error: 'USER_NOT_FOUND' });
 
     return res.json({
@@ -299,7 +318,8 @@ exports.updateProfile = async (req, res) => {
         role: user.role || null,
         applicationStatus: user.applicationStatus || 'not_submitted',
         applicationRole: user.applicationRole || null,
-        applicationData: user.applicationData || {}
+        applicationData: user.applicationData || {},
+        accountStatus: user.accountStatus || 'active'
       }
     });
   } catch (err) {

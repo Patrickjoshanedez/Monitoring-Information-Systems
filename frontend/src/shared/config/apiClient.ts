@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { dispatchAccountDeactivated } from '../constants/accountStatus';
 
 // Support tests that run outside of Vite by allowing a test polyfill `importMetaEnv`.
 declare const importMetaEnv: any;
@@ -30,6 +31,9 @@ apiClient.interceptors.response.use(
     if (error?.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+    }
+    if (error?.response?.status === 403 && error?.response?.data?.error === 'ACCOUNT_DEACTIVATED') {
+      dispatchAccountDeactivated(error?.response?.data?.message);
     }
     return Promise.reject(error);
   }

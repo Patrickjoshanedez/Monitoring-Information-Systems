@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import AuthLayout from './AuthLayout.jsx';
 import { login, googleOAuthUrl, facebookOAuthUrl, mapErrorCodeToMessage } from '../services/api.js';
 import RecaptchaField from '../../../components/common/RecaptchaField.jsx';
+import { dispatchAccountDeactivated } from '../../../shared/constants/accountStatus';
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -29,11 +30,14 @@ export default function LoginPage() {
       localStorage.setItem('token', token);
 
       const normalizedRole = (res.role || res.user?.role || '').toLowerCase();
+      const accountStatus = res.user?.accountStatus || 'active';
       const sanitizedUser = {
         ...res.user,
-        role: normalizedRole || null
+        role: normalizedRole || null,
+        accountStatus
       };
       localStorage.setItem('user', JSON.stringify(sanitizedUser));
+      localStorage.setItem('accountStatus', accountStatus);
       
       const applicationStatus = res.user?.applicationStatus || 'not_submitted';
       
@@ -72,6 +76,9 @@ export default function LoginPage() {
       }
     } catch (err) {
       const code = err?.response?.data?.error;
+      if (code === 'ACCOUNT_DEACTIVATED') {
+        dispatchAccountDeactivated(err?.response?.data?.message);
+      }
       setError(mapErrorCodeToMessage(code));
     } finally {
       setLoading(false);

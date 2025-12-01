@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import logger from '../../shared/utils/logger';
 import { Navigate, useLocation } from 'react-router-dom';
 import PropTypes from 'prop-types';
+import { dispatchAccountDeactivated } from '../../shared/constants/accountStatus';
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api').replace(/\/+$/, '');
 const buildApiUrl = (path) => `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
@@ -43,8 +44,16 @@ function ProtectedRoute({ children, requiredRole }) {
 
       const storedUser = {
         ...storedUserRaw,
-        role: normalizedRole || null
+        role: normalizedRole || null,
+        accountStatus: storedUserRaw.accountStatus || localStorage.getItem('accountStatus') || 'active'
       };
+
+      if (storedUser.accountStatus && storedUser.accountStatus !== 'active') {
+        dispatchAccountDeactivated();
+        setUser(null);
+        setLoading(false);
+        return;
+      }
 
       localStorage.setItem('user', JSON.stringify(storedUser));
       setUser(storedUser);
@@ -71,6 +80,12 @@ function ProtectedRoute({ children, requiredRole }) {
             localStorage.setItem('user', JSON.stringify(updatedUser));
             setUser(updatedUser);
             setApplicationState({ role: storedUser.role, status: data.status });
+          } else if (response.status === 403) {
+            const payload = await response.json().catch(() => ({}));
+            dispatchAccountDeactivated(payload?.message);
+            setUser(null);
+            setLoading(false);
+            return;
           } else {
             setApplicationState({ role: storedUser.role, status: storedUser.applicationStatus || 'not_submitted' });
           }
@@ -95,6 +110,10 @@ function ProtectedRoute({ children, requiredRole }) {
         <div className="tw-animate-spin tw-rounded-full tw-h-12 tw-w-12 tw-border-b-2 tw-border-purple-500"></div>
       </div>
     );
+  }
+
+  if (user?.accountStatus && user.accountStatus !== 'active') {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // No token - redirect to login

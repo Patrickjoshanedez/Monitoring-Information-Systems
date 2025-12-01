@@ -19,6 +19,7 @@ export const mapErrorCodeToMessage = (code) => {
     case 'INVALID_CREDENTIALS': return 'Invalid email or password.';
     case 'EMAIL_EXISTS': return 'An account with this email already exists.';
     case 'ACCOUNT_LOCKED': return 'Account locked due to failed attempts. Try again later.';
+    case 'ACCOUNT_DEACTIVATED': return 'This account has been deactivated. Contact an administrator to regain access.';
     case 'INVALID_TOKEN': return 'Invalid or expired token.';
     // reCAPTCHA specific errors
     case 'RECAPTCHA_REQUIRED': return 'Please complete the verification step.';
