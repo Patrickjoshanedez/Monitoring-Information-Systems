@@ -95,42 +95,6 @@ const formatSessionSummary = (sessionDoc) => {
   };
 };
 
-const toObjectIdString = (value) => {
-  if (!value) return null;
-  if (typeof value === 'string') return value;
-  if (typeof value === 'object') {
-    if (value._id) return value._id.toString();
-    if (value.id) return value.id.toString();
-    if (typeof value.toString === 'function') return value.toString();
-  }
-  return null;
-};
-
-const dedupeDirectThreads = (threads) => {
-  const directMap = new Map();
-  const others = [];
-
-  threads.forEach((thread) => {
-    if (thread.type === 'direct') {
-      const mentorId = toObjectIdString(thread.mentor);
-      const menteeId = toObjectIdString(thread.mentee);
-      if (mentorId && menteeId) {
-        const key = `${mentorId}:${menteeId}`;
-        const existing = directMap.get(key);
-        if (!existing || new Date(existing.updatedAt).getTime() < new Date(thread.updatedAt).getTime()) {
-          directMap.set(key, thread);
-        }
-        return;
-      }
-    }
-    others.push(thread);
-  });
-
-  return [...directMap.values(), ...others].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  );
-};
-
 const formatThread = (threadDoc, viewerId) => {
   const mentor = normalizeUserDoc(threadDoc.mentor);
   const mentee = normalizeUserDoc(threadDoc.mentee);
@@ -244,8 +208,7 @@ exports.listThreads = async (req, res) => {
       .populate('participants', 'firstname lastname email profile.photoUrl profile.displayName role')
       .populate('session', 'subject date room');
 
-    const dedupedThreads = dedupeDirectThreads(threads);
-    const formatted = dedupedThreads.map((thread) => formatThread(thread, userId));
+    const formatted = threads.map((thread) => formatThread(thread, userId));
     const visibleThreads = includeArchived ? formatted : formatted.filter((thread) => !thread.archived);
     return ok(res, { threads: visibleThreads }, { count: visibleThreads.length });
   } catch (error) {
@@ -400,31 +363,41 @@ exports.sendMessage = async (req, res) => {
   ensureParticipantArray(thread, participantIds);
   ensureParticipantStates(thread, participantIds);
 
-    thread.lastMessage = messageBody;
-    thread.lastSender = new mongoose.Types.ObjectId(senderId);
-    thread.lastMessageAt = message.createdAt;
-    thread.updatedAt = message.createdAt;
-
-    thread.participantStates = thread.participantStates.map((state) => ({
+    const participantStates = thread.participantStates.map((state) => ({
       user: state.user,
       unreadCount: state.user.toString() === senderId ? 0 : (state.unreadCount || 0) + 1,
     }));
 
+    let mentorUnread = 0;
+    let menteeUnread = 0;
     if (thread.type === 'direct' && thread.mentor && thread.mentee) {
       const isMentorSender = thread.mentor._id.toString() === senderId;
       if (isMentorSender) {
-        thread.mentorUnreadCount = 0;
-        thread.menteeUnreadCount = (thread.menteeUnreadCount || 0) + 1;
+        mentorUnread = 0;
+        menteeUnread = (thread.menteeUnreadCount || 0) + 1;
       } else {
-        thread.menteeUnreadCount = 0;
-        thread.mentorUnreadCount = (thread.mentorUnreadCount || 0) + 1;
+        menteeUnread = 0;
+        mentorUnread = (thread.mentorUnreadCount || 0) + 1;
       }
-    } else {
-      thread.mentorUnreadCount = 0;
-      thread.menteeUnreadCount = 0;
     }
 
-    await thread.save();
+    const updateResult = await ChatThread.updateOne(
+      { _id: thread._id },
+      {
+        lastMessage: messageBody,
+        lastSender: new mongoose.Types.ObjectId(senderId),
+        lastMessageAt: message.createdAt,
+        updatedAt: message.createdAt,
+        participants: thread.participants,
+        participantStates: participantStates,
+        mentorUnreadCount: mentorUnread,
+        menteeUnreadCount: menteeUnread,
+      }
+    );
+
+    if (!updateResult?.matchedCount) {
+      return fail(res, 404, 'CHAT_THREAD_NOT_FOUND', 'Conversation not found or was removed.');
+    }
 
     const payload = {
       id: message._id.toString(),
@@ -464,6 +437,9 @@ exports.sendMessage = async (req, res) => {
   } catch (error) {
     if (error.code === 'PUSHER_NOT_CONFIGURED') {
       return fail(res, 502, 'CHAT_SERVICE_UNAVAILABLE', error.message);
+    }
+    if (error.name === 'DocumentNotFoundError') {
+      return fail(res, 404, 'CHAT_THREAD_NOT_FOUND', 'Conversation not found or was removed.');
     }
     return fail(res, 500, 'CHAT_MESSAGE_SEND_FAILED', error.message);
   }

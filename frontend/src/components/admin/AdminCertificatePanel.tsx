@@ -36,6 +36,29 @@ const filterDirectory = (items: AdminDirectoryUser[] = [], query: string) => {
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 
+const formatRelativeTime = (value?: string) => {
+    if (!value) {
+        return 'No admin issuances yet';
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return 'No admin issuances yet';
+    }
+    const now = Date.now();
+    const diffMs = now - parsed.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) {
+        return 'Issued today';
+    }
+    if (diffDays === 1) {
+        return 'Issued yesterday';
+    }
+    if (diffDays < 7) {
+        return `Issued ${diffDays} days ago`;
+    }
+    return formatDate(value);
+};
+
 type CertificateFormState = {
     menteeId: string;
     mentorId: string;
@@ -66,6 +89,50 @@ const AdminCertificatePanel: React.FC = () => {
     const filteredMentors = useMemo(() => filterDirectory(mentors, mentorSearch), [mentors, mentorSearch]);
     const selectedMentee = useMemo(() => mentees.find((entry) => entry.id === form.menteeId), [mentees, form.menteeId]);
     const selectedMentor = useMemo(() => mentors.find((entry) => entry.id === form.mentorId), [mentors, form.mentorId]);
+    const recognitionStats = useMemo(() => {
+        const totalIssued = certificates.length;
+
+        if (!totalIssued) {
+            return {
+                totalIssued: 0,
+                issuedThisWeek: 0,
+                uniquePrograms: 0,
+                lastIssuedLabel: 'No admin issuances yet',
+            };
+        }
+
+        const mondayThisWeek = (() => {
+            const date = new Date();
+            const day = date.getDay();
+            const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+            date.setDate(diff);
+            date.setHours(0, 0, 0, 0);
+            return date.getTime();
+        })();
+
+        const issuedThisWeek = certificates.filter((certificate) => {
+            if (!certificate.issuedAt) return false;
+            const parsed = new Date(certificate.issuedAt);
+            return !Number.isNaN(parsed.getTime()) && parsed.getTime() >= mondayThisWeek;
+        }).length;
+
+        const uniquePrograms = new Set(
+            certificates.map((certificate) => certificate.programName?.trim()).filter(Boolean)
+        ).size;
+
+        const [latest] = [...certificates].sort((a, b) => {
+            const aTime = a.issuedAt ? new Date(a.issuedAt).getTime() : 0;
+            const bTime = b.issuedAt ? new Date(b.issuedAt).getTime() : 0;
+            return bTime - aTime;
+        });
+
+        return {
+            totalIssued,
+            issuedThisWeek,
+            uniquePrograms,
+            lastIssuedLabel: formatRelativeTime(latest?.issuedAt),
+        };
+    }, [certificates]);
 
     const handleSubmit = async (event: FormEvent) => {
         event.preventDefault();
@@ -130,7 +197,7 @@ const AdminCertificatePanel: React.FC = () => {
     };
 
     return (
-        <section className="tw-bg-white tw-rounded-2xl tw-border tw-border-gray-100 tw-shadow-sm tw-p-6 tw-space-y-8">
+        <section className="tw-bg-white tw-rounded-3xl tw-border tw-border-gray-100 tw-shadow-lg tw-p-6 tw-space-y-8">
             <header className="tw-space-y-1">
                 <p className="tw-text-xs tw-font-semibold tw-text-purple-600 tw-uppercase">Certificates</p>
                 <h2 className="tw-text-2xl tw-font-bold tw-text-gray-900">Issue certificates on behalf of mentees</h2>
@@ -139,22 +206,44 @@ const AdminCertificatePanel: React.FC = () => {
                 </p>
             </header>
 
+            <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-4" aria-label="Recognition metrics">
+                <article className="tw-rounded-2xl tw-border tw-border-purple-100 tw-bg-purple-50 tw-p-4">
+                    <p className="tw-text-xs tw-font-semibold tw-text-purple-600 tw-uppercase">Total issued</p>
+                    <p className="tw-mt-2 tw-text-3xl tw-font-bold tw-text-purple-900">{recognitionStats.totalIssued}</p>
+                    <p className="tw-text-xs tw-text-purple-800/70">Across all programs</p>
+                </article>
+                <article className="tw-rounded-2xl tw-border tw-border-blue-100 tw-bg-blue-50 tw-p-4">
+                    <p className="tw-text-xs tw-font-semibold tw-text-blue-600 tw-uppercase">This week</p>
+                    <p className="tw-mt-2 tw-text-3xl tw-font-bold tw-text-blue-900">{recognitionStats.issuedThisWeek}</p>
+                    <p className="tw-text-xs tw-text-blue-800/70">Certificates issued since Monday</p>
+                </article>
+                <article className="tw-rounded-2xl tw-border tw-border-slate-100 tw-bg-slate-50 tw-p-4">
+                    <p className="tw-text-xs tw-font-semibold tw-text-slate-600 tw-uppercase">Programs</p>
+                    <p className="tw-mt-2 tw-text-3xl tw-font-bold tw-text-slate-900">{recognitionStats.uniquePrograms}</p>
+                    <p className="tw-text-xs tw-text-slate-500">{recognitionStats.lastIssuedLabel}</p>
+                </article>
+            </div>
+
             <div className="tw-grid tw-grid-cols-1 xl:tw-grid-cols-3 tw-gap-6">
                 <form onSubmit={handleSubmit} className="tw-col-span-2 tw-space-y-6" aria-label="Certificate creation form">
-                    <div className="tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-4">
-                        <div>
-                            <label htmlFor="menteeSearch" className="tw-block tw-text-sm tw-font-medium tw-text-gray-700">
-                                Search approved mentees
-                            </label>
+                    <fieldset className="tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-4">
+                        <legend className="tw-sr-only">Select recipients</legend>
+                        <div className="tw-rounded-2xl tw-border tw-border-gray-100 tw-bg-gray-50 tw-p-4">
+                            <div className="tw-flex tw-items-center tw-justify-between">
+                                <label htmlFor="menteeSearch" className="tw-text-sm tw-font-semibold tw-text-gray-800">
+                                    1. Choose mentee
+                                </label>
+                                <span className="tw-text-[11px] tw-font-semibold tw-text-purple-600 tw-uppercase">Required</span>
+                            </div>
                             <input
                                 id="menteeSearch"
                                 type="text"
-                                className="tw-mt-1 tw-w-full tw-rounded-lg tw-border tw-border-gray-300 tw-px-3 tw-py-2 tw-text-sm focus:tw-ring-2 focus:tw-ring-purple-500"
+                                className="tw-mt-3 tw-w-full tw-rounded-xl tw-border tw-border-gray-300 tw-px-3 tw-py-2 tw-text-sm focus:tw-ring-2 focus:tw-ring-purple-500"
                                 value={menteeSearch}
                                 onChange={(event) => setMenteeSearch(event.target.value)}
                                 placeholder="Search by name, email, or major"
                             />
-                            <div className="tw-mt-3 tw-border tw-border-gray-100 tw-rounded-lg tw-p-3 tw-bg-gray-50">
+                            <div className="tw-mt-3 tw-rounded-xl tw-border tw-border-white tw-bg-white tw-p-3 tw-shadow-inner">
                                 {menteesLoading ? (
                                     <p className="tw-text-sm tw-text-gray-500">Loading mentees…</p>
                                 ) : menteesError ? (
@@ -166,23 +255,30 @@ const AdminCertificatePanel: React.FC = () => {
                                         Retry loading mentees
                                     </button>
                                 ) : (
-                                    renderDirectoryList(filteredMentees, form.menteeId, (id) => setForm((prev) => ({ ...prev, menteeId: id })))
+                                    renderDirectoryList(
+                                        filteredMentees,
+                                        form.menteeId,
+                                        (id) => setForm((prev) => ({ ...prev, menteeId: id }))
+                                    )
                                 )}
                             </div>
                         </div>
-                        <div>
-                            <label htmlFor="mentorSearch" className="tw-block tw-text-sm tw-font-medium tw-text-gray-700">
-                                Optional mentor signer
-                            </label>
+                        <div className="tw-rounded-2xl tw-border tw-border-gray-100 tw-bg-gray-50 tw-p-4">
+                            <div className="tw-flex tw-items-center tw-justify-between">
+                                <label htmlFor="mentorSearch" className="tw-text-sm tw-font-semibold tw-text-gray-800">
+                                    2. Optional mentor signer
+                                </label>
+                                <span className="tw-text-[11px] tw-font-semibold tw-text-slate-500 tw-uppercase">Optional</span>
+                            </div>
                             <input
                                 id="mentorSearch"
                                 type="text"
-                                className="tw-mt-1 tw-w-full tw-rounded-lg tw-border tw-border-gray-300 tw-px-3 tw-py-2 tw-text-sm focus:tw-ring-2 focus:tw-ring-purple-500"
+                                className="tw-mt-3 tw-w-full tw-rounded-xl tw-border tw-border-gray-300 tw-px-3 tw-py-2 tw-text-sm focus:tw-ring-2 focus:tw-ring-purple-500"
                                 value={mentorSearch}
                                 onChange={(event) => setMentorSearch(event.target.value)}
                                 placeholder="Select a mentor to sign the certificate"
                             />
-                            <div className="tw-mt-3 tw-border tw-border-gray-100 tw-rounded-lg tw-p-3 tw-bg-gray-50">
+                            <div className="tw-mt-3 tw-rounded-xl tw-border tw-border-white tw-bg-white tw-p-3 tw-shadow-inner">
                                 {mentorsLoading ? (
                                     <p className="tw-text-sm tw-text-gray-500">Loading mentors…</p>
                                 ) : mentorsError ? (
@@ -194,14 +290,23 @@ const AdminCertificatePanel: React.FC = () => {
                                         Retry loading mentors
                                     </button>
                                 ) : (
-                                    renderDirectoryList(filteredMentors, form.mentorId, (id) => setForm((prev) => ({ ...prev, mentorId: prev.mentorId === id ? '' : id })))
+                                    renderDirectoryList(
+                                        filteredMentors,
+                                        form.mentorId,
+                                        (id) =>
+                                            setForm((prev) => ({
+                                                ...prev,
+                                                mentorId: prev.mentorId === id ? '' : id,
+                                            }))
+                                    )
                                 )}
                             </div>
                         </div>
-                    </div>
+                    </fieldset>
 
-                    <div className="tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-4">
-                        <div>
+                    <fieldset className="tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-4">
+                        <legend className="tw-sr-only">Program details</legend>
+                        <div className="tw-space-y-2">
                             <label htmlFor="programName" className="tw-block tw-text-sm tw-font-medium tw-text-gray-700">
                                 Program name
                             </label>
@@ -215,7 +320,7 @@ const AdminCertificatePanel: React.FC = () => {
                                 required
                             />
                         </div>
-                        <div>
+                        <div className="tw-space-y-2">
                             <label htmlFor="cohort" className="tw-block tw-text-sm tw-font-medium tw-text-gray-700">
                                 Cohort (optional)
                             </label>
@@ -228,10 +333,11 @@ const AdminCertificatePanel: React.FC = () => {
                                 placeholder="2024 Alpha"
                             />
                         </div>
-                    </div>
+                    </fieldset>
 
-                    <div className="tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-4">
-                        <div>
+                    <fieldset className="tw-grid tw-grid-cols-1 lg:tw-grid-cols-2 tw-gap-4">
+                        <legend className="tw-sr-only">Certificate settings</legend>
+                        <div className="tw-space-y-2">
                             <label htmlFor="certificateType" className="tw-block tw-text-sm tw-font-medium tw-text-gray-700">
                                 Certificate type
                             </label>
@@ -251,7 +357,7 @@ const AdminCertificatePanel: React.FC = () => {
                                 <option value="excellence">Excellence</option>
                             </select>
                         </div>
-                        <div>
+                        <div className="tw-space-y-2">
                             <label htmlFor="statement" className="tw-block tw-text-sm tw-font-medium tw-text-gray-700">
                                 Highlight statement (optional)
                             </label>
@@ -263,7 +369,7 @@ const AdminCertificatePanel: React.FC = () => {
                                 placeholder="Recognized for outstanding mentorship participation."
                             />
                         </div>
-                    </div>
+                    </fieldset>
 
                     <div className="tw-flex tw-justify-end">
                         <button
@@ -276,7 +382,7 @@ const AdminCertificatePanel: React.FC = () => {
                     </div>
                 </form>
 
-                <aside className="tw-bg-gradient-to-br tw-from-purple-600 tw-to-slate-900 tw-rounded-2xl tw-p-6 tw-text-white tw-space-y-4" aria-live="polite">
+                <aside className="tw-bg-gradient-to-br tw-from-purple-600 tw-to-slate-900 tw-rounded-3xl tw-p-6 tw-text-white tw-space-y-4" aria-live="polite">
                     <p className="tw-text-sm tw-font-semibold tw-uppercase tw-tracking-wide">Live preview</p>
                     <h3 className="tw-text-2xl tw-font-bold">
                         Certificate of {form.certificateType ? capitalize(form.certificateType) : 'Completion'}
@@ -322,7 +428,7 @@ const AdminCertificatePanel: React.FC = () => {
                 ) : certificates.length === 0 ? (
                     <p className="tw-text-sm tw-text-gray-500">No certificates have been issued by admins yet.</p>
                 ) : (
-                    <div className="tw-overflow-x-auto">
+                    <div className="tw-overflow-x-auto tw-rounded-2xl tw-border tw-border-gray-100">
                         <table className="tw-min-w-full tw-text-sm">
                             <thead>
                                 <tr className="tw-text-left tw-text-gray-500">

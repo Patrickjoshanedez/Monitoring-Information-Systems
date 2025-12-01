@@ -160,9 +160,13 @@ const ChatPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: chatMessagesQueryKey(message.threadId) });
       queryClient.invalidateQueries({ queryKey: CHAT_THREADS_QUERY_KEY });
     },
-    onError: (err: AxiosError<ApiError>) => {
+    onError: (err: AxiosError<ApiError>, variables) => {
       const customMessage = err.response?.data?.message ?? 'Failed to send message.';
       setSendError(customMessage);
+      if (err.response?.status === 404) {
+        setActiveThreadId((current) => (current === variables.threadId ? null : current));
+        queryClient.invalidateQueries({ queryKey: CHAT_THREADS_QUERY_KEY });
+      }
     },
   });
 
