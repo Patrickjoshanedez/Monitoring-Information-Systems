@@ -9,6 +9,7 @@ const {
     getCertificateForDownload,
     reissueCertificate,
     verifyCertificate,
+    signCertificate,
 } = require('../services/certificateService');
 const { incrementAchievement } = require('../services/achievementService');
 const { sendNotification } = require('../utils/notificationService');
@@ -57,6 +58,16 @@ const formatCertificateListItem = (certificate) => ({
     verificationUrl: certificate.verificationUrl,
     pdfUrl: certificate.pdfAsset?.url,
     reissueCount: certificate.reissueCount || 0,
+    signatureStatus: certificate.signature?.signedAt ? 'signed' : 'pending',
+    signature: certificate.signature
+        ? {
+              signedAt: certificate.signature.signedAt,
+              signedByName: certificate.signature.signedByName,
+              signedByTitle: certificate.signature.signedByTitle,
+              statement: certificate.signature.statement,
+              method: certificate.signature.method,
+          }
+        : null,
 });
 
 exports.listCertificates = async (req, res) => {
@@ -156,7 +167,11 @@ exports.downloadCertificate = async (req, res) => {
         return res.send(buffer);
     } catch (error) {
         const status = error.status || 500;
-        return fail(res, status, error.message || 'DOWNLOAD_FAILED', 'Unable to download certificate.');
+        const code = error.message || 'DOWNLOAD_FAILED';
+        const message = code === 'SIGNATURE_PENDING'
+            ? 'Certificate is pending mentor verification. You will be notified once it is signed.'
+            : 'Unable to download certificate.';
+        return fail(res, status, code, message);
     }
 };
 
@@ -234,6 +249,28 @@ exports.verifyCertificate = async (req, res) => {
     } catch (error) {
         const status = error.status || 500;
         return fail(res, status, error.message || 'VERIFY_FAILED', 'Certificate could not be verified.');
+    }
+};
+
+exports.signCertificate = async (req, res) => {
+    if (req.user.role !== 'mentor') {
+        return fail(res, 403, 'FORBIDDEN', 'Only mentors may sign certificates.');
+    }
+
+    try {
+        const certificate = await signCertificate({
+            certificateId: req.params.id,
+            mentorId: req.user.id,
+            signerTitle: req.body?.title,
+            statement: req.body?.statement,
+            ipAddress: req.ip,
+        });
+
+        return ok(res, { certificate: formatCertificateListItem(certificate) });
+    } catch (error) {
+        const status = error.status || 500;
+        const code = error.message || 'SIGN_FAILED';
+        return fail(res, status, code, 'Unable to sign certificate.');
     }
 };
 

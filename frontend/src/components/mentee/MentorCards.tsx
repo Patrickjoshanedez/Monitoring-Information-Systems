@@ -72,7 +72,12 @@ const MentorCards: React.FC<MentorCardsProps> = ({ mentors, loading, onRequest, 
               minute: '2-digit',
             })
           : null;
-        const expertiseHighlights = mentor.subjects.slice(0, 3);
+        const expertiseHighlights = (mentor.expertiseAreas && mentor.expertiseAreas.length ? mentor.expertiseAreas : mentor.subjects).slice(0, 3);
+        const experienceHeadline = (mentor.experienceSummary && mentor.experienceSummary.trim())
+          ? mentor.experienceSummary.trim()
+          : mentor.experienceYears
+            ? `${mentor.experienceYears}+ years guiding mentees`
+            : '';
 
         return (
           <article
@@ -152,7 +157,7 @@ const MentorCards: React.FC<MentorCardsProps> = ({ mentors, loading, onRequest, 
                 <div>
                   <p className="tw-text-[11px] tw-font-semibold tw-uppercase tw-text-purple-700">Experience</p>
                   <p className="tw-text-sm tw-font-semibold tw-text-gray-900">
-                    {mentor.experienceYears ? `${mentor.experienceYears}+ years guiding mentees` : 'Experience details shared soon'}
+                    {experienceHeadline || 'Experience details shared soon'}
                   </p>
                 </div>
                 {expertiseHighlights.length ? (
@@ -169,7 +174,7 @@ const MentorCards: React.FC<MentorCardsProps> = ({ mentors, loading, onRequest, 
                 ) : null}
               </div>
               <p className="tw-mt-3 tw-text-sm tw-text-gray-600">
-                {mentor.bioSnippet || 'This mentor is updating their expertise summary.'}
+                {mentor.bioSnippet?.trim() || experienceHeadline || 'This mentor is updating their expertise summary.'}
               </p>
             </div>
 

@@ -22,6 +22,22 @@ const toArray = (value) => {
   return [];
 };
 
+const summarizeText = (value, maxLen = 180) => {
+  if (!value || typeof value !== 'string') {
+    return '';
+  }
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return '';
+  }
+  const sentenceMatch = normalized.match(/(.+?[.!?])(\s|$)/);
+  const base = sentenceMatch ? sentenceMatch[1].trim() : normalized;
+  if (base.length <= maxLen) {
+    return base;
+  }
+  return `${base.slice(0, maxLen - 1)}…`;
+};
+
 const buildAvailability = (applicationData = {}) => {
   const days = toArray(applicationData.availabilityDays);
   const meetingFormats = toArray(applicationData.meetingFormats);
@@ -183,11 +199,17 @@ const buildAvailabilitySummaries = async (mentorIds = []) => {
 
 const normalizeMentor = (user, availabilitySummary) => {
   const data = user.applicationData || {};
+  const profile = user.profile || {};
   const fullName = getFullName(user) || 'Mentor';
+  const displayName = typeof profile.displayName === 'string' && profile.displayName.trim() ? profile.displayName.trim() : null;
 
+  const profileExpertise = Array.isArray(profile.expertiseAreas)
+    ? profile.expertiseAreas.map((item) => String(item).trim()).filter(Boolean)
+    : [];
   const topics = toArray(data.mentoringTopics);
   const expertise = toArray(data.expertiseAreas);
-  const subjects = topics.length ? topics : expertise.length ? expertise : ['Mentorship'];
+  const fallbackSubjects = topics.length ? topics : expertise.length ? expertise : ['Mentorship'];
+  const subjects = profileExpertise.length ? profileExpertise : fallbackSubjects;
 
   const languages = toArray(data.languages || data.preferredLanguages);
   if (!languages.length) {
@@ -198,6 +220,9 @@ const normalizeMentor = (user, availabilitySummary) => {
   const rating = typeof data.averageRating === 'number' ? data.averageRating : 4.5;
   const reviewCount = typeof data.reviewCount === 'number' ? data.reviewCount : 0;
   const experienceYears = typeof data.yearsOfExperience === 'number' ? data.yearsOfExperience : undefined;
+  const profileBio = typeof profile.bio === 'string' ? profile.bio.trim() : '';
+  const experienceSummary = summarizeText(profileBio) || summarizeText(data.professionalSummary) || '';
+  const bioSnippet = profileBio || data.professionalSummary || data.mentoringGoals || data.achievements || '';
   const derivedAvailability = availabilitySummary?.labels?.length ? availabilitySummary.labels : fallbackAvailability;
   const nextAvailableSlotFromSummary = availabilitySummary?.nextAvailableSlot
     ? availabilitySummary.nextAvailableSlot.toISOString()
@@ -205,7 +230,7 @@ const normalizeMentor = (user, availabilitySummary) => {
 
   return {
     id: user._id.toString(),
-    fullName,
+    fullName: displayName || fullName,
     headline: data.currentRole || data.professionalSummary || 'Mentor',
     rating,
     reviewCount,
@@ -214,7 +239,12 @@ const normalizeMentor = (user, availabilitySummary) => {
     availability: derivedAvailability,
     nextAvailableSlot: nextAvailableSlotFromSummary || data.nextAvailableSlot || null,
     experienceYears,
-    bioSnippet: data.professionalSummary || data.mentoringGoals || data.achievements || '',
+    experienceSummary: experienceSummary || null,
+    bioSnippet,
+    expertiseAreas: profileExpertise,
+    skills: Array.isArray(profile.skills)
+      ? profile.skills.map((item) => String(item).trim()).filter(Boolean)
+      : [],
   };
 };
 
@@ -333,7 +363,7 @@ exports.listMentors = async (req, res) => {
       role: 'mentor',
       applicationStatus: 'approved',
     })
-      .select('firstname lastname email applicationData role applicationStatus')
+      .select('firstname lastname email applicationData role applicationStatus profile')
       .lean();
 
     const mentorIds = mentorsFromDb.map((mentor) => mentor._id);

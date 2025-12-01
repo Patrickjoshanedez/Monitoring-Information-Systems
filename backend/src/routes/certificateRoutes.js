@@ -24,6 +24,9 @@ router.get('/certificates/:id/download', auth, ctrl.downloadCertificate);
 // Mentee: request a reissue; admin/mentor notified via audit log
 router.post('/certificates/:id/reissue-request', auth, ctrl.requestReissue);
 
+// Mentor: digitally sign a certificate
+router.post('/certificates/:id/sign', auth, ctrl.signCertificate);
+
 // Admin: reissue certificate
 router.post('/admin/certificates/:id/reissue', auth, ctrl.reissueCertificate);
 

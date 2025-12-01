@@ -20,7 +20,10 @@ export type MentorProfile = {
   availability: string[];
   nextAvailableSlot?: string | null;
   experienceYears?: number;
+  experienceSummary?: string | null;
   bioSnippet?: string;
+  expertiseAreas?: string[];
+  skills?: string[];
 };
 
 export type MentorDirectoryResponse = {
@@ -87,10 +90,13 @@ const FALLBACK_MENTORS: MentorProfile[] = [
     rating: 4.9,
     reviewCount: 38,
     subjects: ['Web Development', 'Computer Programming', 'App Development'],
+    expertiseAreas: ['Web Development', 'Full-stack Engineering'],
+    skills: ['React', 'Node.js', 'TypeScript'],
     languages: ['English', 'Filipino'],
     availability: ['Mon 10:00 AM', 'Wed 1:00 PM', 'Sat 9:00 AM'],
     nextAvailableSlot: '2025-10-31T10:00:00Z',
     experienceYears: 4,
+    experienceSummary: 'Guides BSIT mentees in shipping modern full-stack projects.',
     bioSnippet: 'Helps mentees build modern web apps with clean UI and maintainable backend.',
   },
   {
@@ -100,10 +106,13 @@ const FALLBACK_MENTORS: MentorProfile[] = [
     rating: 4.7,
     reviewCount: 25,
     subjects: ['Data Science', 'Database Design', 'Statistics'],
+    expertiseAreas: ['Analytics', 'SQL Storytelling'],
+    skills: ['SQL', 'Python', 'Power BI'],
     languages: ['English'],
     availability: ['Tue 3:00 PM', 'Thu 9:00 AM'],
     nextAvailableSlot: '2025-11-02T15:00:00Z',
     experienceYears: 3,
+    experienceSummary: 'Transforms raw campus data into actionable insights with mentees.',
     bioSnippet: 'Supports mentees with analytics projects and research-backed storytelling.',
   },
   {
@@ -113,10 +122,13 @@ const FALLBACK_MENTORS: MentorProfile[] = [
     rating: 4.8,
     reviewCount: 31,
     subjects: ['Mobile Development', 'UI/UX'],
+    expertiseAreas: ['Mobile UX', 'Cross-platform Apps'],
+    skills: ['Kotlin', 'Flutter', 'Firebase'],
     languages: ['English', 'Filipino'],
     availability: ['Fri 2:00 PM', 'Sun 10:00 AM'],
     nextAvailableSlot: '2025-11-01T14:00:00Z',
     experienceYears: 5,
+    experienceSummary: 'Ships learner-friendly mobile experiences for campus initiatives.',
     bioSnippet: 'Guides mentees in shipping user-focused mobile experiences fast.',
   },
   {
@@ -126,10 +138,13 @@ const FALLBACK_MENTORS: MentorProfile[] = [
     rating: 4.6,
     reviewCount: 19,
     subjects: ['Networking', 'Cybersecurity'],
+    expertiseAreas: ['Network Defense', 'Security Labs'],
+    skills: ['Wireshark', 'Linux', 'Azure'],
     languages: ['English'],
     availability: ['Wed 4:00 PM', 'Sat 1:00 PM'],
     nextAvailableSlot: '2025-11-06T16:00:00Z',
     experienceYears: 6,
+    experienceSummary: 'Leads red-team inspired workshops for aspiring defenders.',
     bioSnippet: 'Focuses on practical labs and risk assessment fundamentals.',
   },
   {
@@ -139,10 +154,13 @@ const FALLBACK_MENTORS: MentorProfile[] = [
     rating: 4.5,
     reviewCount: 22,
     subjects: ['Cloud Computing', 'DevOps'],
+    expertiseAreas: ['Cloud Infrastructure', 'Automation'],
+    skills: ['AWS', 'Terraform', 'Docker'],
     languages: ['English'],
     availability: ['Mon 5:00 PM', 'Thu 7:00 PM'],
     nextAvailableSlot: '2025-11-03T17:00:00Z',
     experienceYears: 4,
+    experienceSummary: 'Helps mentees deploy resilient services using AWS best practices.',
     bioSnippet: 'Mentors mentees on scalable deployment strategies and automation.',
   },
   {
@@ -152,10 +170,13 @@ const FALLBACK_MENTORS: MentorProfile[] = [
     rating: 4.9,
     reviewCount: 27,
     subjects: ['UI/UX', 'Product Design'],
+    expertiseAreas: ['Design Systems', 'Product Discovery'],
+    skills: ['Figma', 'Notion', 'Adobe XD'],
     languages: ['English', 'Filipino'],
     availability: ['Tue 10:00 AM', 'Thu 5:00 PM'],
     nextAvailableSlot: '2025-11-04T10:00:00Z',
     experienceYears: 5,
+    experienceSummary: 'Coaches mentees on human-centered design from discovery to handoff.',
     bioSnippet: 'Guides mentees through research, wireframing, and handoff best practices.',
   },
   {
@@ -165,10 +186,13 @@ const FALLBACK_MENTORS: MentorProfile[] = [
     rating: 4.7,
     reviewCount: 34,
     subjects: ['Backend Development', 'Database Design'],
+    expertiseAreas: ['API Design', 'Systems Architecture'],
+    skills: ['Node.js', 'MongoDB', 'Docker'],
     languages: ['English'],
     availability: ['Mon 8:00 PM', 'Wed 6:00 PM'],
     nextAvailableSlot: '2025-11-05T18:00:00Z',
     experienceYears: 6,
+    experienceSummary: 'Builds resilient APIs powering student-led products.',
     bioSnippet: 'Specializes in designing resilient APIs and data models for scale.',
   },
   {
@@ -178,10 +202,13 @@ const FALLBACK_MENTORS: MentorProfile[] = [
     rating: 4.6,
     reviewCount: 21,
     subjects: ['Data Engineering', 'Cloud Computing'],
+    expertiseAreas: ['ETL Pipelines', 'Data Lakes'],
+    skills: ['Spark', 'Airflow', 'GCP'],
     languages: ['English'],
     availability: ['Fri 9:00 AM', 'Sat 4:00 PM'],
     nextAvailableSlot: '2025-11-08T09:00:00Z',
     experienceYears: 7,
+    experienceSummary: 'Partners with mentees on building analytics-ready data stacks.',
     bioSnippet: 'Helps mentees build reliable data pipelines and analytics platforms.',
   },
   {
@@ -191,10 +218,13 @@ const FALLBACK_MENTORS: MentorProfile[] = [
     rating: 4.8,
     reviewCount: 29,
     subjects: ['Quality Assurance', 'Test Automation'],
+    expertiseAreas: ['Automation Strategy', 'Continuous Testing'],
+    skills: ['Cypress', 'Playwright', 'Jest'],
     languages: ['English'],
     availability: ['Tue 7:00 PM', 'Thu 7:00 PM'],
     nextAvailableSlot: '2025-11-06T19:00:00Z',
     experienceYears: 6,
+    experienceSummary: 'Enables mentees to launch dependable regression suites fast.',
     bioSnippet: 'Coaches mentees on test strategy, tooling, and continuous integration.',
   },
   {
@@ -204,10 +234,13 @@ const FALLBACK_MENTORS: MentorProfile[] = [
     rating: 4.5,
     reviewCount: 18,
     subjects: ['Project Management', 'Leadership'],
+    expertiseAreas: ['Agile Delivery', 'Stakeholder Coaching'],
+    skills: ['Scrum', 'Kanban', 'Jira'],
     languages: ['English', 'Filipino'],
     availability: ['Mon 3:00 PM', 'Fri 11:00 AM'],
     nextAvailableSlot: '2025-11-03T15:00:00Z',
     experienceYears: 8,
+    experienceSummary: 'Mentors mentees on leading sprints and stakeholder updates.',
     bioSnippet: 'Supports mentees in mastering agile delivery and stakeholder communication.',
   },
 ];

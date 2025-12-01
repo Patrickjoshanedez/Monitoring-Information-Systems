@@ -311,6 +311,12 @@ const getCertificateForDownload = async ({ certificateId, requester }) => {
         error.status = 403;
         throw error;
     }
+
+    if (isOwner && !certificate.signature?.signedAt) {
+        const error = new Error('SIGNATURE_PENDING');
+        error.status = 409;
+        throw error;
+    }
     return certificate;
 };
 
@@ -394,9 +400,79 @@ const verifyCertificate = async (code) => {
     };
 };
 
+const signCertificate = async ({ certificateId, mentorId, signerTitle, statement, ipAddress }) => {
+    const certificate = await Certificate.findById(certificateId)
+        .populate('mentor', 'firstname lastname profile role')
+        .populate('user', 'firstname lastname profile role');
+
+    if (!certificate) {
+        const error = new Error('CERTIFICATE_NOT_FOUND');
+        error.status = 404;
+        throw error;
+    }
+
+    if (certificate.mentor?._id?.toString() !== mentorId) {
+        const error = new Error('FORBIDDEN');
+        error.status = 403;
+        throw error;
+    }
+
+    if (certificate.signature?.signedAt) {
+        const error = new Error('ALREADY_SIGNED');
+        error.status = 400;
+        throw error;
+    }
+
+    const signedByName = certificate.mentor?.profile?.displayName || formatUserName(certificate.mentor);
+    const signedByTitle = signerTitle?.trim() || certificate.mentor?.profile?.title || 'Mentor';
+
+    certificate.signature = {
+        signedAt: new Date(),
+        signedBy: certificate.mentor._id,
+        signedByName,
+        signedByTitle,
+        statement: statement?.trim(),
+        method: 'digital',
+        ipAddress,
+    };
+
+    certificate.metadata = certificate.metadata || {};
+    certificate.metadata.signedBy = signedByName;
+    certificate.metadata.signerTitle = signedByTitle;
+
+    await certificate.save();
+
+    await AuditLog.create({
+        actorId: mentorId,
+        action: 'certificate.signed',
+        resourceType: 'certificate',
+        resourceId: certificate._id.toString(),
+        metadata: {
+            menteeId: certificate.user?._id?.toString(),
+            method: 'digital',
+        },
+    });
+
+    if (certificate.user?._id) {
+        await sendNotification({
+            userId: certificate.user._id,
+            type: 'CERTIFICATE_SIGNED',
+            title: 'Certificate digitally signed',
+            message: 'Your mentor has digitally signed your certificate of completion.',
+            data: {
+                certificateId: certificate._id,
+                serialNumber: certificate.serialNumber,
+            },
+        });
+    }
+
+    return certificate;
+};
+
 module.exports = {
     issueCertificate,
     getCertificateForDownload,
     reissueCertificate,
     verifyCertificate,
+    signCertificate,
 };

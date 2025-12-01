@@ -575,6 +575,7 @@ export default function ProfileSettings() {
   }
 
   const isMenteeProfile = userRole === 'mentee';
+  const isMentorProfile = userRole === 'mentor';
   const educationRole = isMenteeProfile ? 'student' : form.education?.role || 'student';
   const isInstructor = educationRole === 'instructor';
 
@@ -696,13 +697,15 @@ export default function ProfileSettings() {
           </div>
 
           {/* Learning Goals */}
-          <div className="tw-bg-white tw-rounded-lg tw-border tw-border-gray-200 tw-p-4 tw-space-y-2">
-            <div className="tw-flex tw-justify-between tw-items-center">
-              <label className="tw-text-sm tw-font-medium tw-text-gray-700">Learning goals</label>
-              <PrivacySelect label="Visibility" value={form.privacy?.learningGoals || 'mentors'} onChange={(v) => setForm({ ...form, privacy: { ...form.privacy, learningGoals: v } })} />
+          {!isMentorProfile && (
+            <div className="tw-bg-white tw-rounded-lg tw-border tw-border-gray-200 tw-p-4 tw-space-y-2">
+              <div className="tw-flex tw-justify-between tw-items-center">
+                <label className="tw-text-sm tw-font-medium tw-text-gray-700">Learning goals</label>
+                <PrivacySelect label="Visibility" value={form.privacy?.learningGoals || 'mentors'} onChange={(v) => setForm({ ...form, privacy: { ...form.privacy, learningGoals: v } })} />
+              </div>
+              <textarea className="tw-w-full tw-min-h-[80px] tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2" value={form.learningGoals || ''} onChange={(e) => setForm({ ...form, learningGoals: e.target.value })} />
             </div>
-            <textarea className="tw-w-full tw-min-h-[80px] tw-border tw-border-gray-300 tw-rounded-lg tw-px-3 tw-py-2" value={form.learningGoals || ''} onChange={(e) => setForm({ ...form, learningGoals: e.target.value })} />
-          </div>
+          )}
 
           {/* Timezone & Contact */}
           <div className="tw-bg-white tw-rounded-lg tw-border tw-border-gray-200 tw-p-4 tw-space-y-4">

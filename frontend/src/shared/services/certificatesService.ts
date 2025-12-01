@@ -3,6 +3,16 @@ import { apiClient } from '../config/apiClient';
 const CERTIFICATE_TIMEOUT = 45000;
 const CERTIFICATE_DOWNLOAD_TIMEOUT = 60000;
 
+export type CertificateSignatureStatus = 'pending' | 'signed';
+
+export interface CertificateSignature {
+    signedAt?: string;
+    signedByName?: string;
+    signedByTitle?: string;
+    statement?: string;
+    method?: 'digital';
+}
+
 export interface CertificateSummary {
     id: string;
     programName: string;
@@ -20,6 +30,8 @@ export interface CertificateSummary {
     verificationUrl?: string;
     pdfUrl?: string;
     reissueCount?: number;
+    signatureStatus?: CertificateSignatureStatus;
+    signature?: CertificateSignature | null;
 }
 
 export interface IssueCertificatePayload {
@@ -48,6 +60,11 @@ export interface AchievementItem {
 }
 
 export type CertificateScope = 'mentee' | 'mentor' | 'admin';
+
+export interface SignCertificatePayload {
+    statement?: string;
+    title?: string;
+}
 
 export const fetchCertificates = async (scope?: CertificateScope): Promise<CertificateSummary[]> => {
     const params = scope ? { scope } : undefined;
@@ -86,4 +103,9 @@ export const requestCertificateIssue = async (payload: IssueCertificatePayload) 
 export const requestCertificateReissue = async (certificateId: string, reason?: string) => {
     const { data } = await apiClient.post(`/certificates/${certificateId}/reissue-request`, { reason }, { timeout: CERTIFICATE_TIMEOUT });
     return data;
+};
+
+export const submitCertificateSignature = async (certificateId: string, payload: SignCertificatePayload) => {
+    const { data } = await apiClient.post(`/certificates/${certificateId}/sign`, payload, { timeout: CERTIFICATE_TIMEOUT });
+    return data?.certificate;
 };

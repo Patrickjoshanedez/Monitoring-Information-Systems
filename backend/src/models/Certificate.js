@@ -39,6 +39,19 @@ const qrSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const signatureSchema = new mongoose.Schema(
+  {
+    signedAt: { type: Date },
+    signedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    signedByName: { type: String, trim: true },
+    signedByTitle: { type: String, trim: true },
+    statement: { type: String, trim: true, maxlength: 500 },
+    method: { type: String, enum: ['digital'] },
+    ipAddress: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const metricSchema = new mongoose.Schema(
   {
     totalSessions: { type: Number, default: 0, min: 0 },
@@ -73,6 +86,7 @@ const CertificateSchema = new mongoose.Schema(
       signerTitle: { type: String, trim: true },
       sealUrl: { type: String, trim: true },
     },
+    signature: signatureSchema,
     metrics: metricSchema,
     issuanceLog: { type: [issuanceLogSchema], default: [] },
     reissueCount: { type: Number, default: 0 },

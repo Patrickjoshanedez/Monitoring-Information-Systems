@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     useAchievements,
     useCertificates,
@@ -7,6 +7,7 @@ import {
 } from '../../hooks/useCertificates';
 import { downloadCertificate, IssueCertificatePayload } from '../../shared/services/certificatesService';
 import { useToast } from '../../hooks/useToast';
+import { useCompletedSessions } from '../../shared/hooks/useMenteeSessions';
 
 const formatDate = (value?: string) => {
     if (!value) {
@@ -26,14 +27,53 @@ const formatDate = (value?: string) => {
 const RecognitionPanel: React.FC = () => {
     const { data: certificates = [], isLoading: certificatesLoading, isError: certificatesError, refetch: refetchCertificates } = useCertificates();
     const { data: achievements = [], isLoading: achievementsLoading, isError: achievementsError, refetch: refetchAchievements } = useAchievements();
+    const {
+        sessions: completedSessions = [],
+        isLoading: completedSessionsLoading,
+        isError: completedSessionsError,
+        refetch: refetchCompletedSessions,
+    } = useCompletedSessions();
     const issueCertificate = useIssueCertificate();
     const requestReissue = useRequestCertificateReissue();
     const { showToast } = useToast();
 
     const [issuePayload, setIssuePayload] = useState<IssueCertificatePayload>({
-        programName: 'Mentorship Program',
+        programName: '',
         certificateType: 'completion',
     });
+    const [selectedSessionId, setSelectedSessionId] = useState('');
+
+    const sessionOptions = useMemo(() => {
+        return completedSessions.map((session) => {
+            const dateSource = session.completedAt || session.date;
+            const parsedDate = dateSource ? new Date(dateSource) : null;
+            const labelDate = parsedDate && !Number.isNaN(parsedDate.getTime())
+                ? parsedDate.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+                : 'Date TBA';
+            const subject = session.subject?.trim() || 'Mentorship Session';
+            return {
+                key: session.id,
+                programName: subject,
+                label: `${subject} • ${labelDate}`,
+            };
+        });
+    }, [completedSessions]);
+
+    const selectedProgramName = issuePayload.programName;
+
+    useEffect(() => {
+        if (!selectedProgramName && sessionOptions.length > 0) {
+            setIssuePayload((prev) => ({ ...prev, programName: sessionOptions[0].programName }));
+            setSelectedSessionId(sessionOptions[0].key);
+        }
+    }, [sessionOptions, selectedProgramName]);
+
+    const handleProgramChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        const nextSessionId = event.target.value;
+        setSelectedSessionId(nextSessionId);
+        const matchedOption = sessionOptions.find((option) => option.key === nextSessionId);
+        setIssuePayload((prev) => ({ ...prev, programName: matchedOption?.programName || '' }));
+    };
 
     const handleDownload = async (certificateId: string) => {
         try {
@@ -97,14 +137,40 @@ const RecognitionPanel: React.FC = () => {
                         <label htmlFor="programName" className="tw-text-xs tw-font-medium tw-text-gray-600">
                             Program / Cohort
                         </label>
-                        <input
+                        <select
                             id="programName"
-                            type="text"
-                            value={issuePayload.programName}
-                            onChange={(event) => setIssuePayload((prev) => ({ ...prev, programName: event.target.value }))}
-                            className="tw-w-full tw-rounded-lg tw-border tw-border-gray-300 tw-px-3 tw-py-2 tw-text-sm focus:tw-ring-2 focus:tw-ring-primary"
-                            placeholder="Mentorship Program"
-                        />
+                            value={selectedSessionId}
+                            onChange={handleProgramChange}
+                            disabled={completedSessionsLoading || sessionOptions.length === 0}
+                            className="tw-w-full tw-rounded-lg tw-border tw-border-gray-300 tw-px-3 tw-py-2 tw-text-sm focus:tw-ring-2 focus:tw-ring-primary disabled:tw-bg-gray-100"
+                        >
+                            <option value="" disabled>
+                                {completedSessionsLoading
+                                    ? 'Loading completed sessions…'
+                                    : sessionOptions.length === 0
+                                        ? 'No completed sessions yet'
+                                        : 'Select a completed session'}
+                            </option>
+                            {sessionOptions.map((option) => (
+                                <option key={option.key} value={option.key}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                        {completedSessionsError ? (
+                            <button
+                                type="button"
+                                onClick={() => refetchCompletedSessions()}
+                                className="tw-text-[11px] tw-font-semibold tw-text-red-600 tw-mt-1"
+                            >
+                                Retry loading sessions
+                            </button>
+                        ) : null}
+                        {!completedSessionsLoading && sessionOptions.length === 0 ? (
+                            <p className="tw-text-[11px] tw-text-gray-500 tw-mt-1">
+                                Complete at least one session to unlock certificate requests.
+                            </p>
+                        ) : null}
                     </div>
                     <button
                         type="button"
@@ -156,12 +222,24 @@ const RecognitionPanel: React.FC = () => {
                                         <p className="tw-text-xs tw-text-gray-500">
                                             Issued {formatDate(certificate.issuedAt)} • Serial {certificate.serialNumber}
                                         </p>
+                                        {certificate.signatureStatus === 'pending' ? (
+                                            <p className="tw-text-xs tw-text-amber-600 tw-mt-2">
+                                                Pending mentor verification. We will notify you once the certificate is signed and ready to download.
+                                            </p>
+                                        ) : null}
                                     </div>
                                     <div className="tw-flex tw-items-center tw-gap-2">
+                                        {certificate.signatureStatus === 'pending' ? (
+                                            <span className="tw-inline-flex tw-items-center tw-gap-1 tw-rounded-full tw-bg-amber-50 tw-text-amber-700 tw-text-[11px] tw-font-semibold tw-px-2.5 tw-py-1">
+                                                Awaiting signature
+                                            </span>
+                                        ) : null}
                                         <button
                                             type="button"
                                             onClick={() => handleDownload(certificate.id)}
-                                            className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-300 tw-bg-white tw-text-sm tw-font-medium tw-text-gray-700 tw-px-4 tw-py-2 hover:tw-bg-gray-50"
+                                            disabled={certificate.signatureStatus === 'pending'}
+                                            className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-lg tw-border tw-border-gray-300 tw-bg-white tw-text-sm tw-font-medium tw-text-gray-700 tw-px-4 tw-py-2 hover:tw-bg-gray-50 disabled:tw-opacity-60 disabled:tw-cursor-not-allowed"
+                                            title={certificate.signatureStatus === 'pending' ? 'Available after mentor signs the certificate' : undefined}
                                         >
                                             Download PDF
                                         </button>
