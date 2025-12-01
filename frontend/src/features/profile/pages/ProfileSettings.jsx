@@ -209,6 +209,20 @@ export default function ProfileSettings() {
       displayName: 'public', photo: 'public', bio: 'mentors', education: 'mentors', interests: 'mentors', learningGoals: 'mentors', coursesNeeded: 'mentors', contact: 'private'
     }
   });
+  const [userRole, setUserRole] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.role) {
+          return parsed.role;
+        }
+      }
+    } catch {
+      /* swallow parse errors */
+    }
+    return 'mentee';
+  });
   const [notificationPrefs, setNotificationPrefs] = useState(() => cloneNotificationDefaults());
   const [customReminderMinutes, setCustomReminderMinutes] = useState('');
   const customReminderOffsets = notificationPrefs.sessionReminders.offsets
@@ -326,6 +340,7 @@ export default function ProfileSettings() {
           contactPreferences: sanitizeContactChannels(prof.contactPreferences),
           privacy: { ...prev.privacy, ...(prof.privacy || {}) }
         }));
+        setUserRole(me?.role || 'mentee');
         mergeStoredUser(me);
         if (preferences) {
           setNotificationPrefs(preferences);
@@ -337,6 +352,25 @@ export default function ProfileSettings() {
       }
     })();
   }, [mergeStoredUser]);
+
+  useEffect(() => {
+    if (userRole !== 'mentee') {
+      return;
+    }
+    setForm((prev) => {
+      const currentRole = prev.education?.role || 'student';
+      if (currentRole === 'student') {
+        return prev;
+      }
+      return {
+        ...prev,
+        education: {
+          ...prev.education,
+          role: 'student',
+        },
+      };
+    });
+  }, [userRole]);
 
     useEffect(() => {
       loadCalendarStatus();
@@ -457,7 +491,7 @@ export default function ProfileSettings() {
     e.preventDefault();
     setError('');
     setSuccess('');
-    const selectedRole = form.education?.role;
+    const selectedRole = userRole === 'mentee' ? 'student' : form.education?.role;
     const trimmedProgram = form.education?.program?.trim();
     const trimmedYear = form.education?.yearLevel?.trim();
 
@@ -483,6 +517,7 @@ export default function ProfileSettings() {
         bio: form.bio,
         education: {
           ...form.education,
+          role: selectedRole,
           program: trimmedProgram,
           yearLevel: form.education?.yearLevel?.trim() || '',
           major: form.education?.major?.trim() || '',
@@ -500,7 +535,7 @@ export default function ProfileSettings() {
         ...prev,
         ...nextProfile,
         education: {
-          role: nextProfile.education?.role || prev.education?.role || 'student',
+          role: userRole === 'mentee' ? 'student' : nextProfile.education?.role || prev.education?.role || 'student',
           program: nextProfile.education?.program || '',
           yearLevel: nextProfile.education?.yearLevel || '',
           major: nextProfile.education?.major || '',
@@ -539,7 +574,8 @@ export default function ProfileSettings() {
     );
   }
 
-  const educationRole = form.education?.role || 'student';
+  const isMenteeProfile = userRole === 'mentee';
+  const educationRole = isMenteeProfile ? 'student' : form.education?.role || 'student';
   const isInstructor = educationRole === 'instructor';
 
   return (
@@ -583,7 +619,19 @@ export default function ProfileSettings() {
               <PrivacySelect label="Visibility" value={form.privacy?.education || 'mentors'} onChange={(v) => setForm({ ...form, privacy: { ...form.privacy, education: v } })} />
             </div>
             <div className="tw-space-y-4">
-              <RoleToggle value={educationRole} onChange={(role) => setForm({ ...form, education: { ...form.education, role } })} />
+              {isMenteeProfile ? (
+                <div className="tw-flex tw-items-center tw-justify-between tw-rounded-xl tw-border tw-border-purple-100 tw-bg-purple-50 tw-p-4">
+                  <div>
+                    <p className="tw-text-sm tw-font-medium tw-text-purple-800">Education role</p>
+                    <p className="tw-text-sm tw-text-purple-700">Student (default for mentees)</p>
+                  </div>
+                  <span className="tw-inline-flex tw-items-center tw-justify-center tw-rounded-full tw-bg-white tw-px-4 tw-py-1 tw-text-sm tw-font-semibold tw-text-purple-800">
+                    Student
+                  </span>
+                </div>
+              ) : (
+                <RoleToggle value={educationRole} onChange={(role) => setForm({ ...form, education: { ...form.education, role } })} />
+              )}
               <div className="tw-grid tw-grid-cols-1 md:tw-grid-cols-3 tw-gap-3">
                 <div>
                   <label className="tw-block tw-text-xs tw-font-medium tw-text-gray-600 tw-mb-1">

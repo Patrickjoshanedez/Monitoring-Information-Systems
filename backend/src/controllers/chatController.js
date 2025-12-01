@@ -95,6 +95,42 @@ const formatSessionSummary = (sessionDoc) => {
   };
 };
 
+const toObjectIdString = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    if (value._id) return value._id.toString();
+    if (value.id) return value.id.toString();
+    if (typeof value.toString === 'function') return value.toString();
+  }
+  return null;
+};
+
+const dedupeDirectThreads = (threads) => {
+  const directMap = new Map();
+  const others = [];
+
+  threads.forEach((thread) => {
+    if (thread.type === 'direct') {
+      const mentorId = toObjectIdString(thread.mentor);
+      const menteeId = toObjectIdString(thread.mentee);
+      if (mentorId && menteeId) {
+        const key = `${mentorId}:${menteeId}`;
+        const existing = directMap.get(key);
+        if (!existing || new Date(existing.updatedAt).getTime() < new Date(thread.updatedAt).getTime()) {
+          directMap.set(key, thread);
+        }
+        return;
+      }
+    }
+    others.push(thread);
+  });
+
+  return [...directMap.values(), ...others].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+};
+
 const formatThread = (threadDoc, viewerId) => {
   const mentor = normalizeUserDoc(threadDoc.mentor);
   const mentee = normalizeUserDoc(threadDoc.mentee);
@@ -208,7 +244,8 @@ exports.listThreads = async (req, res) => {
       .populate('participants', 'firstname lastname email profile.photoUrl profile.displayName role')
       .populate('session', 'subject date room');
 
-    const formatted = threads.map((thread) => formatThread(thread, userId));
+    const dedupedThreads = dedupeDirectThreads(threads);
+    const formatted = dedupedThreads.map((thread) => formatThread(thread, userId));
     const visibleThreads = includeArchived ? formatted : formatted.filter((thread) => !thread.archived);
     return ok(res, { threads: visibleThreads }, { count: visibleThreads.length });
   } catch (error) {
