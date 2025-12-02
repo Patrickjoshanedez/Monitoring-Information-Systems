@@ -15,6 +15,10 @@ router.post('/auth/forgot-password', controller.forgotPassword);
 router.post('/auth/reset-password/:token', controller.resetPassword);
 router.post('/auth/set-password', auth, controller.setPassword);
 
+// Email verification endpoints
+router.post('/auth/send-verification-code', controller.sendVerificationCode);
+router.post('/auth/verify-email', controller.verifyEmail);
+
 router.get('/auth/google', (req, res, next) => {
   if (!isGoogleConfigured) return res.status(503).json({ error: 'OAUTH_DISABLED' });
   // Starting Google OAuth flow

@@ -80,6 +80,7 @@ Base URL: `/api`
 | GET | `/admin/users` | List all users |
 | GET | `/admin/users/:userId` | Get user details |
 | POST | `/admin/users/:userId/actions` | Perform admin action on user |
+| PATCH | `/admin/users/:userId/role` | Update user role |
 | GET | `/admin/sessions` | List all sessions |
 | PATCH | `/admin/sessions/:sessionId/review` | Review session |
 | POST | `/admin/notifications` | Send system notification |

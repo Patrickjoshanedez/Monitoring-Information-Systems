@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
-const { sendPasswordResetEmail } = require('../utils/emailService');
+const { sendPasswordResetEmail, sendVerificationCodeEmail } = require('../utils/emailService');
 const { verifyRecaptchaToken } = require('../utils/recaptcha');
 
 const MAX_LOGIN_ATTEMPTS = 5;
@@ -352,6 +352,146 @@ exports.setPassword = async (req, res) => {
   } catch (err) {
     console.error('Set password error:', err);
     return res.status(500).json({ error: 'NETWORK_ERROR' });
+  }
+};
+
+// Send 6-digit verification code to email
+exports.sendVerificationCode = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'EMAIL_REQUIRED', message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ error: 'USER_NOT_FOUND', message: 'No account found with this email' });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ error: 'EMAIL_ALREADY_VERIFIED', message: 'Email is already verified' });
+    }
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Set expiration to 10 minutes from now
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Save code to user
+    user.verificationCode = code;
+    user.verificationCodeExpires = expiresAt;
+    user.verificationCodeAttempts = 0;
+    await user.save();
+
+    // Send email
+    try {
+      await sendVerificationCodeEmail(user.email, code, user.firstname);
+      return res.json({
+        success: true,
+        message: 'Verification code sent to your email',
+        expiresAt: expiresAt.toISOString()
+      });
+    } catch (emailErr) {
+      console.error('Failed to send verification email:', emailErr);
+      return res.status(500).json({
+        error: 'EMAIL_SEND_FAILED',
+        message: 'Failed to send verification email. Please try again later.'
+      });
+    }
+  } catch (err) {
+    console.error('sendVerificationCode error:', err);
+    return res.status(500).json({ error: 'NETWORK_ERROR', message: 'An error occurred' });
+  }
+};
+
+// Verify the 6-digit code
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        error: 'MISSING_FIELDS',
+        message: 'Email and verification code are required'
+      });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ error: 'USER_NOT_FOUND', message: 'No account found with this email' });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ error: 'EMAIL_ALREADY_VERIFIED', message: 'Email is already verified' });
+    }
+
+    if (!user.verificationCode || !user.verificationCodeExpires) {
+      return res.status(400).json({
+        error: 'NO_CODE_SENT',
+        message: 'No verification code has been sent. Please request a new code.'
+      });
+    }
+
+    // Check if code expired
+    if (user.verificationCodeExpires < Date.now()) {
+      return res.status(400).json({
+        error: 'CODE_EXPIRED',
+        message: 'Verification code has expired. Please request a new code.'
+      });
+    }
+
+    // Check attempt limit (max 5 attempts)
+    if (user.verificationCodeAttempts >= 5) {
+      return res.status(429).json({
+        error: 'TOO_MANY_ATTEMPTS',
+        message: 'Too many failed attempts. Please request a new code.'
+      });
+    }
+
+    // Verify code
+    if (user.verificationCode !== code.trim()) {
+      user.verificationCodeAttempts += 1;
+      await user.save();
+      
+      const attemptsLeft = 5 - user.verificationCodeAttempts;
+      return res.status(400).json({
+        error: 'INVALID_CODE',
+        message: `Invalid verification code. ${attemptsLeft} attempt${attemptsLeft !== 1 ? 's' : ''} remaining.`,
+        attemptsLeft
+      });
+    }
+
+    // Code is valid - mark email as verified
+    user.emailVerified = true;
+    user.verificationCode = undefined;
+    user.verificationCodeExpires = undefined;
+    user.verificationCodeAttempts = 0;
+    await user.save();
+
+    // Generate JWT token for auto-login after verification
+    const token = createJwt(user);
+
+    return res.json({
+      success: true,
+      message: 'Email verified successfully',
+      token,
+      user: {
+        id: user._id,
+        firstname: user.firstname,
+        lastname: user.lastname,
+        email: user.email,
+        role: user.role,
+        emailVerified: user.emailVerified,
+        applicationStatus: user.applicationStatus,
+        applicationRole: user.applicationRole,
+        accountStatus: user.accountStatus || 'active'
+      }
+    });
+  } catch (err) {
+    console.error('verifyEmail error:', err);
+    return res.status(500).json({ error: 'NETWORK_ERROR', message: 'An error occurred' });
   }
 };
 

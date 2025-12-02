@@ -21,6 +21,12 @@ const userSchema = new mongoose.Schema(
     loginAttempts: { type: Number, default: 0 },
     lockUntil: { type: Date },
     
+    // Email verification
+    emailVerified: { type: Boolean, default: false },
+    verificationCode: { type: String },
+    verificationCodeExpires: { type: Date },
+    verificationCodeAttempts: { type: Number, default: 0 },
+    
     // Application fields for mentees
     applicationStatus: {
       type: String,
